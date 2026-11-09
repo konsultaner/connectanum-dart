@@ -1,0 +1,58 @@
+{
+  "kind": "EXPLICIT_DERIVED_PUBLIC_PROJECTION_private_contexts_excluded_ONLY",
+  "status": "NEW_ACTUAL_DRAFT_YAML_PARSE_AND_17_NEWJOB_RECIPE_CHECKS_PASS_NOT_RUNTIME_ADMISSION",
+  "new_actual_parser_PID": 90454,
+  "new_actual_signed_status": 0,
+  "stdout_EOF": true,
+  "stderr_EOF": true,
+  "stdout": {
+    "bytes": 765,
+    "sha256": "b4039120c9ba35c7b1adbcca52b438344648e935f7bc21782472324e15b697bd"
+  },
+  "stderr": {
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "checks": {
+    "new_campaign_once": true,
+    "new_static_41jobs": true,
+    "original_ubuntu_24_04": true,
+    "original_RUSTUP_TOOLCHAIN_1_99_0": true,
+    "original_Dart_3_13_5": true,
+    "original_rust_setup_1_99_0": true,
+    "original_checkout_v5": true,
+    "original_timeout20": true,
+    "original_cancel_false": true,
+    "original_concurrency_group": true,
+    "new_job_dispatch_campaign_condition": true,
+    "new_collector_python_stdin_command": true,
+    "original_artifact_uploader_v7_always": true,
+    "new_artifact_name": true,
+    "new_artifact_path": true,
+    "original_if_no_files_error": true,
+    "original_retention30": true
+  },
+  "draft_bytes": 494745,
+  "draft_sha256": "abde1f5bba4896df42abf5775da8c5d96fcefee5682cd1b4b0f5cf1af2520e23",
+  "original_static_YAML_parser_NULLs_UNCHANGED": true,
+  "actual_workflow_dispatch": null,
+  "actual_newjob_skips": null,
+  "full_collector_SOURCE_assembly": null,
+  "SDKbodyqueries": null,
+  "original_source_knownledger_SDK_ownership_actorFD_generatedcohort_physicalEX_crash_qualification_INCOMPLETE": true,
+  "new_followup_admin": {
+    "prompt_chars": 31850,
+    "prompt_bytes": 31852,
+    "prompt_sha256": "f020994abb57c186f45524a4ce892d236b1b5b6f4811c7c8affb93eb86fdf37a",
+    "same_chat_ACTIVE": true,
+    "exact_request_saved_BEFORE_appONCE_independent_TOML_receipt": true,
+    "original_SH_holder_PID": 90700,
+    "original_execsession": 95257,
+    "original_holder_natural0_SAME_onepoll": true,
+    "outer_holder_pipe_EOF_UNPROVIDED_NULL": null
+  },
+  "full_original_PRIVATE_fields_stat_times_FDcredentials_nativeorder_duplicates_relationships_NULLs_unchanged": true,
+  "existing_selected_archive2509_bytes_unchanged_NOT_reverified": true,
+  "all_admission_flags": false,
+  "ownership": null
+}
