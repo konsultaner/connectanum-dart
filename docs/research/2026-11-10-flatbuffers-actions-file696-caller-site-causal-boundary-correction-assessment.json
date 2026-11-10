@@ -1,0 +1,78 @@
+{
+  "kind": "EXPLICIT_DERIVED_PUBLIC_METADATA_NOT_ORIGINAL_RECORD_OR_ADMISSION",
+  "facts": {
+    "status": "DECLARATIVE_CAUSAL_BOUNDARY_ROOT_CORRECTION_ONLY_UNQUALIFIED_UNEXECUTED_UNADMITTED",
+    "original_contract": {
+      "bytes": 6884,
+      "sha256": "3bb4742ace7a750bf9aeadbab3d5c1f05f4c008e764cb87f779b39304f91eff5",
+      "UNCHANGED": true
+    },
+    "separate_ROOT_correction": {
+      "bytes": 3767,
+      "sha256": "ec6a0527b0b94d54b4d56071af16dd0c92ffd6370ff4ec82ce2179a959d3546b"
+    },
+    "finding": "The original declaration's first field group combines predeclared expected-site references with the future captured subject exception and incorrectly assigns them all to the pre-subject boundary.",
+    "boundaries": [
+      "Expected site/source-cohort provenance before the subject operation.",
+      "Actual original subject exception and traceback/cause/context retained after capture and before observer entry.",
+      "An independently retained caller holder before constructing the observation record."
+    ],
+    "actual_owner_site_source_cohort_helper_global_case_and_runtime_results_UNPERFORMED_NULL": null,
+    "preservation": "All original declaration/source bytes, full71contexts/696refs/private fields/stat-times/FDcredentials/ancestry/nativeorder/duplicates/relationships and every old/newstatic NULL remain unchanged; actual new facts and ROOT corrections are separate.",
+    "no_source_SDK_query_module_case_execution_Source20_runtime_adoption_publication_dispatch_test_build_numerical_cleanup": true,
+    "RAM_repair_own_FINAL_strict48_50_clean_final_CI": "INCOMPLETE",
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "original_metadata_bindings": [
+    {
+      "role": "original_contract",
+      "bytes": 6884,
+      "sha256": "3bb4742ace7a750bf9aeadbab3d5c1f05f4c008e764cb87f779b39304f91eff5"
+    },
+    {
+      "role": "original_receipt",
+      "bytes": 1982,
+      "sha256": "cdc9d6d3dbd14c280d37130ffdb04fd5811def3c18cc49329931491511fb8c4e"
+    },
+    {
+      "role": "original_IO",
+      "bytes": 18352,
+      "sha256": "610a48d9c8c8387ee8f2a11040c0c8588a96badd286f31348a17ddbbd59ee151"
+    },
+    {
+      "role": "separate_ROOT_correction",
+      "bytes": 3767,
+      "sha256": "ec6a0527b0b94d54b4d56071af16dd0c92ffd6370ff4ec82ce2179a959d3546b"
+    },
+    {
+      "role": "correction_receipt",
+      "bytes": 1953,
+      "sha256": "58e1da336f468b4a27af6971b11fb0d4eec2671605a69c758b5ac0d450c84c2d"
+    },
+    {
+      "role": "correction_IO",
+      "bytes": 18330,
+      "sha256": "1de97b3b136dd6ae5b10ac68818b3def91462eda10730539349b647fc56cc91d"
+    }
+  ],
+  "private_copy_proof": {
+    "status": "FIRST_SIX_ORIGINAL_CALLER_SITE_CONTRACT_AND_CORRECTION_METADATA_PRIVATE_COPY_BEFORE_PUBLIC_PROJECTION_COMPLETE_CONSUMED",
+    "compressed": {
+      "bytes": 6726,
+      "sha256": "53769db03bc5ec1a6aaad7fccb5ab589b45801ccb1eb78b0ced7c7a827a3fe0a"
+    },
+    "decoded_bytes": 66177,
+    "decoded_sha256": "d109385a44b14475618c81c949f512a94024f81ff8e622b44a2578512942ce1b",
+    "strict_UTF8_JSONSTRING_characters": 66177,
+    "original_complete_JSON_metadata_values": 6,
+    "whole_same_output_FD_compressed_BYTEWISE_decoded_BYTEWISE_UTF8_JSONSTRING_every_standard_Pythonfield_duplicatekeys_arraypositions_typedleaves_equal": true,
+    "events": 3456,
+    "all_original_private_fields_relationships_and_static_NULLs_UNCHANGED": true,
+    "all_admission_flags": false,
+    "ownership": null
+  },
+  "next": "The separate ROOT ordering correction distinguishes expected site/source-cohort provenance before the subject from actual subject capture before observer entry, with an independent holder before record construction. Independently qualify those concrete caller/error/owner boundaries, original semantic site/cohort/helper-global coverage and all applicable actual original/local preflight before any invocation. Original declaration and all static nulls remain unchanged; no guarded source/case execution, SDK query, Source20/runtime adoption, publication/dispatch, tests/build/numerical, cleanup or completed-body/proof replay.",
+  "all_admission_flags": false,
+  "ownership": null
+}

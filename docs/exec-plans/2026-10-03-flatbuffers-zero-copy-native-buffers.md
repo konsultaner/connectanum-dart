@@ -1,5 +1,11 @@
 # FlatBuffers and zero-copy native buffers
 
+## 2026-11-10 — PR #132 caller/site declaration ordering corrected separately
+
+ROOT found a causal-order error in the new caller/site declaration: it grouped an already captured exception with expected-site references and required all of them before the subject operation. A separate correction distinguishes pre-subject site/cohort provenance, post-capture subject retention before observer entry, and an independent caller holder before record construction. The original declaration remains byte-exact and unchanged.
+
+This is a declarative correction, with no executed BEFORE failure, source fix, case result or runtime admission. Actual site/cohort/owner/helper-global and applicable original/local preflight remain unqualified. All guarded drafts remain unexecuted and unintegrated; RAM repair, strict48/50 and clean final CI remain incomplete. See [the correction record](../research/2026-11-10-flatbuffers-actions-file696-caller-site-causal-boundary-correction.md).
+
 ## 2026-11-09 — PR #132 guarded rejection-origin observer prepared
 
 A separate private 5,248-byte observer draft passed its first local syntax parse 91758 under official EX. Its unconditional byte-zero guard remains intact. The module, observer and proposed cases were not executed or integrated.
