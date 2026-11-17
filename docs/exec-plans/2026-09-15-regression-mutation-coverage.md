@@ -78,6 +78,40 @@ There is no existing mutation-testing gate.
 
 ## Work And Completion Gates
 
+### Dart 3.14 Toolchain Follow-up (2026-11-17)
+
+- [x] Run the pre-change `bin/test-fast` on Dart 3.13.1 (exit 0; log
+  `/tmp/connectanum-dart314-baseline-test-fast-20261117.log`).
+- [x] Install the official macOS ARM64 Dart 3.14.0 SDK after checking its
+  published SHA-256; align `.tool-versions`, all direct CI Dart setup steps,
+  reusable package publishing inputs and the shared pub cache keys.
+- [x] Preserve the 3.10.0 package SDK lower bounds; check Dart 3.14 formatting
+  (695 files, zero changes). Update the existing CI SDK expectation.
+- [x] Run the Dart 3.14 analyzer (exit 0, the same 30 informational diagnostics
+  as the baseline); verify that a fresh login shell selects Dart 3.14.0.
+- [x] Run canonical `bin/verify` under Dart 3.14.0 (exit 0). Rust/native,
+  Dart VM, package/CLI consumers and Chromium/Dart2Wasm all pass. Browser
+  counts are 4,751 core and 2,829 client cases, with 20 native-only client
+  skips and no retries. No compatibility repair was needed.
+
+Completed verification log: `/tmp/connectanum-dart314-verify-20261117.log`,
+SHA-256 `65f2d7a323813bfeb300cb3334aa65bb6055675fe1512ec71bc4974950026373`.
+The analyzer log is `/tmp/connectanum-dart314-analyze-20261117.log`.
+All 16 changed CI YAML files parse, and the existing composite setup regression
+passes with the updated SDK expectation. These are local results; hosted CI
+for this toolchain update remains pending.
+
+The package publishing jobs disable the [reusable workflow's optional Flutter
+installation](https://github.com/dart-lang/setup-dart/blob/v1/.github/workflows/publish.yml)
+so its SDK cannot replace the selected standalone Dart toolchain.
+Local review findings were checked against the actual diff and official
+setup-dart definitions: both benchmark jobs select 3.14.0, `use-flutter` belongs
+only to the reusable publish workflow, and validation/publishing are separate
+jobs that each need an SDK. No actionable review finding remains. Review output:
+`/tmp/connectanum-dart314-pin-review-20261117.txt`.
+This follow-up launches no mutation campaign. Existing failed campaign evidence
+and the independent native gates remain unchanged.
+
 ### Work436 Router Example Preflight And Fresh Campaign
 
 Full436 failed canonical preflight when the interactive router-hosted example

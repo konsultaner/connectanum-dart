@@ -1,11 +1,28 @@
 # Project State
 
-Last updated: 2026-11-09
+Last updated: 2026-11-17
 Current branch: `codex/mutation-runner-speed`
 Current milestone: make full native campaigns restart-resumable, then measure
 both gates without narrowing inventories, tests, deadlines or evidence rules.
 The regression/mutation coverage objective remains open. The active plan is
 `docs/exec-plans/2026-09-15-regression-mutation-coverage.md`.
+
+Dart 3.14 toolchain follow-up (2026-11-17): the pre-change `bin/test-fast`
+passes on Dart 3.13.1. The standalone local SDK, `.tool-versions`, every direct
+CI Dart setup and all seven reusable package publishing jobs now use 3.14.0;
+the shared pub cache keys match. Publishing selects standalone Dart explicitly
+with `use-flutter: false`. Fresh login shells select the standalone 3.14.0 SDK.
+Package SDK lower bounds stay at 3.10.0. Dart 3.14 formats all 695 checked Dart
+files without changes. Its analyzer exits 0 with the same 30 informational
+diagnostics as the pre-change baseline. Canonical `bin/verify` under 3.14.0
+passes at exit 0, including Rust/native, Dart VM, package/CLI consumers and
+Chromium/Dart2Wasm (4,751 core and 2,829 client cases; 20 native-only browser
+skips, no browser retries). Log:
+`/tmp/connectanum-dart314-verify-20261117.log`, SHA-256
+`65f2d7a323813bfeb300cb3334aa65bb6055675fe1512ec71bc4974950026373`.
+Hosted CI for this toolchain update is pending.
+This follow-up starts no mutation campaign and does not advance either native
+mutation gate.
 
 Full437 is terminal preflight-only and unscored. The approved fixed-size 64-GiB
 APFS image on the external drive was fully allocated, mounted with owners

@@ -74,6 +74,8 @@ jobs:
 
       - name: Install Dart for production consumers
         uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.14.0
 
       - name: Fetch workspace dependencies
         run: dart pub get
