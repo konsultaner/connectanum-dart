@@ -22,6 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.14.0
       - uses: dtolnay/rust-toolchain@stable
         if: matrix.target == 'mcp-cli-native'
       - id: chrome

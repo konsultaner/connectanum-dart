@@ -1,7 +1,17 @@
 # Project State
 
-Last updated: 2026-11-06.
-Current milestone: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
+Last updated: 2026-11-17.
+Current milestone: qualify the Dart 3.14.0 toolchain on the GitHub CI chain.
+Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
+
+Standalone Dart setup, package publishing, diagnostic and ObjectBox jobs now
+select 3.14.0, with matching pub-cache keys and `.tool-versions`. Package SDK
+lower bounds remain 3.10.0. Hosted validation of this isolated upgrade is pending.
+The earlier full local `bin/verify` passed on the mutation-runner branch; that
+result does not certify this newer `master` base. This PR carries only the SDK
+upgrade and its verification record, with no mutation-runner/runtime changes.
+
+Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five
 platforms. [Release and evidence](https://github.com/konsultaner/connectanum-dart/releases/tag/v3.0.0-beta.9).
 Completed plan: [beta.9 release](exec-plans/2026-11-06-3.0.0-beta.9-release.md).

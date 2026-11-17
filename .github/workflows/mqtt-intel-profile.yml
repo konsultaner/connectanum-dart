@@ -58,7 +58,7 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         if: ${{ steps.cpu.outputs.matches == 'true' }}
         with:
-          sdk: 3.13.1
+          sdk: 3.14.0
           problem-matcher: 'false'
       - uses: dtolnay/rust-toolchain@stable
         if: ${{ steps.cpu.outputs.matches == 'true' }}
