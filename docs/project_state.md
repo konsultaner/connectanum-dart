@@ -6,14 +6,30 @@ Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
 Standalone Dart setup, package publishing, diagnostic and ObjectBox jobs now
 select 3.14.0, with matching pub-cache keys and `.tool-versions`. Package SDK
-lower bounds remain 3.10.0. Hosted validation of this isolated upgrade is pending.
+lower bounds remain 3.10.0. [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138)
+contains the isolated upgrade on current `master`.
 The first PR CI run rejected the retention worker's old 3.13.1-only SDK guard.
-Its strict guard now selects 3.14.0; six regression tests and the real Linux
-ARM64 AOT self-test pass with all original GC and memory controls intact.
-The hosted gateway and remaining checks must requalify the updated PR head.
+Its strict guard now selects 3.14.0; six regression tests and real Linux ARM64
+AOT/hosted Ubuntu qualification pass with all original GC and memory controls.
+At `2d51a258`, hosted `bin/verify`, browser coverage, consumers, mutation gates,
+package dry runs and all three ObjectBox platforms pass. All 55 main-CI jobs
+pass after one unchanged repeat of gateway shard 1. Its first attempt had a
+61.13-MiB cold-cycle drained RSS against a 58-MiB cap; the next four cycles
+were 30–32 MiB. Original failure evidence is retained; the successful repeat
+does not establish its cause. No budget is relaxed.
+
+Acceptance remains blocked by `codecov/project`: **60 of 61 PR checks pass**.
+Coverage is 94.12% against the 94.16% base, with 17 fewer hits over the same
+49,969 lines. Changed-line coverage passes. Losses are confined to unchanged
+native lifecycle/error and initial worker metadata paths; exact lines and CI
+receipts are in the active plan. Root cause remains unresolved and coverage
+requirements are unchanged. The documentation-only follow-up records the
+blocker; its own final-head CI must also complete.
+
 The earlier full local `bin/verify` passed on the mutation-runner branch; that
-result does not certify this newer `master` base. This PR carries only the SDK
-upgrade and its verification record, with no mutation-runner/runtime changes.
+result does not certify this newer `master` base. This PR carries the SDK
+upgrade, its strict test-worker qualification and verification record, with
+no production runtime changes.
 
 Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five
