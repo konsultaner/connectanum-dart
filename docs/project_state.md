@@ -18,13 +18,28 @@ pass after one unchanged repeat of gateway shard 1. Its first attempt had a
 were 30–32 MiB. Original failure evidence is retained; the successful repeat
 does not establish its cause. No budget is relaxed.
 
-Acceptance remains blocked by `codecov/project`: **60 of 61 PR checks pass**.
-Coverage is 94.12% against the 94.16% base, with 17 fewer hits over the same
-49,969 lines. Changed-line coverage passes. Losses are confined to unchanged
-native lifecycle/error and initial worker metadata paths; exact lines and CI
-receipts are in the active plan. Root cause remains unresolved and coverage
-requirements are unchanged. The documentation-only follow-up records the
-blocker; its own final-head CI must also complete.
+The documentation-only head `712e3896` fails gateway shard 1 again on the same
+normal-runtime profile: first-cycle drained RSS is 60.78 MiB against the
+unchanged 58-MiB cap; the next four cycles are about 30–33 MiB and separate
+bounded retention controls pass. Failure/pass/failure establishes a recurring
+qualification blocker, with root cause unresolved. No further retry, runtime
+workaround or budget reduction is made. The final macOS ObjectBox job could not
+acquire a hosted ARM64 runner and was cancelled before execution; Linux and
+Windows pass. Source-identical earlier macOS evidence is retained separately.
+
+`codecov/project` also failed at `2d51a258`: 60 of 61 PR checks passed, with
+94.12% against the 94.16% base (17 fewer hits over the same 49,969 lines).
+Changed-line coverage passes. Lost hits are in unchanged native lifecycle/error
+and initial worker metadata paths. At the final checked source head
+`712e3896`, hosted `bin/verify`, browser coverage, WampApp and all mutation gates
+pass; main CI has 53 successful jobs and two failures (shard 1 plus dependent
+Full Verify). Final `codecov/project` also fails at 94.14% versus 94.16%, with
+11 fewer hits over the same 49,969 lines; patch coverage passes. The full
+rollup is 57 success, three failure and one cancelled check. Exact measurements,
+artifact digests and CI links are in the active plan. Acceptance remains
+blocked; all coverage and memory requirements are unchanged. The concluding
+receipt-only update changes documentation; source qualification is retained at
+`712e3896`.
 
 The earlier full local `bin/verify` passed on the mutation-runner branch; that
 result does not certify this newer `master` base. This PR carries the SDK
@@ -58,6 +73,8 @@ See the [MQTT contract](mqtt.md) and completed
 
 | Source/check | Verified result |
 | --- | --- |
+| Dart 3.14 source `712e3896`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44103774510) | 53/55 jobs pass; recurrent shard-1 cold RSS failure blocks Full Verify; hosted `bin/verify` passes |
+| Dart 3.14 full PR checks at `712e3896` | 57 success, three failure, one cancelled; Codecov project 94.14% vs 94.16%, macOS hosted runner unavailable |
 | Released source `72c078f1`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/42228480314) | All 61 PR checks pass, zero skipped checks; all sixteen performance/memory shards pass |
 | Published native builds / production profiles | Five platforms pass, 170 cases, zero skips |
 | Fresh hosted-only beta.9 consumer | All eight exact versions; MQTT 5/3.1.1 and both gateway directions pass; zero duplicates |
