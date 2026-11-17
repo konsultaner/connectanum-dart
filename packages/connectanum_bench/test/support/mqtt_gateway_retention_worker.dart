@@ -76,8 +76,8 @@ final class RetentionCollector {
   }
 
   static void validateSdk(String version) {
-    if (!version.startsWith('3.13.1 (stable)')) {
-      throw UnsupportedError('Retention test hook requires Dart 3.13.1 stable');
+    if (!version.startsWith('3.14.0 (stable)')) {
+      throw UnsupportedError('Retention test hook requires Dart 3.14.0 stable');
     }
   }
 

@@ -7,6 +7,10 @@ Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 Standalone Dart setup, package publishing, diagnostic and ObjectBox jobs now
 select 3.14.0, with matching pub-cache keys and `.tool-versions`. Package SDK
 lower bounds remain 3.10.0. Hosted validation of this isolated upgrade is pending.
+The first PR CI run rejected the retention worker's old 3.13.1-only SDK guard.
+Its strict guard now selects 3.14.0; six regression tests and the real Linux
+ARM64 AOT self-test pass with all original GC and memory controls intact.
+The hosted gateway and remaining checks must requalify the updated PR head.
 The earlier full local `bin/verify` passed on the mutation-runner branch; that
 result does not certify this newer `master` base. This PR carries only the SDK
 upgrade and its verification record, with no mutation-runner/runtime changes.
