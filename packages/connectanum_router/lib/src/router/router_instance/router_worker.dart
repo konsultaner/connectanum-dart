@@ -332,7 +332,10 @@ void sendWorkerMessagePayload(
         offset += fragment.length;
       }
       // Mutable bytes are snapshotted before send returns, then reused.
-      target.send({...envelope, 'payload': output});
+      target.send({
+        ...envelope,
+        'payload': TransferableTypedData.fromList([output]),
+      });
       return;
     }
   }
@@ -341,9 +344,7 @@ void sendWorkerMessagePayload(
   // Transfer ownership instead so these short-lived frames stay external.
   target.send({
     ...envelope,
-    'payload':
-        serializer == NativeMessageSerializer.messagePack &&
-            payload.length >= 16 * 1024
+    'payload': payload.length >= 16 * 1024
         ? TransferableTypedData.fromList([payload])
         : payload,
   });
