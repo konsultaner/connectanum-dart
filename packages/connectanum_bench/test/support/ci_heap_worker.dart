@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
-
 import 'package:connectanum_bench/src/mqtt_gateway_worker.dart';
 
 final class Mallinfo extends ffi.Struct {
@@ -56,9 +55,26 @@ Future<void> main(List<String> args) async {
   );
   void sample() {
     final m = malloc();
+    final status = File('/proc/self/status').readAsStringSync();
+    final smaps = File('/proc/self/smaps_rollup').readAsStringSync();
     stderr.writeln(
       jsonEncode({
         'kind': 'heap',
+        'status': status
+            .split('\n')
+            .where(
+              (line) =>
+                  RegExp(r'^(VmRSS|VmHWM|VmData|Threads):').hasMatch(line),
+            )
+            .join('; '),
+        'smaps': smaps
+            .split('\n')
+            .where(
+              (line) => RegExp(
+                r'^(Rss|Anonymous|Private_Dirty|Private_Clean|AnonHugePages):',
+              ).hasMatch(line),
+            )
+            .join('; '),
         'time': DateTime.now().toIso8601String(),
         'rss': ProcessInfo.currentRss,
         'peak': ProcessInfo.maxRss,
