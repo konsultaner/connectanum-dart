@@ -9,7 +9,7 @@ assert not os.environ.get('DART_VM_OPTIONS'),'Default VM options required'
 library=Path(os.environ['CONNECTANUM_NATIVE_LIB']).resolve()
 profile=dict(id='tcp-5-cbor-65536-1-1',transport='tcp',mqtt_version='5',serializer='cbor',payload_bytes=65536,subscribers=1,window=1,mqtt_client='connectanum')
 overload=dict(id='overload-tcp',transport='tcp',mqtt_version='5',serializer='cbor',payload_bytes=65536,subscribers=2,window=16,mqtt_client='connectanum')
-metadata=dict(diagnostic_only=True,candidate='sdk-heap-input-and-shared-immutable-heap-singleton-fragments',source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),baseline='669a7bc81fd964fa6df4ed0847340120f7213756',system=platform.platform(),sdk=subprocess.check_output(['dart','--version'],text=True).strip(),normal_vm_options=os.environ.get('DART_VM_OPTIONS'),runs=5,messages=5000,warmup=200,warmup_seconds=1,drain_seconds=.5)
+metadata=dict(diagnostic_only=True,candidate='managed-decoder-input-and-shared-immutable-heap-singleton-fragments',source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),baseline='669a7bc81fd964fa6df4ed0847340120f7213756',system=platform.platform(),sdk=subprocess.check_output(['dart','--version'],text=True).strip(),normal_vm_options=os.environ.get('DART_VM_OPTIONS'),runs=5,messages=5000,warmup=200,warmup_seconds=1,drain_seconds=.5)
 OUT.joinpath('environment.json').write_text(json.dumps(metadata,indent=2))
 candidate_library=Path(os.environ['RSS_PROBE_CANDIDATE_LIB']).resolve()
 OUT.joinpath('allocator-sha256.json').write_text(json.dumps(dict(baseline_binary=hashlib.sha256(library.read_bytes()).hexdigest(),candidate_binary=hashlib.sha256(candidate_library.read_bytes()).hexdigest()),indent=2))

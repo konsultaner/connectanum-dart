@@ -140,13 +140,6 @@ Future<void> main(List<String> arguments) async {
           )
         : null;
     final retained = await _receive(arguments.single);
-    final externalKind = ffi.DynamicLibrary.process()
-        .lookupFunction<ffi.Int Function(ffi.Handle), int Function(Object)>(
-          'Dart_GetTypeOfExternalTypedData',
-        );
-    if (externalKind(retained.body.target!) != 2) {
-      throw StateError('Large MQTT body is not SDK-owned external Uint8 data');
-    }
     for (var i = 0; i < 4; i++) {
       await collect();
       _verify(retained);
@@ -163,7 +156,7 @@ Future<void> main(List<String> arguments) async {
         await collect();
       }
       if (live() != 0) throw StateError('Dropped payload retains native pages');
-      stdout.writeln('MQTT_SDK_BODY_RELEASED');
+      stdout.writeln('MQTT_INPUT_OWNER_RELEASED');
       final snapshot = _snapshotView();
       for (var i = 0; i < 4; i++) {
         await collect();

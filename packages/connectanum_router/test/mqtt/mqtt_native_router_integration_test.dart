@@ -39,7 +39,7 @@ void main() {
       if (ffi.DynamicLibrary.open(library).providesSymbol(
         'ct_test_mapped_bytes_live_allocations',
       )) {
-        expect(result.stdout, contains('MQTT_SDK_BODY_RELEASED'));
+        expect(result.stdout, contains('MQTT_INPUT_OWNER_RELEASED'));
         expect(result.stdout, contains('MQTT_SNAPSHOT_OWNER_RELEASED'));
       }
     },
