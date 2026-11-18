@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-11-18.
-Current milestone: final-head CI qualification of the managed-input QoS/gateway repair.
+Current milestone: close native-snapshot RPC coverage and qualify the final PR head.
 Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
 [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
@@ -66,7 +66,14 @@ normal and six overload candidate cycles: normal peak 31.39/63 MiB, p99 1,429–
 75.15/126 MiB. All candidate production source hashes exactly match. Complete local `bin/verify`
 passes on all 20 unchanged source/test/tool files, including real Chrome/
 Dart2Wasm (4,814 Core and 2,830 client cases; 20 existing native-only browser
-skips). Complete final-head CI remains open.
+skips). Regular CI at `66289083` passes all 20 QoS profiles and the functional suites,
+but the strict gateway coverage check reports 878/879 lines: the application
+copy of a native snapshot in an RPC result is unmeasured. Six new boundary
+cases cover normal/lazy RPC results and nested keywords, prove independent
+mutable public bytes, and restore 879/879 with the unchanged checker and saved
+CI coverage. Removing the public copy makes the 16-KiB regression fail with
+`UnsupportedError`; production bytes are restored exactly. Final-head CI
+remains open, and current complete local verification is being rerun.
 
 All numeric budgets, coverage/mutation thresholds, queues, workloads,
 warm-up/drain/stall durations, default VM options and original timeout controls
