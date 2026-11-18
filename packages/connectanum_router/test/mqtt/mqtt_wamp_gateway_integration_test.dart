@@ -316,6 +316,9 @@ void main() {
           (workers, size, mode, 'flatbuffers'),
     for (final codec in ['json', 'msgpack', 'flatbuffers', 'mixed'])
       (1, 65536, 'batch', codec),
+    for (final workers in [1, 2])
+      for (final codec in ['cbor', 'json', 'msgpack', 'flatbuffers', 'mixed'])
+        (workers, 65536, 'default', codec),
   ]) {
     test(
       'MQTT fanout worker transfers: workers=$workers bytes=$size mode=$mode codec=$codec',
@@ -331,6 +334,7 @@ void main() {
           transformSettings: (s) =>
               s.copyWith(workerPool: WorkerPoolSettings(minWorkers: workers)),
           workerEntryPoint: switch (mode) {
+            'default' => null,
             'legacy' => _observeLegacyPublicationWorker,
             'failures' => _observeFailingPublicationWorker,
             _ => _observePublicationWorker,
@@ -413,19 +417,27 @@ void main() {
           events.map((event) => event.publicationId).toSet(),
           hasLength(1),
         );
-        expect(
-          observations,
-          hasLength(size >= 16384 && mode != 'legacy' ? workers : 4),
-        );
-        expect(
-          observations.fold<int>(0, (sum, e) => sum + (e['recipients'] as int)),
-          4,
-        );
+        if (mode == 'default') {
+          expect(observations, isEmpty);
+        } else {
+          expect(
+            observations,
+            hasLength(size >= 16384 && mode != 'legacy' ? workers : 4),
+          );
+          expect(
+            observations.fold<int>(
+              0,
+              (sum, e) => sum + (e['recipients'] as int),
+            ),
+            4,
+          );
+        }
         expect(errors, hasLength(mode == 'failures' ? 1 : 0));
         expect(observations.every((e) => e['shared_payload'] == true), isTrue);
         if ((codec == 'flatbuffers' || codec == 'mixed') &&
             size >= 16384 &&
-            mode != 'legacy') {
+            mode != 'legacy' &&
+            mode != 'default') {
           expect(
             outgoingFrames.fold<int>(
               0,

@@ -24,13 +24,13 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: ci-gateway-native-arm64
-          run-id: 44117823578
+          run-id: 44278824458
           github-token: ${{ github.token }}
           path: out/probe-native
       - name: Record host and verify unchanged native source
         run: |
           set -euo pipefail
-          git diff --exit-code f3798ef45fd9bb746b55fcb2d66cc47c39299f58 HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs'
+          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs'
           mkdir -p out/probe-host
           lscpu --json > out/probe-host/lscpu.json
           cat /proc/meminfo > out/probe-host/meminfo.txt
@@ -75,7 +75,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify unchanged production and guard controls
         run: |
-          git diff --exit-code f3798ef45fd9bb746b55fcb2d66cc47c39299f58 HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs' tool/run_native_guardmalloc.py
+          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs' tool/run_native_guardmalloc.py
           python3 tool/test_run_native_guardmalloc.py
       - name: Repeat exact guarded native inventory
         run: |
