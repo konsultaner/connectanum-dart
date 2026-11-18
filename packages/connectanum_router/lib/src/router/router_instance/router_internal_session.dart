@@ -2208,9 +2208,7 @@ class _InternalSessionIsolate {
         }
       }
     }
-    if (nativeEvents.length == 1) {
-      _bootstrap.controlPort.send(nativeEvents.single);
-    } else if (nativeEvents.isNotEmpty) {
+    if (nativeEvents.isNotEmpty) {
       // One graph preserves the common payload instead of copying it once
       // for every recipient on the way to the router.
       _bootstrap.controlPort.send({

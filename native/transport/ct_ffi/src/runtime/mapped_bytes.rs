@@ -87,8 +87,6 @@ fn allocate_with(
 ///
 /// # Safety
 /// `out` must be null or an aligned writable slot with no unreleased owner.
-/// `out` must be an aligned writable slot; its previous contents remain the
-/// caller's responsibility and must not hold an unreleased owner.
 /// On failure a nonnull output is cleared and no ownership escapes. On success
 /// transfer the owner once to `ct_mapped_bytes_finalizer`, only after every
 /// derived view dies. Neither the data pointer nor an arbitrary token is an owner.
@@ -118,7 +116,7 @@ pub unsafe extern "C" fn ct_snapshot_bytes_allocate(length: i32, out: *mut CtMap
 /// # Safety
 /// A nonnull token must be a live owner from allocate, consumed exactly once
 /// after every derived view has died.
-/// Dropping the mapping returns its pages without tuning the process allocator.
+/// Mapped input returns its pages; snapshots release their owned heap storage.
 #[no_mangle]
 pub unsafe extern "C" fn ct_mapped_bytes_finalizer(owner: *mut c_void) {
     if !owner.is_null() {

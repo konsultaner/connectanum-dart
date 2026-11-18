@@ -24,7 +24,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: dart314-rss-probe
-          run-id: 44315805530
+          run-id: 44320022715
           github-token: ${{ github.token }}
           path: out/probe-baseline
       - uses: actions/download-artifact@v8
@@ -61,6 +61,7 @@ jobs:
           sha256sum out/probe-candidate/libct_ffi.so > out/probe-candidate/native-sha256.txt
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
           (cd packages/connectanum_router; dart test test/native/mqtt_frame_buffer_test.dart test/mqtt/mqtt_native_router_integration_test.dart --name "immutable snapshot owns|legacy libraries|fresh native library|payload views survive actual GC" --reporter expanded) 2>&1 | tee out/probe-candidate/ownership-tests.log
+          (cd packages/connectanum_router; dart test test/mqtt/mqtt_wamp_gateway_integration_test.dart --name "MQTT singleton default worker|MQTT fanout worker transfers" --reporter expanded) 2>&1 | tee out/probe-candidate/gateway-tests.log
       - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
