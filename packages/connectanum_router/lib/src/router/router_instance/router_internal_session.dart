@@ -219,7 +219,7 @@ class RouterSession {
         return;
       }
       final detailMap =
-          (_materializeApplicationValue(message['details']) as Map?)
+          (_materializeTransferredValue(message['details']) as Map?)
               ?.cast<String, Object?>() ??
           const <String, Object?>{};
       final details = event_msg.EventDetails(
@@ -242,7 +242,7 @@ class RouterSession {
       if (custom.isNotEmpty) {
         details.custom.addAll(custom);
       }
-      final transferredPayload = _materializeApplicationValue(
+      final transferredPayload = _materializeTransferredValue(
         message[_internalMsgLazyPayload],
       );
       final event = event_msg.Event(subscriptionId, publicationId, details);
@@ -250,11 +250,11 @@ class RouterSession {
         event,
         transferredPayload,
         fallbackArguments:
-            (_materializeApplicationValue(message['arguments']) as List?)
+            (_materializeTransferredValue(message['arguments']) as List?)
                 ?.cast<dynamic>()
                 .toList(growable: false),
         fallbackArgumentsKeywords:
-            (_materializeApplicationValue(message['argumentsKeywords']) as Map?)
+            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         pptScheme: details.pptScheme,
         pptSerializer: details.pptSerializer,
