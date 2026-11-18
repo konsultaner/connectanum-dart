@@ -2,7 +2,6 @@ part of '../router_instance.dart';
 
 const String _jsonBinaryPrefix = '\u0000';
 const String _jsonEscapedBinaryPrefix = '\\u0000';
-const String _internalBinaryEventBody = '_binary_event_body';
 final Object _routerSessionCloseCleanupKey = Object();
 
 class RouterSession {
@@ -201,26 +200,15 @@ class RouterSession {
       binding._removeInternalSession(this);
     } else if (type == _internalMsgForwardEvents) {
       final forwarded = <({int connectionId, AbstractMessage message})>[];
-      final transferredBody =
-          message[_internalBinaryEventBody] as TransferableTypedData?;
-      final binaryBody = transferredBody?.materialize().asUint8List();
       for (final event in message['events'] as List) {
         _handleControlMessage(
-          binaryBody != null && event is Map
-              ? {
-                  ...event,
-                  'arguments': [binaryBody],
-                }
-              : event,
+          event,
           collectEvent: (connectionId, message) {
             forwarded.add((connectionId: connectionId, message: message));
           },
         );
       }
-      binding._boss?.forwardMessagesToConnections(
-        forwarded,
-        transferBinaryArguments: binaryBody != null,
-      );
+      binding._boss?.forwardMessagesToConnections(forwarded);
     } else if (type == _internalMsgForwardEvent) {
       final connectionId = message['connectionId'] as int?;
       final subscriptionId = message['subscriptionId'] as int?;
@@ -2190,25 +2178,20 @@ class _InternalSessionIsolate {
           'pptKeyId': eventPptKeyId,
         };
         if (batchBinaryEvents) {
-          forwarded
-            ..remove(_internalMsgLazyPayload)
-            ..remove('arguments')
-            ..remove('argumentsKeywords');
           nativeEvents.add(forwarded);
         } else {
           _bootstrap.controlPort.send(forwarded);
         }
       }
     }
-    if (nativeEvents.isNotEmpty) {
-      // Transfer the common body once. Header maps contain no second body
-      // reference that SendPort could clone into the receiving managed heap.
+    if (nativeEvents.length == 1) {
+      _bootstrap.controlPort.send(nativeEvents.single);
+    } else if (nativeEvents.isNotEmpty) {
+      // One graph preserves the common payload instead of copying it once
+      // for every recipient on the way to the router.
       _bootstrap.controlPort.send({
         'type': _internalMsgForwardEvents,
         'events': nativeEvents,
-        _internalBinaryEventBody: TransferableTypedData.fromList([
-          (binaryArguments as List).single as Uint8List,
-        ]),
       });
     }
     return routing.publicationId;

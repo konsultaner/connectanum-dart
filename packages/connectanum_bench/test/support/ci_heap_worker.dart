@@ -1,8 +1,8 @@
 import 'dart:ffi' as ffi;
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
-import 'package:ffi/ffi.dart';
 
 import 'package:connectanum_bench/src/mqtt_gateway_worker.dart';
 
@@ -54,60 +54,32 @@ Future<void> main(List<String> args) async {
   final malloc = lib.lookupFunction<Mallinfo Function(), Mallinfo Function()>(
     'mallinfo2',
   );
-  final writeSnapshot = lib.lookup<ffi.Void>('Dart_WriteHeapSnapshot');
-  final capture =
-      ffi.DynamicLibrary.open(Platform.environment['RSS_PROBE_LIB']!)
-          .lookupFunction<
-            ffi.Int32 Function(ffi.Pointer<ffi.Void>, ffi.Pointer<Utf8>),
-            int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<Utf8>)
-          >('capture_heap');
-  var captured = false;
+  void sample() {
+    final m = malloc();
+    stderr.writeln(
+      jsonEncode({
+        'kind': 'heap',
+        'time': DateTime.now().toIso8601String(),
+        'rss': ProcessInfo.currentRss,
+        'peak': ProcessInfo.maxRss,
+        for (final e in metrics.entries) e.key: e.value(group),
+        'malloc_allocated': m.uordblks,
+        'malloc_free': m.fordblks,
+        'malloc_mmaps': m.hblkhd,
+        'malloc_arena': m.arena,
+      }),
+    );
+  }
+
+  final timer = args.first == 'server'
+      ? Timer.periodic(const Duration(milliseconds: 200), (_) => sample())
+      : null;
   await runGatewayBenchmarkWorker(
     args,
     emit: (event) {
       stdout.writeln(jsonEncode(event));
-      if (args.first == 'server' && event['kind'] == 'sampled') {
-        if (!captured && ProcessInfo.currentRss > 58 * 1024 * 1024) {
-          captured = true;
-          final path =
-              '${Platform.environment['RSS_PROBE_DIR']}/broker.heapsnapshot'
-                  .toNativeUtf8();
-          try {
-            stderr.writeln(
-              jsonEncode({
-                'kind': 'snapshot',
-                'result': capture(writeSnapshot, path),
-              }),
-            );
-          } finally {
-            calloc.free(path);
-          }
-        }
-        final m = malloc();
-        final smaps = File('/proc/self/smaps_rollup').readAsStringSync();
-        final status = File('/proc/self/status').readAsStringSync();
-        stderr.writeln(
-          jsonEncode({
-            'kind': 'heap',
-            'rss': ProcessInfo.currentRss,
-            'cpus': Platform.numberOfProcessors,
-            for (final e in metrics.entries) e.key: e.value(group),
-            'malloc_allocated': m.uordblks,
-            'malloc_free': m.fordblks,
-            'malloc_mmaps': m.hblkhd,
-            'malloc_arena': m.arena,
-            'smaps': smaps
-                .split('\n')
-                .where(
-                  (s) =>
-                      RegExp(r'^(Rss|Anonymous|Private_Dirty|AnonHugePages):')
-                          .hasMatch(s),
-                )
-                .join('; '),
-            'threads': RegExp(r'Threads:\s+(\d+)').firstMatch(status)?.group(1),
-          }),
-        );
-      }
+      if (args.first == 'server' && event['kind'] == 'sampled') sample();
     },
   );
+  timer?.cancel();
 }
