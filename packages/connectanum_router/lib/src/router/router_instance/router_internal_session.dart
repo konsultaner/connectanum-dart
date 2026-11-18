@@ -1675,8 +1675,8 @@ Object? _cborValueToDart(Object? value) {
 
 Object? _transferIsolateValue(Object? value) {
   if (value is Uint8List) {
-    // SendPort snapshots large binary values without a second native buffer.
-    if (value.lengthInBytes >= 16 * 1024) return value;
+    // Keep large isolate snapshots in managed typed data.
+    if (value.lengthInBytes >= 16 * 1024) return Uint8List.fromList(value);
     return TransferableTypedData.fromList([value]);
   }
   if (value is List) {
