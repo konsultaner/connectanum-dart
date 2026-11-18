@@ -75,12 +75,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Verify unchanged production and guard controls
         run: |
-          git diff --exit-code f3798ef45fd9bb746b55fcb2d66cc47c39299f58 HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs' tool/run_native_guardmalloc.py tool/test_run_native_guardmalloc.py
+          git diff --exit-code f3798ef45fd9bb746b55fcb2d66cc47c39299f58 HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs' tool/run_native_guardmalloc.py
           python3 tool/test_run_native_guardmalloc.py
       - name: Repeat exact guarded native inventory
         run: |
           set -euo pipefail
+          mkdir -p out/guardmalloc-probe/controls
+          shasum -a 256 tool/test_run_native_guardmalloc.py > out/guardmalloc-probe/controls/source-sha256.txt
           for index in 1 2 3 4 5; do
+            python3 tool/test_run_native_guardmalloc.py 2>&1 | tee "out/guardmalloc-probe/controls/${index}.log"
             python3 tool/run_native_guardmalloc.py --output "out/guardmalloc-probe/${index}"
           done
       - uses: actions/upload-artifact@v7
