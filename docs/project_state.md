@@ -1,42 +1,63 @@
 # Project State
 
 Last updated: 2026-11-18.
-Current milestone: Dart 3.14.0 CI qualification complete; PR #138 awaits review/merge.
-Active plan: none. Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
+Current milestone: final-head CI qualification of the Dart 3.14 repair.
+Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
-[PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) qualifies
-standalone Dart 3.14.0 across `.tool-versions`, CI setup/cache keys and all
-eight package publishing jobs. Package SDK lower bounds stay at 3.10.0; the
-retention worker strictly accepts the qualified 3.14.0 stable SDK with its
-original VM/witness/collection controls.
+[PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
+Dart 3.14.0 across `.tool-versions`, CI/cache keys and all eight publishing jobs.
+Package SDK lower bounds remain 3.10.0. Implementation `9dc7b2d4` passed all 61
+checks and complete local `bin/verify`, including real Chrome/Dart2Wasm.
+Documentation-only head `2bd89a33` then reproduced CBOR peak RSS at 79.28 MiB
+against the original 63-MiB cap; acceptance is reopened. Its other 59 checks
+pass, including GuardMalloc, all mutation/coverage lanes and three ObjectBox
+platforms. Earlier green results do not clear the current head.
 
-Final implementation `9dc7b2d4` passes **all 61 PR checks**, including every
-one of the 55 main jobs, all 16 gateway performance/memory shards, all mutation
-and coverage lanes, package dry run and ObjectBox on three operating systems.
-No checks are skipped or cancelled. Codecov project passes at 94.20% versus
-base 94.16%; patch coverage is 100%. Complete local `bin/verify` also passes
-on this exact source, including Rust/native FFI, VM suites, consumers, ObjectBox
-and real Chrome/Dart2Wasm (4,814 core / 2,830 client, with 20 existing native-only
-browser test skips).
+Independent Linux OS, VM and allocator observations confirm real resident peaks.
+At the 78.76-MiB peak, managed old-heap use is 4.4 MiB while libc retains
+32.8 MiB of freed allocations. Mapping only native input, ordinary external
+arrays, managed snapshots and managed snapshots plus mapped input all fail
+repeated cold comparisons. The last combination peaks at 66.75 MiB against
+63 MiB. Functional verification alone does not qualify these candidates.
 
-The repairs transfer large serialized worker frames and give large native
-MQTT input bodies independently owned external storage with native-free
-lifetime and SDK external-size accounting. GuardMalloc fixtures establish
-actual backpressure/readiness before their measured fast-write or cleanup
-boundaries and release unsubmitted slices on unwind. Deterministic failure,
-ownership and metadata tests replace previously missing coverage. Production
-Rust, all numeric budgets, coverage/mutation requirements, queues, workload,
-warm-up/drain, normal VM settings, production timeout drivers and CI workflows
-remain unchanged by these repairs. No forced production collection is added.
+A minimal Dart 3.14 Linux ARM64 AOT repro distinguishes ordinary readonly views
+(which SendPort copies) from VM-created immutable external typed data (which
+shares identity across isolate hops). The current candidate snapshots large
+internal binary values into independently owned heap storage and publishes
+these through `Dart_NewUnmodifiableExternalTypedDataWithFinalizer`. A private
+carrier preserves that ownership contract; remote routing retains the immutable
+backing, while public callbacks receive mutable owned copies. Older native
+libraries/VMs keep the existing transfer fallback. Default eligible CBOR Events
+use the existing bounded fragment path. Native MQTT input mappings and heap snapshots
+each have one owner, independent of runtime shutdown.
 
-Regular final-source measurements put MessagePack drained RSS at 27.00 MiB
-versus 58 MiB, CBOR peak at 40.82 MiB versus 63 MiB, and overload peak at
-78.21 MiB versus 126 MiB. Native GuardMalloc and all original controls pass;
-additional hosted Intel qualification covers five full native inventories
-(440 cases) and five captured control inventories (25 cases), with exact
-source hashes. Earlier failures, rejected candidates and checksum-verified
-receipts remain in the completed plan. This receipt follow-up changes only
-documentation; implementation qualification is retained at `9dc7b2d4`.
+All 41 fanout cases pass unchanged identity/content/count assertions. New tests
+cover source mutation, two isolate hops, public mutable recipients, optional old
+native libraries, native/SDK failure cleanup and actual GC. All 93 native
+ownership cases pass GuardMalloc. The corrected heap variant completes full
+`bin/verify`, including real Chrome/Dart2Wasm, with all 19 source/test/tool files
+unchanged. The App-Lab process race has a deterministic failing regression;
+rechecking child liveness after failed `ps` fixes it, with all 16 App-Lab tests
+passing and every deadline preserved.
+
+The current candidate also keeps singleton binary Events on the negotiated
+fragment path. Both new singleton regressions and all 41 prior fanout cases
+pass on macOS and Linux, including legacy workers. In the unchanged cold
+comparison, all 40 candidate normal cycles and six overload cycles meet every
+available absolute CPU/rate/latency/process-memory check: normal peak 34.14/63
+MiB, p99 campaign medians 1,665–1,738/2,437 us; overload peak 52.56/126 MiB.
+All candidate production source hashes exactly match the working tree.
+Earlier mapped and heap-only candidates remain rejected; GC traces retain
+the evidence behind the missing singleton path. Fresh full `bin/verify` on the
+20-file source passes, including Rust/native, VM, consumers and real
+Chrome/Dart2Wasm. Complete relative-control, collected-retention
+and all-profile acceptance still requires all checks on the final PR head.
+
+All numeric budgets, coverage/mutation thresholds, queues, workloads,
+warm-up/drain/stall durations, default VM options and original timeout controls
+remain unchanged. No forced production GC or global allocator tuning is added.
+The plan retains original failures, rejected candidates and checksum-verified
+evidence. No merge or release is performed.
 
 Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five
@@ -65,6 +86,8 @@ See the [MQTT contract](mqtt.md) and completed
 
 | Source/check | Verified result |
 | --- | --- |
+| Current Dart 3.14 repair, [cold comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44327753894) | All 40 normal and six overload candidate cycles meet available absolute checks; normal 34.14/63 MiB, p99 1,665–1,738/2,437 us |
+| Current 20-file repair, complete local `bin/verify` | Pass, all source hashes unchanged; Rust/native, full VM/consumers and real Chrome/Wasm; full final-head PR CI pending |
 | Dart 3.14 source `9dc7b2d4`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44268728740) | All 55 main jobs pass, including all 16 memory/performance shards |
 | Dart 3.14 full PR checks at `9dc7b2d4` | All 61 checks pass, zero skipped/cancelled; Codecov project 94.20% vs 94.16%, patch 100% |
 | Dart 3.14 final-source local `bin/verify` | Pass, Rust/native/Dart/consumers/ObjectBox/Chrome/Wasm; clean worktree at completion |

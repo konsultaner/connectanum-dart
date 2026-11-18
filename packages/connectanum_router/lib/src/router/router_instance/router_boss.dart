@@ -2493,7 +2493,7 @@ class _RouterBoss {
       (grouped[worker] ??= []).add([message.connectionId, message.message]);
     }
     for (final entry in grouped.entries) {
-      if (entry.key.supportsMessageBatches && entry.value.length > 1) {
+      if (entry.key.supportsMessageBatches) {
         entry.key.commandPort.send([_workerCmdSendMessages, entry.value]);
       } else {
         // Custom workers keep their existing single-message protocol.

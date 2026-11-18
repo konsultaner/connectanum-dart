@@ -303,6 +303,43 @@ void main() {
     return (binding: binding, gateway: gateway, session: session, mqtt: mqtt);
   }
 
+  for (final codec in ['cbor', 'flatbuffers']) {
+    test(
+      'MQTT singleton default worker retains $codec binary fragments',
+      () async {
+        final outgoing = <Map>[];
+        final fixture = await start(
+          wampSerializer: codec,
+          workerEntryPoint: _observePublicationWorker,
+          onEvent: (_, event) {
+            final observed = event is Map && event['payload'] is Map
+                ? event['payload']
+                : event;
+            if (observed is Map &&
+                observed['stage'] == 'outgoing_frame_transfer') {
+              outgoing.add(observed);
+            }
+          },
+        );
+        const topic = 'sensors/singleton';
+        final subscribed = await fixture.session.subscribe(
+          MqttTopicUriMapper.toWampUri(topic),
+        );
+        final received = Completer<wamp.Event>();
+        subscribed.onEvent(received.complete);
+        final expected = List.generate(65536, (i) => i % 251);
+        await fixture.mqtt.publish(topic, Uint8List.fromList(expected));
+        final event = await received.future.timeout(const Duration(seconds: 5));
+        expect(event.subscriptionId, subscribed.subscriptionId);
+        expect(event.arguments!.single, expected);
+        expect(event.details.custom['mqtt_topic'], topic);
+        expect(outgoing, hasLength(1));
+        expect(outgoing.single['recipients'], 1);
+        expect(outgoing.single['shared_payload'], isTrue);
+      },
+    );
+  }
+
   for (final (workers, size, mode, codec) in [
     for (final workers in [1, 2])
       for (final size in [128, 16383, 16384, 65536])
@@ -434,7 +471,7 @@ void main() {
         }
         expect(errors, hasLength(mode == 'failures' ? 1 : 0));
         expect(observations.every((e) => e['shared_payload'] == true), isTrue);
-        if ((codec == 'flatbuffers' || codec == 'mixed') &&
+        if ((codec == 'flatbuffers' || codec == 'cbor' || codec == 'mixed') &&
             size >= 16384 &&
             mode != 'legacy' &&
             mode != 'default') {
@@ -443,7 +480,7 @@ void main() {
               0,
               (sum, e) => sum + (e['recipients'] as int),
             ),
-            codec == 'mixed' ? 1 : 4,
+            codec == 'mixed' ? 2 : 4,
           );
           expect(
             outgoingFrames.every((e) => e['shared_payload'] == true),

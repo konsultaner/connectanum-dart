@@ -12,6 +12,7 @@ import 'package:meta/meta.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
+import 'mqtt_frame_buffer.dart';
 
 abstract class NativeRuntime {
   void start();
@@ -2178,7 +2179,9 @@ class NativeMessageHandleDecoder {
     : _messageBindings = _MessageBindings(
         _bindings,
         NativeMessageBytes(_library),
-      );
+      ) {
+    NativeMqttFrameBufferAllocator.forLibrary(_library);
+  }
 
   final String libraryPath;
   // ignore: unused_field
@@ -2374,7 +2377,9 @@ class NativeTransportRuntime
     : _messageBindings = _MessageBindings(
         _bindings,
         NativeMessageBytes(_library),
-      );
+      ) {
+    NativeMqttFrameBufferAllocator.forLibrary(_library);
+  }
 
   final String _libraryPath;
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.
@@ -2888,16 +2893,9 @@ class NativeTransportRuntime
     );
   }
 
-  static Uint8List _allocateMqttFrameBody(int length) {
-    if (length < 16 * 1024) return Uint8List(length);
-    // Keep transient large bodies out of the managed old generation. The VM
-    // accounts their external bytes and owns the allocation through every view,
-    // independently of this runtime's shutdown/disposal.
-    return calloc<ffi.Uint8>(length).asTypedList(
-      length,
-      finalizer: calloc.nativeFree,
-    );
-  }
+  late final _allocateMqttFrameBody = NativeMqttFrameBufferAllocator.forLibrary(
+    _library,
+  ).allocate;
 
   int _pollMqttChunkLength(int connectionId) {
     final call = _bindings.ctPollMqttChunk;

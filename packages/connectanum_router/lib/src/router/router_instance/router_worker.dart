@@ -324,6 +324,7 @@ void sendWorkerMessagePayload(
         arguments!.single is Uint8List &&
         (arguments.single as Uint8List).length >= 16 * 1024) {
       final fragments = _cborSerializer.serializeEventFragments(message)!;
+      if (frameBatch?.add(envelope, fragments) == true) return;
       final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
       final output = _workerFrameBuffer(length);
       var offset = 0;

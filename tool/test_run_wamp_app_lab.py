@@ -15,6 +15,28 @@ SCRIPT = ROOT / "bin" / "run-wamp-app-lab"
 
 
 class RunWampAppLabTests(unittest.TestCase):
+    def test_process_liveness_rechecks_exit_during_failed_ps_probe(self):
+        helper = re.search(
+            r"(?ms)^owned_process_is_live\(\) \{.*?^\}",
+            SCRIPT.read_text(encoding="utf-8"),
+        )
+        self.assertIsNotNone(helper)
+        for disappears, expected in [(True, 1), (False, 0)]:
+            with self.subTest(disappears=disappears):
+                result = subprocess.run(
+                    [
+                        "bash", "-c", helper.group(0) + "\n"
+                        "probes=0\n"
+                        "kill() { probes=$((probes + 1)); "
+                        "[[ $probes == 1 || $DISAPPEARS == false ]]; }\n"
+                        "ps() { return 1; }\n"
+                        "owned_process_is_live 123\n",
+                    ],
+                    env={**os.environ, "DISAPPEARS": str(disappears).lower()},
+                    text=True, capture_output=True, check=False, timeout=5,
+                )
+                self.assertEqual(result.returncode, expected, result.stderr)
+
     def test_flutter_startup_observes_final_log_after_process_exit(self):
         source = SCRIPT.read_text(encoding="utf-8")
         helper = re.search(
