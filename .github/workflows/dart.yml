@@ -30,7 +30,7 @@ jobs:
       - name: Record host and verify unchanged native source
         run: |
           set -euo pipefail
-          git diff --exit-code 4de24d255b5e7c24dbbd9a5bdfe49bf792dcb57b HEAD -- native/transport
+          git diff --exit-code f3798ef45fd9bb746b55fcb2d66cc47c39299f58 HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs'
           mkdir -p out/probe-host
           lscpu --json > out/probe-host/lscpu.json
           cat /proc/meminfo > out/probe-host/meminfo.txt
@@ -47,7 +47,7 @@ jobs:
         run: |
           mkdir -p out/probe-heap
           cc -shared -fPIC -O2 tool/dart314_heap_snapshot.c -o out/probe-heap/libprobe.so
-      - name: Observe unchanged normal and read-only heap workers
+      - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
         run: |

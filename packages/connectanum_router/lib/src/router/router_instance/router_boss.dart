@@ -2484,21 +2484,42 @@ class _RouterBoss {
   }
 
   void forwardMessagesToConnections(
-    Iterable<({int connectionId, AbstractMessage message})> messages,
-  ) {
+    Iterable<({int connectionId, AbstractMessage message})> messages, {
+    bool transferBinaryArguments = false,
+  }) {
     final grouped = <_WorkerHandle, List<List<Object?>>>{};
     for (final message in messages) {
       final worker = _connectionOwners[message.connectionId];
       if (worker == null) continue;
       (grouped[worker] ??= []).add([message.connectionId, message.message]);
     }
+    // Custom entry points retain their existing message/list representation.
+    final transfer =
+        transferBinaryArguments && entryPoint == defaultRouterWorkerEntryPoint;
     for (final entry in grouped.entries) {
       if (entry.key.supportsMessageBatches && entry.value.length > 1) {
-        entry.key.commandPort.send([_workerCmdSendMessages, entry.value]);
+        final bodies = transfer ? WorkerBinaryTransferBatch() : null;
+        entry.key.commandPort.send([
+          _workerCmdSendMessages,
+          bodies == null
+              ? entry.value
+              : [
+                  for (final message in entry.value)
+                    [message[0], bodies.prepare(message[1] as AbstractMessage)],
+                ],
+        ]);
       } else {
         // Custom workers keep their existing single-message protocol.
         for (final message in entry.value) {
-          entry.key.commandPort.send([_workerCmdSendMessage, ...message]);
+          entry.key.commandPort.send([
+            _workerCmdSendMessage,
+            message[0],
+            transfer
+                ? WorkerBinaryTransferBatch().prepare(
+                    message[1] as AbstractMessage,
+                  )
+                : message[1],
+          ]);
         }
       }
     }
