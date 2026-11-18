@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -35,6 +36,11 @@ void main() {
       ]);
       expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
       expect(result.stdout, contains('MQTT_FRAME_GC_OK'));
+      if (ffi.DynamicLibrary.open(library).providesSymbol(
+        'ct_test_mapped_bytes_live_allocations',
+      )) {
+        expect(result.stdout, contains('MQTT_MAPPED_OWNER_RELEASED'));
+      }
     },
     timeout: const Timeout(Duration(seconds: 45)),
   );

@@ -12,6 +12,7 @@ import 'package:meta/meta.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
+import 'mqtt_frame_buffer.dart';
 
 abstract class NativeRuntime {
   void start();
@@ -2888,24 +2889,9 @@ class NativeTransportRuntime
     );
   }
 
-  static final _mappedLibrary = ffi.DynamicLibrary.open(
-    Platform.environment['RSS_PROBE_MAP_LIB']!,
-  );
-  static final _mappedAllocate = _mappedLibrary
-      .lookupFunction<
-        ffi.Pointer<ffi.Uint8> Function(ffi.UintPtr),
-        ffi.Pointer<ffi.Uint8> Function(int)
-      >('probe_mapped_allocate');
-  static final _mappedFree = _mappedLibrary.lookup<ffi.NativeFinalizerFunction>(
-    'probe_mapped_free',
-  );
-
-  static Uint8List _allocateMqttFrameBody(int length) {
-    if (length < 16 * 1024) return Uint8List(length);
-    final pointer = _mappedAllocate(length);
-    if (pointer == ffi.nullptr) throw StateError('Mapped allocation failed');
-    return pointer.asTypedList(length, finalizer: _mappedFree);
-  }
+  late final _allocateMqttFrameBody = NativeMqttFrameBufferAllocator.forLibrary(
+    _library,
+  ).allocate;
 
   int _pollMqttChunkLength(int connectionId) {
     final call = _bindings.ctPollMqttChunk;

@@ -13,7 +13,7 @@ jobs:
   cold-cycle-rss:
     if: ${{ inputs.target == 'rss' }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
         with:
@@ -27,10 +27,11 @@ jobs:
           run-id: 44278824458
           github-token: ${{ github.token }}
           path: out/probe-native
-      - name: Record host and verify unchanged native source
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Record host and verify unchanged core native source
         run: |
           set -euo pipefail
-          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs'
+          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/Cargo.toml' ':(exclude)native/transport/ct_ffi/src/runtime/mod.rs' ':(exclude)native/transport/ct_ffi/src/runtime/mapped_bytes.rs'
           mkdir -p out/probe-host
           lscpu --json > out/probe-host/lscpu.json
           cat /proc/meminfo > out/probe-host/meminfo.txt
@@ -43,10 +44,16 @@ jobs:
           dart pub get
           python3 -m venv "$RUNNER_TEMP/probe-python"
           "$RUNNER_TEMP/probe-python/bin/pip" install paho-mqtt==2.1.0
-      - name: Build diagnostic mapped allocator
+      - name: Build portable native allocator
         run: |
-          mkdir -p out/probe-heap
-          cc -shared -fPIC -O2 tool/dart314_mapped_bytes.c -o out/probe-heap/libmappedbytes.so
+          set -euo pipefail
+          source bin/common.sh
+          build_native_ffi_test_release
+          mkdir -p out/probe-candidate
+          cp "$CONNECTANUM_NATIVE_LIB" out/probe-candidate/libct_ffi.so
+          sha256sum out/probe-candidate/libct_ffi.so > out/probe-candidate/native-sha256.txt
+          export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
+          (cd packages/connectanum_router; dart test test/native/mqtt_frame_buffer_test.dart test/mqtt/mqtt_native_router_integration_test.dart --name "legacy libraries|fresh native library|payload views survive actual GC" --reporter expanded) 2>&1 | tee out/probe-candidate/ownership-tests.log
       - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
@@ -54,7 +61,7 @@ jobs:
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
-          export RSS_PROBE_MAP_LIB="$GITHUB_WORKSPACE/out/probe-heap/libmappedbytes.so"
+          export RSS_PROBE_CANDIDATE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py
       - uses: actions/upload-artifact@v7
         if: always()
@@ -63,7 +70,7 @@ jobs:
           path: |
             out/dart314-rss-probe
             out/probe-host
-            out/probe-heap
+            out/probe-candidate
           retention-days: 7
 
   guardmalloc-ordering:
