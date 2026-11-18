@@ -4,17 +4,21 @@ Last updated: 2026-11-18.
 Current milestone: qualify the Dart 3.14.0 toolchain on the GitHub CI chain.
 Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
-CI repair resumed on 2026-11-18. The fix transfers large MessagePack worker
-frames with `TransferableTypedData` to avoid receiver-side managed byte-array
-clones. In an alternating hosted ARM64 comparison, original code fails the
-58-MiB drained-RSS limit in two of four cold campaigns; all 20 fixed cycles
-pass, with maximum drained RSS 33.96 MiB. Exact-byte, mutation, lazy/PPT and
-native enqueue/error regressions pass. Deterministic native lifecycle, file
-metrics and worker error tests add 29 hits on previously missed source lines.
-All budgets, coverage requirements, workload, warm-up/drain and VM settings are
-unchanged. Final local `bin/verify` and PR checks are in progress; see the active
-plan for provenance. The earlier macOS capacity failure clears on one targeted
-infrastructure retry, with all three ObjectBox platforms passing at `4de24d25`.
+CI repair resumed on 2026-11-18. The fix transfers large contiguous worker
+frames with `TransferableTypedData` and materializes them once before native
+enqueue, avoiding receiver-side managed byte-array clones for all supported
+codecs. The original MessagePack profile passes regular shard 1 at `19c9cd96`
+with 25.40-MiB drained RSS against the unchanged 58-MiB cap. Regular shard 2
+exposes CBOR peak RSS of 67.97 MiB against 63 MiB; the follow-up extends the
+handoff consistently. In its paired hosted CBOR comparison, all 20 fixed cycles
+pass, with maximum peak 51.67 MiB versus 59.82 MiB original on that host.
+Exact-byte, mutation, lazy/PPT, ordering, scratch bounds and native enqueue/error
+regressions pass. Native lifecycle, file metrics and worker error tests add 29
+hits on previously missed source lines. Complete local `bin/verify` passes on
+the final all-codec source, including real Chrome/Dart2Wasm. Final PR checks
+remain pending. All budgets, coverage requirements, workload, warm-up/drain,
+VM settings and CI workflows/scripts stay unchanged. See the active plan for
+provenance, failure history and comparison/verification receipts.
 
 Standalone Dart setup, package publishing, diagnostic and ObjectBox jobs now
 select 3.14.0, with matching pub-cache keys and `.tool-versions`. Package SDK

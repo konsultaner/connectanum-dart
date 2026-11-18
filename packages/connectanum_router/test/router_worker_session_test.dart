@@ -80,7 +80,16 @@ Future<List<Map>> _captureScratchFrames(
         'index': index,
       });
     }
-    return (await values.timeout(const Duration(seconds: 10))).cast<Map>();
+    final frames = (await values.timeout(
+      const Duration(seconds: 10),
+    )).cast<Map>();
+    for (final frame in frames) {
+      final payload = frame['payload'];
+      if (payload is TransferableTypedData) {
+        frame['payload'] = payload.materialize().asUint8List();
+      }
+    }
+    return frames;
   } finally {
     reply.close();
   }
@@ -248,11 +257,20 @@ void main() {
         expect((messages.first as Map)['type'], 'worker_send_batch');
         expect((messages.first as Map)['messages'].single['connectionId'], 1);
         expect((messages.last as Map)['connectionId'], 2);
+        final payload = (messages.last as Map)['payload'];
         expect(
-          (messages.last as Map)['payload'],
-          fallback == 'msgpack'
-              ? isA<TransferableTypedData>()
-              : isA<Uint8List>(),
+          payload is TransferableTypedData
+              ? payload.materialize().asUint8List()
+              : payload,
+          encodeMessage(
+            switch (fallback) {
+              'json' => NativeMessageSerializer.json,
+              'cbor' => NativeMessageSerializer.cbor,
+              'msgpack' => NativeMessageSerializer.messagePack,
+              _ => NativeMessageSerializer.flatbuffers,
+            },
+            message,
+          ),
         );
         expect((messages.last as Map).containsKey('fragments'), isFalse);
       } finally {
@@ -284,7 +302,11 @@ void main() {
             );
             expect(frame['index'], index);
             expect(
-              frame['payload'],
+              frame['payload'] is TransferableTypedData
+                  ? (frame['payload'] as TransferableTypedData)
+                        .materialize()
+                        .asUint8List()
+                  : frame['payload'],
               encodeMessage(
                 serializer,
                 event_msg.Event(1, 2, details, arguments: [bytes]),

@@ -24,13 +24,15 @@ const _frameSizes = [
   131072,
 ];
 
-void _sendFrames(SendPort target) {
+void _sendFrames(List<Object> input) {
+  final target = input[0] as SendPort;
+  final serializer = NativeMessageSerializer.values[input[1] as int];
   for (final size in _frameSizes) {
     final storage = Uint8List.fromList(List.generate(size + 8, (i) => i % 251));
     final body = Uint8List.sublistView(storage, 3, size + 3);
     sendWorkerMessagePayload(
       target,
-      NativeMessageSerializer.messagePack,
+      serializer,
       Event(1, size + 1, EventDetails(), arguments: [body]),
       {'connectionId': 7, 'bodyLength': size},
     );
@@ -39,43 +41,53 @@ void _sendFrames(SendPort target) {
 }
 
 void main() {
-  test(
-    'large MessagePack frames cross isolates with transferred ownership',
-    () async {
-      final port = ReceivePort();
-      addTearDown(port.close);
-      final received = port.take(_frameSizes.length).toList();
-      await Isolate.spawn(_sendFrames, port.sendPort);
-      final frames = await received.timeout(const Duration(seconds: 10));
-      for (final value in frames) {
-        final frame = value as Map;
-        final size = frame['bodyLength'] as int;
-        expect(frame['connectionId'], 7);
-        final expected = encodeMessage(
-          NativeMessageSerializer.messagePack,
-          Event(
-            1,
-            size + 1,
-            EventDetails(),
-            arguments: [
-              Uint8List.fromList(List.generate(size, (i) => (i + 3) % 251)),
-            ],
-          ),
-        );
-        final payload = frame['payload'];
-        expect(
-          payload,
-          expected.length >= 16384
-              ? isA<TransferableTypedData>()
-              : isA<Uint8List>(),
-        );
-        final bytes = payload is TransferableTypedData
-            ? payload.materialize().asUint8List()
-            : payload as Uint8List;
-        expect(bytes, expected);
-      }
-    },
-  );
+  for (final serializer in [
+    NativeMessageSerializer.json,
+    NativeMessageSerializer.messagePack,
+    NativeMessageSerializer.cbor,
+    NativeMessageSerializer.flatbuffers,
+  ]) {
+    test(
+      'large ${serializer.name} frames cross isolates with transferred ownership',
+      () async {
+        final port = ReceivePort();
+        addTearDown(port.close);
+        final received = port.take(_frameSizes.length).toList();
+        await Isolate.spawn(_sendFrames, <Object>[
+          port.sendPort,
+          serializer.index,
+        ]);
+        final frames = await received.timeout(const Duration(seconds: 10));
+        for (final value in frames) {
+          final frame = value as Map;
+          final size = frame['bodyLength'] as int;
+          expect(frame['connectionId'], 7);
+          final expected = encodeMessage(
+            serializer,
+            Event(
+              1,
+              size + 1,
+              EventDetails(),
+              arguments: [
+                Uint8List.fromList(List.generate(size, (i) => (i + 3) % 251)),
+              ],
+            ),
+          );
+          final payload = frame['payload'];
+          expect(
+            payload,
+            expected.length >= 16384
+                ? isA<TransferableTypedData>()
+                : isA<Uint8List>(),
+          );
+          final bytes = payload is TransferableTypedData
+              ? payload.materialize().asUint8List()
+              : payload as Uint8List;
+          expect(bytes, expected);
+        }
+      },
+    );
+  }
   test(
     'transferred MessagePack frames preserve keywords, PPT and lazy bytes',
     () async {
