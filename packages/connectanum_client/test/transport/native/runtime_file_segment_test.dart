@@ -230,8 +230,10 @@ void main() {
             expectedLength: bytes.length,
           );
           addTearDown(() => runtime.releaseFile(handle));
+          final beforeFileMetrics = runtime.fileSegmentMetricsSnapshot();
+          const lengths = [0, 1, 2, 3, 23, 24, 255, 256, 65536];
           var request = 1;
-          for (final length in [0, 1, 2, 3, 23, 24, 255, 256, 65536]) {
+          for (final length in lengths) {
             final call = _call(request++, Uint8List(0));
             final prefix = buildNativeFileSegmentPrefix(
               _encode(serializer, call),
@@ -285,6 +287,23 @@ void main() {
           );
           runtime.sendMessage(connection, recovery);
           expect(await peer.nextFrame(), orderedEquals(recovery));
+          // The following ordinary frame is a writer barrier: the final file
+          // write has completed, including its native counter updates.
+          final fileMetrics = runtime.fileSegmentMetricsSnapshot().deltaFrom(
+            beforeFileMetrics,
+          );
+          // Either native sendfile or the buffered fallback must account for
+          // the real file bytes, independently of platform/serializer choice.
+          expect(
+            fileMetrics.rawSocketZeroCopyCallsTotal +
+                fileMetrics.bufferedFileSegmentCallsTotal,
+            greaterThan(0),
+          );
+          expect(
+            fileMetrics.rawSocketZeroCopyBytesTotal +
+                fileMetrics.bufferedFileSegmentBytesTotal,
+            greaterThanOrEqualTo(lengths.reduce((sum, length) => sum + length)),
+          );
         },
       );
 

@@ -336,7 +336,17 @@ void sendWorkerMessagePayload(
       return;
     }
   }
-  target.send({...envelope, 'payload': encodeMessage(serializer, message)});
+  final payload = encodeMessage(serializer, message);
+  // Sending a large managed byte array copies it into the receiver's heap.
+  // Transfer ownership instead so these short-lived frames stay external.
+  target.send({
+    ...envelope,
+    'payload':
+        serializer == NativeMessageSerializer.messagePack &&
+            payload.length >= 16 * 1024
+        ? TransferableTypedData.fromList([payload])
+        : payload,
+  });
 }
 
 Uint8List encodeMessage(

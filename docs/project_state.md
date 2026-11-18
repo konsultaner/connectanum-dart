@@ -1,8 +1,20 @@
 # Project State
 
-Last updated: 2026-11-17.
+Last updated: 2026-11-18.
 Current milestone: qualify the Dart 3.14.0 toolchain on the GitHub CI chain.
 Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
+
+CI repair resumed on 2026-11-18. The fix transfers large MessagePack worker
+frames with `TransferableTypedData` to avoid receiver-side managed byte-array
+clones. In an alternating hosted ARM64 comparison, original code fails the
+58-MiB drained-RSS limit in two of four cold campaigns; all 20 fixed cycles
+pass, with maximum drained RSS 33.96 MiB. Exact-byte, mutation, lazy/PPT and
+native enqueue/error regressions pass. Deterministic native lifecycle, file
+metrics and worker error tests add 29 hits on previously missed source lines.
+All budgets, coverage requirements, workload, warm-up/drain and VM settings are
+unchanged. Final local `bin/verify` and PR checks are in progress; see the active
+plan for provenance. The earlier macOS capacity failure clears on one targeted
+infrastructure retry, with all three ObjectBox platforms passing at `4de24d25`.
 
 Standalone Dart setup, package publishing, diagnostic and ObjectBox jobs now
 select 3.14.0, with matching pub-cache keys and `.tool-versions`. Package SDK
@@ -44,7 +56,7 @@ receipt-only update changes documentation; source qualification is retained at
 The earlier full local `bin/verify` passed on the mutation-runner branch; that
 result does not certify this newer `master` base. This PR carries the SDK
 upgrade, its strict test-worker qualification and verification record, with
-no production runtime changes.
+the focused frame ownership repair described above.
 
 Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five

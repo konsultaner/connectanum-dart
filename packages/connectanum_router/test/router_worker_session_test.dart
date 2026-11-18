@@ -248,7 +248,12 @@ void main() {
         expect((messages.first as Map)['type'], 'worker_send_batch');
         expect((messages.first as Map)['messages'].single['connectionId'], 1);
         expect((messages.last as Map)['connectionId'], 2);
-        expect((messages.last as Map)['payload'], isA<Uint8List>());
+        expect(
+          (messages.last as Map)['payload'],
+          fallback == 'msgpack'
+              ? isA<TransferableTypedData>()
+              : isA<Uint8List>(),
+        );
         expect((messages.last as Map).containsKey('fragments'), isFalse);
       } finally {
         accepted.close();
@@ -448,7 +453,13 @@ void main() {
       final pending = _captureScratchFrames(serializer, [message]);
       bytes.fillRange(0, bytes.length, 0);
       final frames = await pending;
-      expect(frames.single['payload'], expected);
+      final payload = frames.single['payload'];
+      expect(
+        payload is TransferableTypedData
+            ? payload.materialize().asUint8List()
+            : payload,
+        expected,
+      );
       expect(workerFrameScratchMetricsForTest, before);
     }
   });

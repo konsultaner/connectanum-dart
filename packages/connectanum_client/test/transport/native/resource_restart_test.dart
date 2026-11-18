@@ -1,4 +1,7 @@
+import 'dart:ffi' as ffi;
+
 import 'package:connectanum_client/connectanum.dart';
+import 'package:connectanum_client/src/transport/native/ffi_bindings.dart';
 import 'package:connectanum_client/src/transport/native/runtime.dart';
 import 'package:test/test.dart';
 
@@ -6,6 +9,64 @@ import '../../test_support/native_runtime_support.dart';
 
 void main() {
   final unavailableReason = nativeClientRuntimeSkipReason();
+
+  group('native runtime foreign shutdown', () {
+    setUp(NativeClientRuntime.shutdownShared);
+    tearDown(NativeClientRuntime.shutdownShared);
+
+    test('close and poll preserve native failure diagnostics and recover', () {
+      final runtime = NativeClientRuntime.instance()..ensureStarted();
+      final bindings = CtFfiBindings(
+        ffi.DynamicLibrary.open(runtime.libraryPath),
+      );
+      expect(bindings.ctShutdown(), NativeTransportErrorCode.success);
+
+      for (final operation in <(void Function(), String)>[
+        (
+          () => runtime.closeConnection(1),
+          'Failed to close native transport connection',
+        ),
+        (
+          () => runtime.pollMessageHandle(1),
+          'Polling native transport message failed',
+        ),
+      ]) {
+        expect(
+          operation.$1,
+          throwsA(
+            isA<NativeTransportException>()
+                .having(
+                  (error) => error.code,
+                  'code',
+                  NativeTransportErrorCode.runtimeNotStarted,
+                )
+                .having(
+                  (error) => error.message,
+                  'message',
+                  '${operation.$2}: native runtime not started',
+                )
+                .having(
+                  (error) => error.toString(),
+                  'diagnostic',
+                  'NativeTransportException(code: ${NativeTransportErrorCode.runtimeNotStarted}, message: ${operation.$2}: native runtime not started)',
+                ),
+          ),
+        );
+      }
+
+      // The Dart owner still believes it is started after the foreign shutdown.
+      // Its teardown must tolerate the already-stopped runtime before restart.
+      NativeClientRuntime.shutdownShared();
+      final replacement = NativeClientRuntime.instance()..ensureStarted();
+      expect(replacement, isNot(same(runtime)));
+      expect(
+        bindings.ctStartRuntime(),
+        NativeTransportErrorCode.alreadyStarted,
+      );
+      final ring = replacement.createE2eeKeyring();
+      replacement.releaseE2eeKeyring(ring);
+    });
+  }, skip: unavailableReason);
 
   for (final aes in [false, true]) {
     final cipher = aes ? 'aes256gcm' : 'xsalsa20poly1305';
