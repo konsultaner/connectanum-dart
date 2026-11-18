@@ -33,8 +33,8 @@ jobs:
           mkdir -p out/probe-host
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends heaptrack
-          dpkg-query -W heaptrack > out/probe-host/heaptrack-version.txt
-          dpkg-query -L heaptrack > out/probe-host/heaptrack-files.txt
+          dpkg-query -W heaptrack libheaptrack > out/probe-host/heaptrack-version.txt
+          dpkg-query -L heaptrack libheaptrack > out/probe-host/heaptrack-files.txt
           sha256sum out/probe-native/libct_ffi.so > out/probe-host/native-sha256.txt
       - name: Prepare exact worker dependencies
         run: |
@@ -49,8 +49,8 @@ jobs:
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
-          export HEAPTRACK_PRELOAD="$(dpkg-query -L heaptrack | rg '/libheaptrack_preload.so$')"
-          export HEAPTRACK_INTERPRET="$(dpkg-query -L heaptrack | rg '/heaptrack_interpret$')"
+          export HEAPTRACK_PRELOAD="$(dpkg-query -L libheaptrack | rg '/libheaptrack_preload.so$')"
+          export HEAPTRACK_INTERPRET="$(dpkg-query -L libheaptrack | rg '/heaptrack_interpret$')"
           test -f "$HEAPTRACK_PRELOAD"
           test -x "$HEAPTRACK_INTERPRET"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py
