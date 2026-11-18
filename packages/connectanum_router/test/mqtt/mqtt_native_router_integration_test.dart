@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/mqtt.dart';
@@ -19,6 +20,25 @@ import 'package:test/test.dart';
 import '../support/native_lib.dart';
 
 void main() {
+  test(
+    'native MQTT payload views survive actual GC after runtime disposal',
+    () async {
+      final library = resolveOrBuildNativeLib();
+      expect(library, isNotNull);
+      final config = (await Isolate.packageConfig)!;
+      final result = await Process.run(Platform.resolvedExecutable, [
+        '--enable-vm-service=0',
+        '--disable-service-auth-codes',
+        '--packages=${config.toFilePath()}',
+        'test/support/mqtt_frame_gc_probe.dart',
+        library!,
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(result.stdout, contains('MQTT_FRAME_GC_OK'));
+    },
+    timeout: const Timeout(Duration(seconds: 45)),
+  );
+
   test(
     'native MQTT frames own interleaved and fragmented input after shutdown',
     () async {

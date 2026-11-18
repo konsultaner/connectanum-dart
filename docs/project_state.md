@@ -4,63 +4,39 @@ Last updated: 2026-11-18.
 Current milestone: qualify the Dart 3.14.0 toolchain on the GitHub CI chain.
 Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
-CI repair resumed on 2026-11-18. The fix transfers large contiguous worker
-frames with `TransferableTypedData` and materializes them once before native
-enqueue, avoiding receiver-side managed byte-array clones for all supported
-codecs. The original MessagePack profile passes regular shard 1 at `19c9cd96`
-with 25.40-MiB drained RSS against the unchanged 58-MiB cap. Regular shard 2
-exposes CBOR peak RSS of 67.97 MiB against 63 MiB; the follow-up extends the
-handoff consistently. In its paired hosted CBOR comparison, all 20 fixed cycles
-pass, with maximum peak 51.67 MiB versus 59.82 MiB original on that host.
-Exact-byte, mutation, lazy/PPT, ordering, scratch bounds and native enqueue/error
-regressions pass. Native lifecycle, file metrics and worker error tests add 29
-hits on previously missed source lines. Complete local `bin/verify` passes on
-the final all-codec source, including real Chrome/Dart2Wasm. Final PR checks
-remain pending. All budgets, coverage requirements, workload, warm-up/drain,
-VM settings and CI workflows/scripts stay unchanged. See the active plan for
-provenance, failure history and comparison/verification receipts.
+[PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
+Dart to 3.14.0 in `.tool-versions`, GitHub setup/cache keys and all eight package
+publishing jobs. Package SDK lower bounds stay at 3.10.0. The strict retention
+worker SDK guard is qualified for exactly 3.14.0, retaining its existing VM,
+witness and collection controls.
 
-Standalone Dart setup, package publishing, diagnostic and ObjectBox jobs now
-select 3.14.0, with matching pub-cache keys and `.tool-versions`. Package SDK
-lower bounds remain 3.10.0. [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138)
-contains the isolated upgrade on current `master`.
-The first PR CI run rejected the retention worker's old 3.13.1-only SDK guard.
-Its strict guard now selects 3.14.0; six regression tests and real Linux ARM64
-AOT/hosted Ubuntu qualification pass with all original GC and memory controls.
-At `2d51a258`, hosted `bin/verify`, browser coverage, consumers, mutation gates,
-package dry runs and all three ObjectBox platforms pass. All 55 main-CI jobs
-pass after one unchanged repeat of gateway shard 1. Its first attempt had a
-61.13-MiB cold-cycle drained RSS against a 58-MiB cap; the next four cycles
-were 30–32 MiB. Original failure evidence is retained; the successful repeat
-does not establish its cause. No budget is relaxed.
+The CI repair transfers large serialized worker frames rather than cloning
+them into the receiver's managed heap. Exact bytes, mutation, lazy/PPT,
+ordering, scratch bounds and native enqueue/error regressions pass. Regular
+MessagePack and CBOR shards now pass. Deterministic native lifecycle, file
+metrics and worker error tests cover 29 previously missed lines; both Codecov
+checks pass at `f3798ef4` (project 94.20% versus base 94.16%). Its complete
+rollup is 58 success / 3 failure: the native GuardMalloc fixture, overload
+shard 0 and dependent Full Verify remain red.
 
-The documentation-only head `712e3896` fails gateway shard 1 again on the same
-normal-runtime profile: first-cycle drained RSS is 60.78 MiB against the
-unchanged 58-MiB cap; the next four cycles are about 30–33 MiB and separate
-bounded retention controls pass. Failure/pass/failure establishes a recurring
-qualification blocker, with root cause unresolved. No further retry, runtime
-workaround or budget reduction is made. The final macOS ObjectBox job could not
-acquire a hosted ARM64 runner and was cancelled before execution; Linux and
-Windows pass. Source-identical earlier macOS evidence is retained separately.
+The native fixture follow-up establishes slow backpressure before arming the
+fast reader and releases unsubmitted slices on unwind. All payloads, six
+variants, instrumentation, five-second I/O/receipt bounds and 120-second group
+bound remain. Local GuardMalloc and five hosted Intel inventories pass
+(440 cases); production Rust is unchanged. Complete local `bin/verify` passes
+on this native follow-up plus the all-codec frame repair.
 
-`codecov/project` also failed at `2d51a258`: 60 of 61 PR checks passed, with
-94.12% against the 94.16% base (17 fewer hits over the same 49,969 lines).
-Changed-line coverage passes. Lost hits are in unchanged native lifecycle/error
-and initial worker metadata paths. At the final checked source head
-`712e3896`, hosted `bin/verify`, browser coverage, WampApp and all mutation gates
-pass; main CI has 53 successful jobs and two failures (shard 1 plus dependent
-Full Verify). Final `codecov/project` also fails at 94.14% versus 94.16%, with
-11 fewer hits over the same 49,969 lines; patch coverage passes. The full
-rollup is 57 success, three failure and one cancelled check. Exact measurements,
-artifact digests and CI links are in the active plan. Acceptance remains
-blocked; all coverage and memory requirements are unchanged. The concluding
-receipt-only update changes documentation; source qualification is retained at
-`712e3896`.
-
-The earlier full local `bin/verify` passed on the mutation-runner branch; that
-result does not certify this newer `master` base. This PR carries the SDK
-upgrade, its strict test-worker qualification and verification record, with
-the focused frame ownership repair described above.
+For overload peak RSS (141.38 MiB versus the unchanged 126-MiB cap), the native
+MQTT decoder now copies into independently owned external storage for large
+bodies, with native-free lifetime and SDK external-size accounting. The paired
+hosted experiment passes all 12 fixed cycles, maximum 91.09 MiB; the original
+fails all 12. Framing and native GC-lifetime regressions pass. The separate
+input-event transfer candidate failed 11/12 cycles and was discarded.
+Final-source `bin/verify` and the complete PR checks are still required before
+acceptance. Workload, queues, warm-up/drain, VM settings, coverage/mutation
+requirements, numeric budgets and CI scripts/workflows are unchanged by these
+repairs. See the [active plan](exec-plans/2026-11-17-dart-3.14-upgrade.md) for
+failure history, rejected candidates and exact qualification receipts.
 
 Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five
@@ -89,8 +65,8 @@ See the [MQTT contract](mqtt.md) and completed
 
 | Source/check | Verified result |
 | --- | --- |
-| Dart 3.14 source `712e3896`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44103774510) | 53/55 jobs pass; recurrent shard-1 cold RSS failure blocks Full Verify; hosted `bin/verify` passes |
-| Dart 3.14 full PR checks at `712e3896` | 57 success, three failure, one cancelled; Codecov project 94.14% vs 94.16%, macOS hosted runner unavailable |
+| Dart 3.14 source `f3798ef4`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44252531253) | 52/55 jobs pass; GuardMalloc fixture, overload shard 0 and dependent Full Verify fail; all normal gateway profiles pass |
+| Dart 3.14 full PR checks at `f3798ef4` | 58 success / 3 failure; both Codecov checks green (project 94.20% vs 94.16%); package dry run and all ObjectBox platforms pass |
 | Released source `72c078f1`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/42228480314) | All 61 PR checks pass, zero skipped checks; all sixteen performance/memory shards pass |
 | Published native builds / production profiles | Five platforms pass, 170 cases, zero skips |
 | Fresh hosted-only beta.9 consumer | All eight exact versions; MQTT 5/3.1.1 and both gateway directions pass; zero duplicates |
