@@ -358,6 +358,13 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
             let info = unsafe { info.assume_init() };
             assert_eq!(info.base as usize, producer.base);
             assert_eq!(info.writable, 0);
+            let slow_receipt = Receipt::new(slow, producer.handle);
+            // Observe actual payload progress before interrupting this write.
+            // The fixed small receive window cannot accept the full 8 MiB body.
+            let _partial_payload = read_payload_prefix(&mut slow_peer, websocket);
+            assert_eq!(slow_receipt.outcome(), 0);
+            // Establish the blocked leg before starting the fast reader's I/O
+            // deadline. Both writes still share the same live borrowed owner.
             let reader = thread::spawn(move || {
                 let payload = read_payload(&mut fast_peer, websocket);
                 // Reading the final byte does not prove the local writer has
@@ -365,11 +372,8 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
                 (fast_peer, payload)
             });
             let fast_receipt = Receipt::new(fast, copy);
-            let slow_receipt = Receipt::new(slow, producer.handle);
-            // Observe actual payload progress before interrupting this write.
-            // The fixed small receive window cannot accept the full 8 MiB body.
-            let _partial_payload = read_payload_prefix(&mut slow_peer, websocket);
-            until("fast local write", || fast_receipt.outcome() == 1);
+            let fast_boundary = format!("fast local write (websocket={websocket}, {termination:?})");
+            until(&fast_boundary, || fast_receipt.outcome() == 1);
             let (_fast_peer, payload) = reader.join().unwrap();
             assert!(valid_payload(&payload));
             // The slow receiver has consumed only the verified payload prefix.

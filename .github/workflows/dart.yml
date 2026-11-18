@@ -1,11 +1,17 @@
 name: Dart 3.14 cold-cycle RSS diagnostics
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        options: [rss, guardmalloc]
+        default: rss
 permissions:
   contents: read
   actions: read
 jobs:
   cold-cycle-rss:
+    if: ${{ inputs.target == 'rss' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     steps:
@@ -56,4 +62,31 @@ jobs:
           path: |
             out/dart314-rss-probe
             out/probe-host
+          retention-days: 7
+
+  guardmalloc-ordering:
+    if: ${{ inputs.target == 'guardmalloc' }}
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify unchanged production and guard controls
+        run: |
+          git diff --exit-code f3798ef45fd9bb746b55fcb2d66cc47c39299f58 HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs' tool/run_native_guardmalloc.py tool/test_run_native_guardmalloc.py
+          python3 tool/test_run_native_guardmalloc.py
+      - name: Repeat exact guarded native inventory
+        run: |
+          set -euo pipefail
+          for index in 1 2 3 4 5; do
+            python3 tool/run_native_guardmalloc.py --output "out/guardmalloc-probe/${index}"
+          done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: dart314-guardmalloc-ordering
+          path: out/guardmalloc-probe
+          if-no-files-found: error
           retention-days: 7
