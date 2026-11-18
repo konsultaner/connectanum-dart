@@ -2888,15 +2888,23 @@ class NativeTransportRuntime
     );
   }
 
+  static final _mappedLibrary = ffi.DynamicLibrary.open(
+    Platform.environment['RSS_PROBE_MAP_LIB']!,
+  );
+  static final _mappedAllocate = _mappedLibrary
+      .lookupFunction<
+        ffi.Pointer<ffi.Uint8> Function(ffi.UintPtr),
+        ffi.Pointer<ffi.Uint8> Function(int)
+      >('probe_mapped_allocate');
+  static final _mappedFree = _mappedLibrary.lookup<ffi.NativeFinalizerFunction>(
+    'probe_mapped_free',
+  );
+
   static Uint8List _allocateMqttFrameBody(int length) {
     if (length < 16 * 1024) return Uint8List(length);
-    // Keep transient large bodies out of the managed old generation. The VM
-    // accounts their external bytes and owns the allocation through every view,
-    // independently of this runtime's shutdown/disposal.
-    return calloc<ffi.Uint8>(length).asTypedList(
-      length,
-      finalizer: calloc.nativeFree,
-    );
+    final pointer = _mappedAllocate(length);
+    if (pointer == ffi.nullptr) throw StateError('Mapped allocation failed');
+    return pointer.asTypedList(length, finalizer: _mappedFree);
   }
 
   int _pollMqttChunkLength(int connectionId) {

@@ -43,10 +43,10 @@ jobs:
           dart pub get
           python3 -m venv "$RUNNER_TEMP/probe-python"
           "$RUNNER_TEMP/probe-python/bin/pip" install paho-mqtt==2.1.0
-      - name: Build diagnostic snapshot callback
+      - name: Build diagnostic mapped allocator
         run: |
           mkdir -p out/probe-heap
-          cc -shared -fPIC -O2 tool/dart314_heap_snapshot.c -o out/probe-heap/libprobe.so
+          cc -shared -fPIC -O2 tool/dart314_mapped_bytes.c -o out/probe-heap/libmappedbytes.so
       - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
+          export RSS_PROBE_MAP_LIB="$GITHUB_WORKSPACE/out/probe-heap/libmappedbytes.so"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py
       - uses: actions/upload-artifact@v7
         if: always()
@@ -62,6 +63,7 @@ jobs:
           path: |
             out/dart314-rss-probe
             out/probe-host
+            out/probe-heap
           retention-days: 7
 
   guardmalloc-ordering:
