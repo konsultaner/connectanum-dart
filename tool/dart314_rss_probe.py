@@ -31,7 +31,7 @@ for name in ['1-normal','2-profiled','3-profiled']:
   with raw.open('rb') as source,subprocess.Popen([os.environ['HEAPTRACK_INTERPRET']],stdin=source,stdout=subprocess.PIPE) as child,gzip.open(interpreted,'wb') as target:
    while data:=child.stdout.read(1048576):target.write(data)
    assert child.wait()==0,'heaptrack interpretation failed'
-  result=subprocess.run(['heaptrack_print',str(interpreted),'--print-overall-allocated','--print-peaks','--print-allocators','--peak-limit','25','--sub-peak-limit','5'],capture_output=True,text=True,check=True)
+  result=subprocess.run(['heaptrack_print',str(interpreted),'--print-peaks','--print-allocators','--peak-limit','25','--sub-peak-limit','5'],capture_output=True,text=True,check=True)
   output.joinpath('allocation-report.txt').write_text(result.stdout+'\n'+result.stderr)
   with raw.open('rb') as source,gzip.open(output/'heaptrack.raw.gz','wb') as target:
    while data:=source.read(1048576):target.write(data)
