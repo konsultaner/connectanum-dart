@@ -145,19 +145,21 @@ final class NativeMqttFrameBufferAllocator {
     }
   }
 
-  Uint8List allocate(int length) {
+  Uint8List allocateHeap(int length) {
     RangeError.checkValueInInterval(length, 0, 0x7fffffff, 'length');
     if (length < 16 * 1024) return Uint8List(length);
-    if (!supportsMappedBytes) {
-      // Older native libraries retain the previous external-byte accounting.
-      final bytes = calloc<ffi.Uint8>(length);
-      try {
-        return bytes.asTypedList(length, finalizer: calloc.nativeFree);
-      } catch (_) {
-        calloc.free(bytes);
-        rethrow;
-      }
+    final bytes = calloc<ffi.Uint8>(length);
+    try {
+      return bytes.asTypedList(length, finalizer: calloc.nativeFree);
+    } catch (_) {
+      calloc.free(bytes);
+      rethrow;
     }
+  }
+
+  Uint8List allocate(int length) {
+    RangeError.checkValueInInterval(length, 0, 0x7fffffff, 'length');
+    if (length < 16 * 1024 || !supportsMappedBytes) return allocateHeap(length);
     final out = calloc<_MappedBytes>();
     var transferred = false;
     try {

@@ -8,6 +8,7 @@ import 'dart:typed_data';
 
 import 'package:connectanum_core/mqtt.dart';
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/native/mqtt_frame_buffer.dart';
 
 class _RetainedPayload {
   _RetainedPayload(this.bytes, this.body);
@@ -90,19 +91,30 @@ Future<_RetainedPayload> _receive(String library) async {
 }
 
 @pragma('vm:never-inline')
-void _verify(_RetainedPayload retained) {
+void _verify(_RetainedPayload retained, {int offset = 0}) {
   if (retained.body.target == null) {
     throw StateError('Body finalized while a view survives');
   }
   final bytes = retained.bytes!;
   if (bytes.length != 100000) throw StateError('Payload length changed');
   for (var i = 0; i < bytes.length; i++) {
-    if (bytes[i] != i % 251) throw StateError('Payload changed at $i');
+    if (bytes[i] != (i + offset) % 251)
+      throw StateError('Payload changed at $i');
   }
 }
 
 @pragma('vm:never-inline')
 bool _released(_RetainedPayload retained) => retained.body.target == null;
+
+@pragma('vm:never-inline')
+_RetainedPayload _snapshotView() {
+  final source = Uint8List.fromList(List.generate(100014, (i) => i % 251));
+  final snapshot = NativeIsolateBytes.transfer(source)!;
+  final bytes = NativeIsolateBytes.materialize(snapshot);
+  final view = Uint8List.sublistView(bytes, 7, 100007);
+  source.fillRange(0, source.length, 0);
+  return _RetainedPayload(view, WeakReference(view));
+}
 
 Future<void> main(List<String> arguments) async {
   final info = await Service.getInfo();
@@ -128,15 +140,16 @@ Future<void> main(List<String> arguments) async {
           )
         : null;
     final retained = await _receive(arguments.single);
-    if (live != null && live() == 0) {
-      throw StateError('Large body did not acquire a mapped owner');
+    final externalKind = ffi.DynamicLibrary.process()
+        .lookupFunction<ffi.Int Function(ffi.Handle), int Function(Object)>(
+          'Dart_GetTypeOfExternalTypedData',
+        );
+    if (externalKind(retained.body.target!) != 2) {
+      throw StateError('Large MQTT body is not SDK-owned external Uint8 data');
     }
     for (var i = 0; i < 4; i++) {
       await collect();
       _verify(retained);
-      if (live != null && live() == 0) {
-        throw StateError('Mapping released while payload view survives');
-      }
     }
     retained.bytes = null;
     for (var i = 0; i < 8 && !_released(retained); i++) {
@@ -150,7 +163,22 @@ Future<void> main(List<String> arguments) async {
         await collect();
       }
       if (live() != 0) throw StateError('Dropped payload retains native pages');
-      stdout.writeln('MQTT_MAPPED_OWNER_RELEASED');
+      stdout.writeln('MQTT_SDK_BODY_RELEASED');
+      final snapshot = _snapshotView();
+      for (var i = 0; i < 4; i++) {
+        await collect();
+        _verify(snapshot, offset: 7);
+        if (live() != 1)
+          throw StateError('Snapshot view lost its native owner');
+      }
+      snapshot.bytes = null;
+      for (var i = 0; i < 8 && (!_released(snapshot) || live() != 0); i++) {
+        await collect();
+      }
+      if (!_released(snapshot) || live() != 0) {
+        throw StateError('Dropped immutable snapshot retains its native owner');
+      }
+      stdout.writeln('MQTT_SNAPSHOT_OWNER_RELEASED');
     }
     stdout.writeln('MQTT_FRAME_GC_OK');
   } finally {

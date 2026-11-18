@@ -2895,7 +2895,7 @@ class NativeTransportRuntime
 
   late final _allocateMqttFrameBody = NativeMqttFrameBufferAllocator.forLibrary(
     _library,
-  ).allocate;
+  ).allocateHeap;
 
   int _pollMqttChunkLength(int connectionId) {
     final call = _bindings.ctPollMqttChunk;

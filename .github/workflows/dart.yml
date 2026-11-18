@@ -4,15 +4,15 @@ on:
     inputs:
       target:
         type: choice
-        options: [rss, gc]
+        options: [rss, gc, qos]
         default: rss
 permissions:
   contents: read
   actions: read
 jobs:
   cold-cycle-rss:
-    if: ${{ inputs.target == 'rss' || inputs.target == 'gc' }}
-    runs-on: ubuntu-24.04-arm
+    if: ${{ inputs.target == 'rss' || inputs.target == 'gc' || inputs.target == 'qos' }}
+    runs-on: ${{ inputs.target == 'qos' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
@@ -24,7 +24,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: dart314-rss-probe
-          run-id: 44320022715
+          run-id: 44327753894
           github-token: ${{ github.token }}
           path: out/probe-baseline
       - uses: actions/download-artifact@v8
@@ -49,6 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           dart pub get
+          if [[ "${{ inputs.target }}" == qos ]]; then sudo apt-get update && sudo apt-get install -y mosquitto; fi
           python3 -m venv "$RUNNER_TEMP/probe-python"
           "$RUNNER_TEMP/probe-python/bin/pip" install paho-mqtt==2.1.0
       - name: Build portable native allocator
@@ -71,7 +72,9 @@ jobs:
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-baseline/probe-candidate/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
           export RSS_PROBE_CANDIDATE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
-          if [[ "$PROBE_TARGET" == gc ]]; then
+          if [[ "$PROBE_TARGET" == qos ]]; then
+            "$PAHO_PYTHON" tool/dart314_qos_probe.py
+          elif [[ "$PROBE_TARGET" == gc ]]; then
             "$PAHO_PYTHON" tool/dart314_gc_probe.py
           else
             "$PAHO_PYTHON" tool/dart314_rss_probe.py
@@ -83,6 +86,7 @@ jobs:
           path: |
             out/dart314-rss-probe
             out/dart314-gc-probe
+            out/dart314-qos-probe
             out/probe-host
             out/probe-candidate
           retention-days: 7
