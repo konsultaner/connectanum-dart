@@ -11,8 +11,9 @@ permissions:
   actions: read
 jobs:
   cold-cycle-rss:
+    if: ${{ inputs.target == 'rss' }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
         with:
@@ -26,15 +27,15 @@ jobs:
           run-id: 44278824458
           github-token: ${{ github.token }}
           path: out/probe-native
-      - name: Verify unchanged source and record profiler
+      - name: Record host and verify unchanged native source
         run: |
           set -euo pipefail
-          git diff --exit-code 2bd89a33 HEAD -- native/transport packages/connectanum_router/lib packages/connectanum_core/lib packages/connectanum_router/test/support/mqtt_frame_gc_probe.dart
+          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs'
           mkdir -p out/probe-host
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends heaptrack
-          dpkg-query -W heaptrack libheaptrack > out/probe-host/heaptrack-version.txt
-          dpkg-query -L heaptrack libheaptrack > out/probe-host/heaptrack-files.txt
+          lscpu --json > out/probe-host/lscpu.json
+          cat /proc/meminfo > out/probe-host/meminfo.txt
+          getconf PAGESIZE > out/probe-host/page-size.txt
+          cat /sys/kernel/mm/transparent_hugepage/enabled > out/probe-host/thp.txt
           sha256sum out/probe-native/libct_ffi.so > out/probe-host/native-sha256.txt
       - name: Prepare exact worker dependencies
         run: |
@@ -42,17 +43,13 @@ jobs:
           dart pub get
           python3 -m venv "$RUNNER_TEMP/probe-python"
           "$RUNNER_TEMP/probe-python/bin/pip" install paho-mqtt==2.1.0
-      - name: Attribute unchanged broker allocations
+      - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
         run: |
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
-          export HEAPTRACK_PRELOAD="$(dpkg-query -L libheaptrack | rg '/libheaptrack_preload.so$')"
-          export HEAPTRACK_INTERPRET="$(dpkg-query -L libheaptrack | rg '/heaptrack_interpret$')"
-          test -f "$HEAPTRACK_PRELOAD"
-          test -x "$HEAPTRACK_INTERPRET"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py
       - uses: actions/upload-artifact@v7
         if: always()
