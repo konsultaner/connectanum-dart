@@ -32,10 +32,13 @@ bodies, with native-free lifetime and SDK external-size accounting. The paired
 hosted experiment passes all 12 fixed cycles, maximum 91.09 MiB; the original
 fails all 12. Framing and native GC-lifetime regressions pass. The separate
 input-event transfer candidate failed 11/12 cycles and was discarded.
-Final-source `bin/verify` and the complete PR checks are still required before
-acceptance. Workload, queues, warm-up/drain, VM settings, coverage/mutation
-requirements, numeric budgets and CI scripts/workflows are unchanged by these
-repairs. See the [active plan](exec-plans/2026-11-17-dart-3.14-upgrade.md) for
+A subsequent control-test startup race is reproduced with delayed Python
+startup: timeout/kill tests now establish their real fixture readiness before
+the unchanged 0.2/0.3-second wait. The SIGKILL negative control still catches an
+escaping descendant. Final-source `bin/verify` and the complete PR checks are
+still required before acceptance. Workload, queues, warm-up/drain, VM settings, coverage/mutation
+requirements, numeric budgets, production verification drivers and CI workflows are
+unchanged by these repairs. See the [active plan](exec-plans/2026-11-17-dart-3.14-upgrade.md) for
 failure history, rejected candidates and exact qualification receipts.
 
 Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
