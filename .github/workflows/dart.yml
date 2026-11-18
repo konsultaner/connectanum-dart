@@ -24,7 +24,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: dart314-rss-probe
-          run-id: 44307443109
+          run-id: 44315805530
           github-token: ${{ github.token }}
           path: out/probe-baseline
       - uses: dtolnay/rust-toolchain@stable

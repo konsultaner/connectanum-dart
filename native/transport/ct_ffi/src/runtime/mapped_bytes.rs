@@ -1,4 +1,4 @@
-//! Exclusive, initialized bytes whose backing pages leave the process on drop.
+//! Exclusive, initialized mapped input or heap-backed immutable snapshots.
 //! The opaque owner is published to exactly one SDK typed-data finalizer.
 
 use super::constants::{ERR_INVALID_ARGUMENT, ERR_IO, SUCCESS};
@@ -13,8 +13,22 @@ pub struct CtMappedBytes {
     pub owner: *mut c_void,
 }
 
+enum Backing {
+    Mapped(MmapMut),
+    Snapshot(Box<[u8]>),
+}
+
+impl Backing {
+    fn as_mut_ptr(&mut self) -> *mut u8 {
+        match self {
+            Self::Mapped(bytes) => bytes.as_mut_ptr(),
+            Self::Snapshot(bytes) => bytes.as_mut_ptr(),
+        }
+    }
+}
+
 struct Owner {
-    mapping: MmapMut,
+    backing: Backing,
     #[cfg(test)]
     lifetime: std::sync::Arc<()>,
 }
@@ -32,7 +46,7 @@ impl Drop for Owner {
 fn allocate_with(
     length: i32,
     out: *mut CtMappedBytes,
-    map: impl FnOnce(usize) -> io::Result<MmapMut>,
+    map: impl FnOnce(usize) -> io::Result<Backing>,
 ) -> i32 {
     if out.is_null() {
         return ERR_INVALID_ARGUMENT;
@@ -52,11 +66,11 @@ fn allocate_with(
         Err(_) => return ERR_IO,
     };
     let mut owner = Box::new(Owner {
-        mapping,
+        backing: mapping,
         #[cfg(test)]
         lifetime: std::sync::Arc::new(()),
     });
-    let data = owner.mapping.as_mut_ptr();
+    let data = owner.backing.as_mut_ptr();
     #[cfg(any(test, feature = "ffi-test"))]
     LIVE.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     unsafe {
@@ -80,7 +94,23 @@ fn allocate_with(
 /// derived view dies. Neither the data pointer nor an arbitrary token is an owner.
 #[no_mangle]
 pub unsafe extern "C" fn ct_mapped_bytes_allocate(length: i32, out: *mut CtMappedBytes) -> i32 {
-    allocate_with(length, out, MmapMut::map_anon)
+    allocate_with(length, out, |length| {
+        MmapMut::map_anon(length).map(Backing::Mapped)
+    })
+}
+
+/// Allocate a private snapshot without per-payload map/unmap syscalls.
+///
+/// # Safety
+/// The output and once-only owner contract is identical to `ct_mapped_bytes_allocate`.
+#[no_mangle]
+pub unsafe extern "C" fn ct_snapshot_bytes_allocate(length: i32, out: *mut CtMappedBytes) -> i32 {
+    allocate_with(length, out, |length| {
+        let mut bytes = Vec::new();
+        bytes.try_reserve_exact(length).map_err(io::Error::other)?;
+        bytes.resize(length, 0);
+        Ok(Backing::Snapshot(bytes.into_boxed_slice()))
+    })
 }
 
 /// Takes exactly the opaque owner returned by allocate, once, on any thread.
@@ -180,6 +210,43 @@ mod tests {
         .unwrap();
         assert!(lifetime.upgrade().is_none());
         unsafe { ct_mapped_bytes_handle_finalizer(ptr::null_mut(), ptr::null_mut()) };
+    }
+
+    #[test]
+    fn initialized_snapshot_owns_bytes_and_releases_on_another_thread() {
+        assert_eq!(
+            unsafe { ct_snapshot_bytes_allocate(1, ptr::null_mut()) },
+            ERR_INVALID_ARGUMENT
+        );
+        for length in [0, -1, 16384, 65537, 1 << 20] {
+            let mut out = poisoned();
+            let result = unsafe { ct_snapshot_bytes_allocate(length, &mut out) };
+            if length <= 0 {
+                assert_eq!(result, ERR_INVALID_ARGUMENT);
+                assert!(out.ptr.is_null() && out.owner.is_null());
+                assert_eq!(out.len, 0);
+                continue;
+            }
+            assert_eq!(result, SUCCESS);
+            assert_eq!(out.len, length as usize);
+            let lifetime =
+                unsafe { std::sync::Arc::downgrade(&(*out.owner.cast::<Owner>()).lifetime) };
+            unsafe {
+                let bytes = std::slice::from_raw_parts_mut(out.ptr, out.len);
+                assert!(bytes.iter().all(|byte| *byte == 0));
+                bytes[0] = 249;
+                bytes[out.len - 1] = 251;
+                assert_eq!(bytes[0], 249);
+                assert_eq!(bytes[out.len - 1], 251);
+            }
+            let token = out.owner as usize;
+            std::thread::spawn(move || unsafe {
+                ct_mapped_bytes_handle_finalizer(ptr::null_mut(), token as *mut c_void)
+            })
+            .join()
+            .unwrap();
+            assert!(lifetime.upgrade().is_none());
+        }
     }
 
     #[test]

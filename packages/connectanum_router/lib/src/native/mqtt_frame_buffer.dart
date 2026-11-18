@@ -100,6 +100,12 @@ final class NativeMqttFrameBufferAllocator {
       .lookupFunction<_AllocateNative, _AllocateDart>(
         'ct_mapped_bytes_allocate',
       );
+  late final _allocateSnapshot =
+      _library.providesSymbol('ct_snapshot_bytes_allocate')
+      ? _library.lookupFunction<_AllocateNative, _AllocateDart>(
+          'ct_snapshot_bytes_allocate',
+        )
+      : _allocate;
   late final _finalizer = _library.lookup<ffi.NativeFunction<_ReleaseNative>>(
     'ct_mapped_bytes_finalizer',
   );
@@ -115,7 +121,7 @@ final class NativeMqttFrameBufferAllocator {
     final out = calloc<_MappedBytes>();
     var transferred = false;
     try {
-      final result = _allocate(source.length, out);
+      final result = _allocateSnapshot(source.length, out);
       if (result < 0) {
         throw StateError('Failed to snapshot binary bytes: $result');
       }
