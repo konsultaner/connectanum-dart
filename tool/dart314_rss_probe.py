@@ -1,36 +1,38 @@
-"""Diagnostic-only paired overload ownership comparison; numeric gates unchanged."""
-import json,os,platform,subprocess,hashlib,threading,time
+"""Diagnostic only: attribute native malloc callers in the unchanged broker."""
+import json,os,platform,subprocess,hashlib,gzip
 from pathlib import Path
 import run_mqtt_gateway_benchmark as bench
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'out/dart314-rss-probe'
-OUT.mkdir(parents=True,exist_ok=False)
-assert not os.environ.get('DART_VM_OPTIONS'),'Default VM options required'
+OUT=ROOT/'out/dart314-rss-probe';OUT.mkdir(parents=True,exist_ok=False)
+assert not os.environ.get('DART_VM_OPTIONS')
 library=Path(os.environ['CONNECTANUM_NATIVE_LIB']).resolve()
 profile=dict(id='tcp-5-cbor-65536-1-1',transport='tcp',mqtt_version='5',serializer='cbor',payload_bytes=65536,subscribers=1,window=1,mqtt_client='connectanum')
-overload=dict(id='overload-tcp',transport='tcp',mqtt_version='5',serializer='cbor',payload_bytes=65536,subscribers=2,window=16,mqtt_client='connectanum')
-metadata=dict(diagnostic_only=True,candidate='portable-Rust-memmap2-native-MQTT-input-storage',source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),baseline='2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f',system=platform.platform(),sdk=subprocess.check_output(['dart','--version'],text=True).strip(),normal_vm_options=os.environ.get('DART_VM_OPTIONS'),runs=5,messages=5000,warmup=200,warmup_seconds=1,drain_seconds=.5)
-OUT.joinpath('environment.json').write_text(json.dumps(metadata,indent=2))
-candidate_library=Path(os.environ['RSS_PROBE_CANDIDATE_LIB']).resolve()
-OUT.joinpath('allocator-sha256.json').write_text(json.dumps(dict(baseline_binary=hashlib.sha256(library.read_bytes()).hexdigest(),candidate_binary=hashlib.sha256(candidate_library.read_bytes()).hexdigest()),indent=2))
-paths=[ROOT/'packages/connectanum_core/lib/src/mqtt/frame_codec.dart',ROOT/'packages/connectanum_router/lib/src/native/runtime.dart',ROOT/'packages/connectanum_router/lib/src/router/router_instance.dart',*[ROOT/'packages/connectanum_router/lib/src/router/router_instance'/n for n in ['router_worker.dart','router_boss.dart','router_internal_session.dart']]]
-candidate={p:p.read_bytes() for p in paths}
-extra=[ROOT/name for name in ['packages/connectanum_router/lib/src/native/mqtt_frame_buffer.dart','native/transport/ct_ffi/Cargo.toml','native/transport/ct_ffi/src/runtime/mod.rs','native/transport/ct_ffi/src/runtime/mapped_bytes.rs']]
-candidate.update({p:p.read_bytes() for p in extra})
-try:
- for path in paths:path.write_bytes(subprocess.check_output(['git','show',f'2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f:{path.relative_to(ROOT)}']))
- workers={'baseline':bench.compile_worker(OUT/'baseline-worker')}
-finally:
- for path,data in candidate.items():path.write_bytes(data)
-workers['candidate']=bench.compile_worker(OUT/'candidate-worker')
-OUT.joinpath('candidate-source-sha256.json').write_text(json.dumps({str(p.relative_to(ROOT)):hashlib.sha256(data).hexdigest() for p,data in candidate.items()},indent=2))
-for kind,selected,repetitions in [('normal',profile,8),('overload',overload,2)]:
- for index,label in enumerate(['baseline','candidate']*repetitions,1):
-  output=OUT/f'{kind}-{index}-{label}';output.mkdir()
-  config={**selected,'path':'mqtt_to_wamp','port':0,'native_library':str(candidate_library if label=='candidate' else library),'paho_python':os.environ['PAHO_PYTHON'],'mosquitto':'mosquitto','diagnostic_only':True,'certificate':str(bench.reference.TLS_CERT),'ca_certificate':str(bench.reference.TLS_CA),'key':str(bench.reference.TLS_KEY)}
-  campaign=bench.Campaign(workers[label],output,config,timeout=90 if kind=='overload' else 300)
-  try:
-   rows=campaign.run_overload(selected,'mqtt_to_wamp',3,2048,20000,.5) if kind=='overload' else campaign.run(selected,'mqtt_to_wamp',5,5000,200,.5,1)
-   output.joinpath('rows.json').write_text(json.dumps(rows,indent=2))
-   for row in rows:print(json.dumps(dict(kind=kind,campaign=index,worker=label,cycle=row['run'],broker=row['processes']['broker'],queues=row['queues'])),flush=True)
-  finally:campaign.close()
+OUT.joinpath('environment.json').write_text(json.dumps(dict(diagnostic_only=True,kind='heaptrack-malloc-callstack-attribution',source=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),production_source='2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f',system=platform.platform(),sdk=subprocess.check_output(['dart','--version'],text=True).strip(),normal_vm_options=os.environ.get('DART_VM_OPTIONS'),native_sha256=hashlib.sha256(library.read_bytes()).hexdigest()),indent=2))
+worker=bench.compile_worker(OUT/'worker')
+original=bench.Child
+class ProfiledChild(original):
+ def __init__(self,label,command,events,output,env):
+  if label=='broker' and 'profiled' in output.name:
+   env={**env,'LD_PRELOAD':os.environ['HEAPTRACK_PRELOAD'],'DUMP_HEAPTRACK_OUTPUT':str(output/'heaptrack.raw')}
+  super().__init__(label,command,events,output,env)
+bench.Child=ProfiledChild
+for name in ['1-normal','2-profiled','3-profiled']:
+ output=OUT/name;output.mkdir()
+ config={**profile,'path':'mqtt_to_wamp','port':0,'native_library':str(library),'paho_python':os.environ['PAHO_PYTHON'],'mosquitto':'mosquitto','diagnostic_only':True,'certificate':str(bench.reference.TLS_CERT),'ca_certificate':str(bench.reference.TLS_CA),'key':str(bench.reference.TLS_KEY)}
+ campaign=bench.Campaign(worker,output,config,timeout=300)
+ try:
+  rows=campaign.run(profile,'mqtt_to_wamp',5,5000,200,.5,1)
+  output.joinpath('rows.json').write_text(json.dumps(rows,indent=2))
+  print(json.dumps(dict(campaign=name,peaks=[r['processes']['broker']['peak_rss_bytes'] for r in rows])),flush=True)
+ finally:campaign.close()
+ raw=output/'heaptrack.raw'
+ if raw.exists():
+  interpreted=output/'heaptrack.gz'
+  with raw.open('rb') as source,subprocess.Popen([os.environ['HEAPTRACK_INTERPRET']],stdin=source,stdout=subprocess.PIPE) as child,gzip.open(interpreted,'wb') as target:
+   while data:=child.stdout.read(1048576):target.write(data)
+   assert child.wait()==0,'heaptrack interpretation failed'
+  result=subprocess.run(['heaptrack_print',str(interpreted),'--print-overall-allocated','--print-peaks','--print-allocators','--peak-limit','25','--sub-peak-limit','5'],capture_output=True,text=True,check=True)
+  output.joinpath('allocation-report.txt').write_text(result.stdout+'\n'+result.stderr)
+  with raw.open('rb') as source,gzip.open(output/'heaptrack.raw.gz','wb') as target:
+   while data:=source.read(1048576):target.write(data)
+  raw.unlink()

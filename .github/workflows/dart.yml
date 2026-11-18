@@ -4,16 +4,15 @@ on:
     inputs:
       target:
         type: choice
-        options: [rss, guardmalloc]
+        options: [rss]
         default: rss
 permissions:
   contents: read
   actions: read
 jobs:
   cold-cycle-rss:
-    if: ${{ inputs.target == 'rss' }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
@@ -27,16 +26,15 @@ jobs:
           run-id: 44278824458
           github-token: ${{ github.token }}
           path: out/probe-native
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Record host and verify unchanged core native source
+      - name: Verify unchanged source and record profiler
         run: |
           set -euo pipefail
-          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/Cargo.toml' ':(exclude)native/transport/ct_ffi/src/runtime/mod.rs' ':(exclude)native/transport/ct_ffi/src/runtime/mapped_bytes.rs'
+          git diff --exit-code 2bd89a33 HEAD -- native/transport packages/connectanum_router/lib packages/connectanum_core/lib packages/connectanum_router/test/support/mqtt_frame_gc_probe.dart
           mkdir -p out/probe-host
-          lscpu --json > out/probe-host/lscpu.json
-          cat /proc/meminfo > out/probe-host/meminfo.txt
-          getconf PAGESIZE > out/probe-host/page-size.txt
-          cat /sys/kernel/mm/transparent_hugepage/enabled > out/probe-host/thp.txt
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends heaptrack
+          dpkg-query -W heaptrack > out/probe-host/heaptrack-version.txt
+          dpkg-query -L heaptrack > out/probe-host/heaptrack-files.txt
           sha256sum out/probe-native/libct_ffi.so > out/probe-host/native-sha256.txt
       - name: Prepare exact worker dependencies
         run: |
@@ -44,24 +42,17 @@ jobs:
           dart pub get
           python3 -m venv "$RUNNER_TEMP/probe-python"
           "$RUNNER_TEMP/probe-python/bin/pip" install paho-mqtt==2.1.0
-      - name: Build portable native allocator
-        run: |
-          set -euo pipefail
-          source bin/common.sh
-          build_native_ffi_test_release
-          mkdir -p out/probe-candidate
-          cp "$CONNECTANUM_NATIVE_LIB" out/probe-candidate/libct_ffi.so
-          sha256sum out/probe-candidate/libct_ffi.so > out/probe-candidate/native-sha256.txt
-          export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
-          (cd packages/connectanum_router; dart test test/native/mqtt_frame_buffer_test.dart test/mqtt/mqtt_native_router_integration_test.dart --name "legacy libraries|fresh native library|payload views survive actual GC" --reporter expanded) 2>&1 | tee out/probe-candidate/ownership-tests.log
-      - name: Compare unchanged default-runtime overload workload
+      - name: Attribute unchanged broker allocations
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
         run: |
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
-          export RSS_PROBE_CANDIDATE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
+          export HEAPTRACK_PRELOAD="$(dpkg-query -L heaptrack | rg '/libheaptrack_preload.so$')"
+          export HEAPTRACK_INTERPRET="$(dpkg-query -L heaptrack | rg '/heaptrack_interpret$')"
+          test -f "$HEAPTRACK_PRELOAD"
+          test -x "$HEAPTRACK_INTERPRET"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py
       - uses: actions/upload-artifact@v7
         if: always()
@@ -70,35 +61,4 @@ jobs:
           path: |
             out/dart314-rss-probe
             out/probe-host
-            out/probe-candidate
-          retention-days: 7
-
-  guardmalloc-ordering:
-    if: ${{ inputs.target == 'guardmalloc' }}
-    runs-on: macos-15-intel
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Verify unchanged production and guard controls
-        run: |
-          git diff --exit-code 2bd89a33d14c0980d808ecbb4b0ded46e2c3bd8f HEAD -- native/transport ':(exclude)native/transport/ct_ffi/src/runtime/external_network_tests.rs' tool/run_native_guardmalloc.py
-          python3 tool/test_run_native_guardmalloc.py
-      - name: Repeat exact guarded native inventory
-        run: |
-          set -euo pipefail
-          mkdir -p out/guardmalloc-probe/controls
-          shasum -a 256 tool/test_run_native_guardmalloc.py > out/guardmalloc-probe/controls/source-sha256.txt
-          for index in 1 2 3 4 5; do
-            python3 tool/test_run_native_guardmalloc.py 2>&1 | tee "out/guardmalloc-probe/controls/${index}.log"
-            python3 tool/run_native_guardmalloc.py --output "out/guardmalloc-probe/${index}"
-          done
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: dart314-guardmalloc-ordering
-          path: out/guardmalloc-probe
-          if-no-files-found: error
           retention-days: 7

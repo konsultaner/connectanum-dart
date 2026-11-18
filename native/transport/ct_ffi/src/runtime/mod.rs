@@ -1,6 +1,5 @@
 pub mod constants;
 pub mod ffi;
-mod mapped_bytes;
 mod message_handles;
 mod native_frames;
 mod owned_buffers;
@@ -23,7 +22,6 @@ pub use constants::*;
 pub use crypto_copy_metrics::*;
 pub use external_lease_ffi::*;
 pub use ffi::*;
-pub use mapped_bytes::*;
 pub use native_frames::*;
 pub use owned_buffers::*;
 pub use rustls_copy_metrics::*;
