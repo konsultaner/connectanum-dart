@@ -4,14 +4,14 @@ on:
     inputs:
       target:
         type: choice
-        options: [rss]
+        options: [rss, gc]
         default: rss
 permissions:
   contents: read
   actions: read
 jobs:
   cold-cycle-rss:
-    if: ${{ inputs.target == 'rss' }}
+    if: ${{ inputs.target == 'rss' || inputs.target == 'gc' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 35
     steps:
@@ -27,6 +27,13 @@ jobs:
           run-id: 44315805530
           github-token: ${{ github.token }}
           path: out/probe-baseline
+      - uses: actions/download-artifact@v8
+        if: ${{ inputs.target == 'gc' }}
+        with:
+          name: dart314-rss-probe
+          run-id: 44307443109
+          github-token: ${{ github.token }}
+          path: out/probe-c7
       - uses: dtolnay/rust-toolchain@stable
       - name: Record host and verify unchanged core native source
         run: |
@@ -57,18 +64,24 @@ jobs:
       - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
+          PROBE_TARGET: ${{ inputs.target }}
         run: |
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-baseline/probe-candidate/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
           export RSS_PROBE_CANDIDATE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
-          "$PAHO_PYTHON" tool/dart314_rss_probe.py
+          if [[ "$PROBE_TARGET" == gc ]]; then
+            "$PAHO_PYTHON" tool/dart314_gc_probe.py
+          else
+            "$PAHO_PYTHON" tool/dart314_rss_probe.py
+          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: dart314-rss-probe
+          name: dart314-${{ inputs.target }}-probe
           path: |
             out/dart314-rss-probe
+            out/dart314-gc-probe
             out/probe-host
             out/probe-candidate
           retention-days: 7
