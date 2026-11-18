@@ -12,7 +12,7 @@ profile=next(p for p in bench.profiles('release') if p['id']=='ws-3.1.1-msgpack-
 metadata={'diagnostic_only':True,'system':platform.platform(),'page_size':os.sysconf('SC_PAGESIZE'),'cpus':os.cpu_count(),'affinity':sorted(os.sched_getaffinity(0)),'source':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'sdk':subprocess.check_output(['dart','--version'],text=True).strip(),'normal_vm_options':os.environ.get('DART_VM_OPTIONS')}
 OUT.joinpath('environment.json').write_text(json.dumps(metadata,indent=2))
 workers={'normal':bench.compile_worker(OUT/'normal-worker'),'heap':bench.compile_worker(OUT/'heap-worker','test/support/ci_heap_worker.dart')}
-for index,label in enumerate(['normal','heap','normal','heap'],1):
+for index,label in enumerate(['normal','heap','normal','heap','normal','heap','normal','heap'],1):
  output=OUT/f'{index}-{label}'
  output.mkdir()
  config={**profile,'path':'mqtt_to_wamp','port':0,'native_library':str(library),'paho_python':os.environ['PAHO_PYTHON'],'mosquitto':'mosquitto','diagnostic_only':True,'certificate':str(bench.reference.TLS_CERT),'ca_certificate':str(bench.reference.TLS_CA),'key':str(bench.reference.TLS_KEY)}
