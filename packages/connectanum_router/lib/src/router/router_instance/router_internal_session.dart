@@ -219,7 +219,7 @@ class RouterSession {
         return;
       }
       final detailMap =
-          (_materializeTransferredValue(message['details']) as Map?)
+          (_materializeApplicationValue(message['details']) as Map?)
               ?.cast<String, Object?>() ??
           const <String, Object?>{};
       final details = event_msg.EventDetails(
@@ -242,7 +242,7 @@ class RouterSession {
       if (custom.isNotEmpty) {
         details.custom.addAll(custom);
       }
-      final transferredPayload = _materializeTransferredValue(
+      final transferredPayload = _materializeApplicationValue(
         message[_internalMsgLazyPayload],
       );
       final event = event_msg.Event(subscriptionId, publicationId, details);
@@ -250,11 +250,11 @@ class RouterSession {
         event,
         transferredPayload,
         fallbackArguments:
-            (_materializeTransferredValue(message['arguments']) as List?)
+            (_materializeApplicationValue(message['arguments']) as List?)
                 ?.cast<dynamic>()
                 .toList(growable: false),
         fallbackArgumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+            (_materializeApplicationValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         pptScheme: details.pptScheme,
         pptSerializer: details.pptSerializer,
@@ -288,7 +288,7 @@ class RouterSession {
         return;
       }
       final detailMap =
-          (_materializeTransferredValue(message['details']) as Map?)
+          (_materializeApplicationValue(message['details']) as Map?)
               ?.cast<String, Object?>() ??
           const <String, Object?>{};
       final custom = Map<String, dynamic>.from(detailMap)
@@ -311,7 +311,7 @@ class RouterSession {
       if (custom.isNotEmpty) {
         details.custom.addAll(custom);
       }
-      final transferredPayload = _materializeTransferredValue(
+      final transferredPayload = _materializeApplicationValue(
         message[_internalMsgLazyPayload],
       );
       if (!subscriptions.any(
@@ -337,12 +337,12 @@ class RouterSession {
               ) ??
               LazyMessagePayload.materialized(
                 arguments:
-                    (_materializeTransferredValue(message['arguments'])
+                    (_materializeApplicationValue(message['arguments'])
                             as List?)
                         ?.cast<dynamic>()
                         .toList(growable: false),
                 argumentsKeywords:
-                    (_materializeTransferredValue(message['argumentsKeywords'])
+                    (_materializeApplicationValue(message['argumentsKeywords'])
                             as Map?)
                         ?.cast<String, dynamic>(),
               ),
@@ -357,11 +357,11 @@ class RouterSession {
         event,
         transferredPayload,
         fallbackArguments:
-            (_materializeTransferredValue(message['arguments']) as List?)
+            (_materializeApplicationValue(message['arguments']) as List?)
                 ?.cast<dynamic>()
                 .toList(growable: false),
         fallbackArgumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+            (_materializeApplicationValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         pptScheme: details.pptScheme,
         pptSerializer: details.pptSerializer,
@@ -387,7 +387,7 @@ class RouterSession {
         return;
       }
       final options =
-          (_materializeTransferredValue(message['options']) as Map?)
+          (_materializeApplicationValue(message['options']) as Map?)
               ?.cast<String, Object?>() ??
           const {};
       final details = invocation_msg.InvocationDetails(
@@ -413,7 +413,7 @@ class RouterSession {
       if (custom.isNotEmpty) {
         details.custom.addAll(custom);
       }
-      final transferredPayload = _materializeTransferredValue(
+      final transferredPayload = _materializeApplicationValue(
         message[_internalMsgLazyPayload],
       );
       final invocation = invocation_msg.Invocation(
@@ -451,11 +451,11 @@ class RouterSession {
           transferredPayload,
           ownedNativePayload: ownedNativePayload,
           fallbackArguments:
-              (_materializeTransferredValue(message['arguments']) as List?)
+              (_materializeApplicationValue(message['arguments']) as List?)
                   ?.cast<dynamic>()
                   .toList(growable: false),
           fallbackArgumentsKeywords:
-              (_materializeTransferredValue(message['argumentsKeywords'])
+              (_materializeApplicationValue(message['argumentsKeywords'])
                       as Map?)
                   ?.cast<String, dynamic>(),
           pptScheme: details.pptScheme,
@@ -545,21 +545,21 @@ class RouterSession {
       }
       _emitCallResult(
         requestId,
-        transferredPayload: _materializeTransferredValue(
+        transferredPayload: _materializeApplicationValue(
           message[_internalMsgLazyPayload],
         ),
-        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+        arguments: (_materializeApplicationValue(message['arguments']) as List?)
             ?.cast<dynamic>()
             .toList(growable: false),
         argumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+            (_materializeApplicationValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         progress: message['progress'] == true,
         pptScheme: message['pptScheme'] as String?,
         pptSerializer: message['pptSerializer'] as String?,
         pptCipher: message['pptCipher'] as String?,
         pptKeyId: message['pptKeyId'] as String?,
-        details: (_materializeTransferredValue(message['details']) as Map?)
+        details: (_materializeApplicationValue(message['details']) as Map?)
             ?.cast<String, Object?>(),
       );
     } else if (type == _internalMsgCallError) {
@@ -570,16 +570,16 @@ class RouterSession {
       _emitCallError(
         requestId,
         errorUri: message['error'] as String? ?? wamp_core.Error.unknown,
-        transferredPayload: _materializeTransferredValue(
+        transferredPayload: _materializeApplicationValue(
           message[_internalMsgLazyPayload],
         ),
-        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+        arguments: (_materializeApplicationValue(message['arguments']) as List?)
             ?.cast<dynamic>()
             .toList(growable: false),
         argumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+            (_materializeApplicationValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, Object?>(),
-        details: (_materializeTransferredValue(message['details']) as Map?)
+        details: (_materializeApplicationValue(message['details']) as Map?)
             ?.cast<String, Object?>(),
       );
     } else if (type == _internalMsgCallProgress) {
@@ -589,21 +589,21 @@ class RouterSession {
       }
       _emitCallResult(
         requestId,
-        transferredPayload: _materializeTransferredValue(
+        transferredPayload: _materializeApplicationValue(
           message[_internalMsgLazyPayload],
         ),
-        arguments: (_materializeTransferredValue(message['arguments']) as List?)
+        arguments: (_materializeApplicationValue(message['arguments']) as List?)
             ?.cast<dynamic>()
             .toList(growable: false),
         argumentsKeywords:
-            (_materializeTransferredValue(message['argumentsKeywords']) as Map?)
+            (_materializeApplicationValue(message['argumentsKeywords']) as Map?)
                 ?.cast<String, dynamic>(),
         progress: true,
         pptScheme: message['pptScheme'] as String?,
         pptSerializer: message['pptSerializer'] as String?,
         pptCipher: message['pptCipher'] as String?,
         pptKeyId: message['pptKeyId'] as String?,
-        details: (_materializeTransferredValue(message['details']) as Map?)
+        details: (_materializeApplicationValue(message['details']) as Map?)
             ?.cast<String, Object?>(),
       );
     } else if (type == HttpInvocationControlMessages.openResponseStream) {
@@ -1675,8 +1675,10 @@ Object? _cborValueToDart(Object? value) {
 
 Object? _transferIsolateValue(Object? value) {
   if (value is Uint8List) {
-    // Keep large isolate snapshots in managed typed data.
-    if (value.lengthInBytes >= 16 * 1024) return Uint8List.fromList(value);
+    if (value.lengthInBytes >= 16 * 1024) {
+      final shared = NativeIsolateBytes.transfer(value);
+      if (shared != null) return shared;
+    }
     return TransferableTypedData.fromList([value]);
   }
   if (value is List) {
@@ -1705,16 +1707,30 @@ Object? _transferIsolateValue(Object? value) {
   return value;
 }
 
-Object? _materializeTransferredValue(Object? value) {
+Object? _materializeTransferredValue(
+  Object? value, {
+  bool forApplication = false,
+}) {
+  if (value is NativeByteSnapshot) {
+    final bytes = NativeIsolateBytes.materialize(value);
+    return forApplication ? Uint8List.fromList(bytes) : bytes;
+  }
   if (value is TransferableTypedData) {
     return value.materialize().asUint8List();
   }
   if (value is Uint8List) {
-    return value;
+    return forApplication && identical(value, value.asUnmodifiableView())
+        ? Uint8List.fromList(value)
+        : value;
   }
   if (value is List) {
     return value
-        .map<Object?>((element) => _materializeTransferredValue(element))
+        .map<Object?>(
+          (element) => _materializeTransferredValue(
+            element,
+            forApplication: forApplication,
+          ),
+        )
         .toList(growable: false);
   }
   if (value is Map) {
@@ -1723,7 +1739,10 @@ Object? _materializeTransferredValue(Object? value) {
       entries.add(
         MapEntry<Object?, Object?>(
           entry.key,
-          _materializeTransferredValue(entry.value),
+          _materializeTransferredValue(
+            entry.value,
+            forApplication: forApplication,
+          ),
         ),
       );
     }
@@ -1740,6 +1759,9 @@ Object? _materializeTransferredValue(Object? value) {
 
 const String _internalMsgForwardInvocation = 'forward_invocation';
 const String _internalMsgSessionClosed = 'session_closed';
+
+Object? _materializeApplicationValue(Object? value) =>
+    _materializeTransferredValue(value, forApplication: true);
 
 class _InternalSessionBootstrap {
   const _InternalSessionBootstrap({

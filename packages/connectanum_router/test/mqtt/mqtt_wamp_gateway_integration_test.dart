@@ -434,7 +434,7 @@ void main() {
         }
         expect(errors, hasLength(mode == 'failures' ? 1 : 0));
         expect(observations.every((e) => e['shared_payload'] == true), isTrue);
-        if ((codec == 'flatbuffers' || codec == 'mixed') &&
+        if ((codec == 'flatbuffers' || codec == 'cbor' || codec == 'mixed') &&
             size >= 16384 &&
             mode != 'legacy' &&
             mode != 'default') {
@@ -443,7 +443,7 @@ void main() {
               0,
               (sum, e) => sum + (e['recipients'] as int),
             ),
-            codec == 'mixed' ? 1 : 4,
+            codec == 'mixed' ? 2 : 4,
           );
           expect(
             outgoingFrames.every((e) => e['shared_payload'] == true),

@@ -118,6 +118,41 @@ void _sendSharedFlatBufferFrames(SendPort target) {
 }
 
 void main() {
+  test('CBOR fragment batch snapshots bytes before caller mutation', () async {
+    final port = ReceivePort();
+    try {
+      final pending = port.first;
+      final body = Uint8List.fromList(List.generate(65536, (i) => i % 251));
+      final batch = WorkerFrameBatch(port.sendPort);
+      sendWorkerMessagePayload(
+        port.sendPort,
+        NativeMessageSerializer.cbor,
+        event_msg.Event(17, 19, event_msg.EventDetails(), arguments: [body]),
+        {'connectionId': 23},
+        frameBatch: batch,
+      );
+      batch.flush();
+      body.fillRange(0, body.length, 0);
+      final received = await pending.timeout(const Duration(seconds: 5)) as Map;
+      expect(received['type'], 'worker_send_batch');
+      final frame = (received['messages'] as List).single as Map;
+      expect(frame['connectionId'], 23);
+      expect(frame.containsKey('payload'), isFalse);
+      final bytes = BytesBuilder(copy: false);
+      for (final part in frame['fragments'] as List) {
+        bytes.add(part as Uint8List);
+      }
+      final event =
+          cbor_serializer.Serializer().deserialize(bytes.takeBytes())
+              as event_msg.Event;
+      expect(event.subscriptionId, 17);
+      expect(event.publicationId, 19);
+      expect(event.arguments!.single, List.generate(65536, (i) => i % 251));
+    } finally {
+      port.close();
+    }
+  });
+
   test('FlatBuffers fanout shares one independent binary snapshot', () async {
     final port = ReceivePort();
     try {
@@ -182,7 +217,7 @@ void main() {
     'lazy',
     'ppt',
   ]) {
-    test('outgoing batch flush precedes $fallback owned frame', () async {
+    test('outgoing batch flush preserves $fallback frame order', () async {
       final port = ReceivePort();
       final accepted = ReceivePort();
       try {
@@ -256,8 +291,22 @@ void main() {
         final messages = await received.timeout(const Duration(seconds: 5));
         expect((messages.first as Map)['type'], 'worker_send_batch');
         expect((messages.first as Map)['messages'].single['connectionId'], 1);
-        expect((messages.last as Map)['connectionId'], 2);
-        final payload = (messages.last as Map)['payload'];
+        final Map frame;
+        if (fallback == 'cbor') {
+          expect((messages.last as Map)['type'], 'worker_send_batch');
+          frame = ((messages.last as Map)['messages'] as List).single as Map;
+          expect(frame.containsKey('payload'), isFalse);
+        } else {
+          frame = messages.last as Map;
+          expect(frame.containsKey('fragments'), isFalse);
+        }
+        expect(frame['connectionId'], 2);
+        final fragments = frame['fragments'] as List?;
+        final payload = fragments == null
+            ? frame['payload']
+            : Uint8List.fromList(
+                fragments.expand((part) => part as Uint8List).toList(),
+              );
         expect(
           payload is TransferableTypedData
               ? payload.materialize().asUint8List()
@@ -272,7 +321,6 @@ void main() {
             message,
           ),
         );
-        expect((messages.last as Map).containsKey('fragments'), isFalse);
       } finally {
         accepted.close();
         port.close();

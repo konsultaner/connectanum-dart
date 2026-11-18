@@ -4,6 +4,7 @@ library;
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:connectanum_router/src/native/mqtt_frame_buffer.dart';
@@ -11,7 +12,46 @@ import 'package:test/test.dart';
 
 import '../support/native_lib.dart';
 
+void _echoSnapshot(SendPort parent) {
+  final port = ReceivePort();
+  parent.send(port.sendPort);
+  port.listen((value) {
+    final bytes = NativeIsolateBytes.materialize(value as NativeByteSnapshot);
+    parent.send(NativeIsolateBytes.transfer(bytes));
+  });
+}
+
 void main() {
+  test(
+    'immutable snapshot owns input and shares the same backing across isolates',
+    () async {
+      final library = ffi.DynamicLibrary.open(resolveOrBuildNativeLib()!);
+      NativeMqttFrameBufferAllocator.forLibrary(library);
+      final expected = List.generate(65536, (i) => i % 251);
+      final source = Uint8List.fromList(expected);
+      final transfer = NativeIsolateBytes.transfer(source)!;
+      final bytes = NativeIsolateBytes.materialize(transfer);
+      source.fillRange(0, source.length, 0);
+      expect(() => bytes[0] = 0, throwsUnsupportedError);
+      final port = ReceivePort();
+      final messages = StreamIterator(port);
+      final child = await Isolate.spawn(_echoSnapshot, port.sendPort);
+      try {
+        await messages.moveNext();
+        (messages.current as SendPort).send(transfer);
+        await messages.moveNext();
+        final received = NativeIsolateBytes.materialize(
+          messages.current as NativeByteSnapshot,
+        );
+        expect(identical(bytes, received), isTrue);
+        expect(received, expected);
+      } finally {
+        child.kill(priority: Isolate.immediate);
+        await messages.cancel();
+        port.close();
+      }
+    },
+  );
   final legacy = ffi.DynamicLibrary.open(switch (Platform.operatingSystem) {
     'macos' => '/usr/lib/libSystem.B.dylib',
     'linux' => 'libc.so.6',

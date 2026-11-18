@@ -23,10 +23,10 @@ jobs:
           sdk: 3.14.0
       - uses: actions/download-artifact@v8
         with:
-          name: ci-gateway-native-arm64
-          run-id: 44278824458
+          name: dart314-rss-probe
+          run-id: 44307443109
           github-token: ${{ github.token }}
-          path: out/probe-native
+          path: out/probe-baseline
       - uses: dtolnay/rust-toolchain@stable
       - name: Record host and verify unchanged core native source
         run: |
@@ -37,7 +37,7 @@ jobs:
           cat /proc/meminfo > out/probe-host/meminfo.txt
           getconf PAGESIZE > out/probe-host/page-size.txt
           cat /sys/kernel/mm/transparent_hugepage/enabled > out/probe-host/thp.txt
-          sha256sum out/probe-native/libct_ffi.so > out/probe-host/native-sha256.txt
+          sha256sum out/probe-baseline/probe-candidate/libct_ffi.so > out/probe-host/native-sha256.txt
       - name: Prepare exact worker dependencies
         run: |
           set -euo pipefail
@@ -53,13 +53,13 @@ jobs:
           cp "$CONNECTANUM_NATIVE_LIB" out/probe-candidate/libct_ffi.so
           sha256sum out/probe-candidate/libct_ffi.so > out/probe-candidate/native-sha256.txt
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
-          (cd packages/connectanum_router; dart test test/native/mqtt_frame_buffer_test.dart test/mqtt/mqtt_native_router_integration_test.dart --name "legacy libraries|fresh native library|payload views survive actual GC" --reporter expanded) 2>&1 | tee out/probe-candidate/ownership-tests.log
+          (cd packages/connectanum_router; dart test test/native/mqtt_frame_buffer_test.dart test/mqtt/mqtt_native_router_integration_test.dart --name "immutable snapshot owns|legacy libraries|fresh native library|payload views survive actual GC" --reporter expanded) 2>&1 | tee out/probe-candidate/ownership-tests.log
       - name: Compare unchanged default-runtime overload workload
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'
         run: |
           set -euo pipefail
-          export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
+          export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-baseline/probe-candidate/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
           export RSS_PROBE_CANDIDATE_LIB="$GITHUB_WORKSPACE/out/probe-candidate/libct_ffi.so"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py

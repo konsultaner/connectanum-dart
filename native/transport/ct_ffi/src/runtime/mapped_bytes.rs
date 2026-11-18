@@ -98,6 +98,18 @@ pub unsafe extern "C" fn ct_mapped_bytes_finalizer(owner: *mut c_void) {
     }
 }
 
+/// Finalizer signature used by the VM's immutable external typed-data API.
+///
+/// # Safety
+/// The peer follows the same once-only ownership contract as the finalizer above.
+#[no_mangle]
+pub unsafe extern "C" fn ct_mapped_bytes_handle_finalizer(
+    _isolate_data: *mut c_void,
+    owner: *mut c_void,
+) {
+    ct_mapped_bytes_finalizer(owner);
+}
+
 #[cfg(any(test, feature = "ffi-test"))]
 #[no_mangle]
 pub extern "C" fn ct_test_mapped_bytes_live_allocations() -> usize {
@@ -147,6 +159,27 @@ mod tests {
         );
         assert!(out.ptr.is_null() && out.owner.is_null());
         assert_eq!(out.len, 0);
+    }
+
+    #[test]
+    fn handle_finalizer_releases_peer_and_ignores_isolate_context() {
+        let mut out = poisoned();
+        assert_eq!(
+            unsafe { ct_mapped_bytes_allocate(65536, &mut out) },
+            SUCCESS
+        );
+        let lifetime = unsafe { std::sync::Arc::downgrade(&(*out.owner.cast::<Owner>()).lifetime) };
+        let token = out.owner as usize;
+        std::thread::spawn(move || unsafe {
+            ct_mapped_bytes_handle_finalizer(
+                ptr::NonNull::<u8>::dangling().as_ptr().cast(),
+                token as *mut c_void,
+            );
+        })
+        .join()
+        .unwrap();
+        assert!(lifetime.upgrade().is_none());
+        unsafe { ct_mapped_bytes_handle_finalizer(ptr::null_mut(), ptr::null_mut()) };
     }
 
     #[test]
