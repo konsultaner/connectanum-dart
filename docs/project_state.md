@@ -1,85 +1,48 @@
 # Project State
 
 Last updated: 2026-11-18.
-Current milestone: close native-snapshot RPC coverage and qualify the final PR head.
-Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
+Current milestone: Dart 3.14 upgrade and CI repair qualified.
+Active plan: none.
+Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
 [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
 Dart 3.14.0 across `.tool-versions`, CI/cache keys and all eight publishing jobs.
-Package SDK lower bounds remain 3.10.0. Implementation `9dc7b2d4` passed all 61
-checks and complete local `bin/verify`, including real Chrome/Dart2Wasm.
-Documentation-only head `2bd89a33` then reproduced CBOR peak RSS at 79.28 MiB
-against the original 63-MiB cap; acceptance is reopened. Its other 59 checks
-pass, including GuardMalloc, all mutation/coverage lanes and three ObjectBox
-platforms. Earlier green results do not clear the current head.
+Package SDK lower bounds remain 3.10.0.
 
-Independent Linux OS, VM and allocator observations confirm real resident peaks.
-At the 78.76-MiB peak, managed old-heap use is 4.4 MiB while libc retains
-32.8 MiB of freed allocations. Mapping only native input, ordinary external
-arrays, managed snapshots and managed snapshots plus mapped input all fail
-repeated cold comparisons. The last combination peaks at 66.75 MiB against
-63 MiB. Functional verification alone does not qualify these candidates.
+The repair keeps MQTT input in the Core decoder's owned managed body. Large
+internal binary values use privately owned, VM-immutable native snapshots across
+isolate hops; public callbacks receive mutable owned copies. The existing
+negotiated, bounded fragment/batch path also handles singleton gateway recipients.
+Older native libraries and custom workers retain their capability fallback.
+The App-Lab child-exit race has a deterministic regression. Lifecycle, copy/GC
+ownership, file-counter and worker-error paths have regression coverage.
+Six added normal/lazy RPC cases at 16,383/16,384/65,537 bytes cover the native
+snapshot public-copy path, nested keywords and independent mutable results.
+Removing that copy fails the regression; original tests stay unchanged.
 
-A minimal Dart 3.14 Linux ARM64 AOT repro distinguishes ordinary readonly views
-(which SendPort copies) from VM-created immutable external typed data (which
-shares identity across isolate hops). The current candidate snapshots large
-internal binary values into independently owned heap storage and publishes
-these through `Dart_NewUnmodifiableExternalTypedDataWithFinalizer`. A private
-carrier preserves that ownership contract; remote routing retains the immutable
-backing, while public callbacks receive mutable owned copies. Older native
-libraries/VMs keep the existing transfer fallback. Default eligible CBOR Events
-use the existing bounded fragment path. Native MQTT input uses the Core
-decoder’s owned managed bytes; heap snapshots have their independent native
-owner, independent of runtime shutdown.
+Implementation `8a70e37c` passes **all 61 PR checks**, without skipped or
+cancelled checks: all 55 [main CI jobs](https://github.com/konsultaner/connectanum-dart/actions/runs/44356684316), all sixteen gateway
+performance/memory shards, exact gateway coverage, all mutation gates and both
+Codecov contexts, three ObjectBox platforms and package dry runs. GuardMalloc
+observes and passes 93 native ownership cases. All 20 standalone MQTT QoS
+profiles pass. Critical 64-KiB/window-32 result: peak 61.65/96 MiB, CPU ratio
+2.467/4, p95 1.116/2, p99 1.096/2.25 and throughput 0.9467/0.75.
 
-All 41 fanout cases pass unchanged identity/content/count assertions. New tests
-cover source mutation, two isolate hops, public mutable recipients, optional old
-native libraries, native/SDK failure cleanup and actual GC. All 93 native
-ownership cases pass GuardMalloc. The corrected heap variant completes full
-`bin/verify`, including real Chrome/Dart2Wasm, with all 19 source/test/tool files
-unchanged. The App-Lab process race has a deterministic failing regression;
-rechecking child liveness after failed `ps` fixes it, with all 16 App-Lab tests
-passing and every deadline preserved.
+Complete current-source local `bin/verify` passes with both the committed head
+and all 21 frozen implementation/test/tool hashes unchanged throughout,
+including real Chrome/Dart2Wasm (4,814 Core and 2,830 client cases; 20 existing
+native-only browser skips). Qualifying cold comparisons match production
+Dart/native source hashes and clear both strict standalone QoS and all 40
+normal/six overload gateway cycles. Full PR CI independently qualifies the
+complete profile/retention/control matrix.
 
-The singleton repair `669a7bc8` passes all 43 gateway regressions, full local
-verification and its cold ARM64 comparison: 40 normal cycles peak at 34.14/63
-MiB, p99 1,665–1,738/2,437 us, and six overload cycles peak at 52.56/126 MiB.
-Its regular CI then finds a separate standalone MQTT 64-KiB/window-32 blocker:
-throughput ratio 0.7416/0.75, CPU ratio 4.095/4, p95 ratio 2.342/2 and p99
-2.278/2.25; memory remains below 96 MiB. That head is not accepted. Twenty-nine
-checks pass before the obsolete failing workflow is cancelled for requalification.
-
-The standalone broker decodes its packets in Dart, so mapping every large input
-body adds work to that path. Restoring SDK-finalized external heap input fixes
-CPU/latency but fails the unchanged 96-MiB memory limit in both cold campaigns;
-that intermediate candidate is rejected. The current candidate instead uses
-the existing Core decoder’s owned managed body, retaining immutable shared
-native snapshots and singleton fragments. Its two strict QoS campaigns pass:
-throughput ratios 0.9205/0.9629 (minimum 0.75), CPU 2.917/3.182 (maximum 4), p95
-1.102/1.019 (maximum 2), p99 1.117/1.050 (maximum 2.25), and peak 54.38/55.68
-MiB against 96 MiB. Original mapping fails CPU in both matching campaigns.
-
-The managed input’s complete bytes and view lifetime after runtime disposal
-remain covered by actual GC; independent native snapshot ownership still has
-its exact release counter. The unchanged ARM64 comparison also passes all 40
-normal and six overload candidate cycles: normal peak 31.39/63 MiB, p99 1,429–1,541/2,437 us; overload
-75.15/126 MiB. All candidate production source hashes exactly match. Complete local `bin/verify`
-passes on all 20 unchanged source/test/tool files, including real Chrome/
-Dart2Wasm (4,814 Core and 2,830 client cases; 20 existing native-only browser
-skips). Regular CI at `66289083` passes all 20 QoS profiles and the functional suites,
-but the strict gateway coverage check reports 878/879 lines: the application
-copy of a native snapshot in an RPC result is unmeasured. Six new boundary
-cases cover normal/lazy RPC results and nested keywords, prove independent
-mutable public bytes, and restore 879/879 with the unchanged checker and saved
-CI coverage. Removing the public copy makes the 16-KiB regression fail with
-`UnsupportedError`; production bytes are restored exactly. Final-head CI
-remains open, and current complete local verification is being rerun.
-
-All numeric budgets, coverage/mutation thresholds, queues, workloads,
-warm-up/drain/stall durations, default VM options and original timeout controls
-remain unchanged. No forced production GC or global allocator tuning is added.
-The plan retains original failures, rejected candidates and checksum-verified
-evidence. No merge or release is performed.
+All 19 benchmark-budget JSON files match `master`; measured critical QoS
+budgets equal checked-in values. Numeric memory/performance, coverage and
+mutation limits, workloads, queue bounds, warm-up/drain/stall durations,
+default VM settings and timeout controls remain unchanged. No forced production
+GC or global allocator tuning is added. The completed plan preserves original
+failures, rejected candidates and checksum-verified evidence. No merge or release
+is made.
 
 Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five
@@ -108,14 +71,17 @@ See the [MQTT contract](mqtt.md) and completed
 
 | Source/check | Verified result |
 | --- | --- |
+| Managed-input/RPC repair `8a70e37c`, [main CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44356684316) | All 55 jobs pass on attempt 1, including all sixteen performance/memory shards and exact coverage/mutation gates |
+| Managed-input/RPC repair `8a70e37c`, complete PR rollup | All 61 checks pass, zero skipped/cancelled checks; both Codecov contexts, three ObjectBox platforms and package dry runs pass |
+| Managed-input/RPC repair `8a70e37c`, committed-head `bin/verify` | Pass, head and all 21 source/test/tool hashes unchanged; Rust/native/VM/consumers/real Chrome/Wasm |
 | Managed-input repair, [strict standalone QoS](https://github.com/konsultaner/connectanum-dart/actions/runs/44339526524) | Both cold campaigns pass every original CPU/rate/latency/RSS gate; peaks 54.38/55.68 MiB against 96 MiB |
 | Managed-input repair, [cold gateway comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44339531343) | All 40 normal/six overload candidate cycles pass available absolute checks; peaks 31.39/63 MiB and 75.15/126 MiB |
-| Managed-input repair, complete local `bin/verify` | Pass, all 20 source/test/tool hashes unchanged; Rust/native/VM/consumers/Chrome/Wasm; final PR CI pending |
+| Managed-input repair, complete local `bin/verify` | Pass, all 20 source/test/tool hashes unchanged; Rust/native/VM/consumers/Chrome/Wasm; complete source-head CI passes at `8a70e37c` |
 | Mapped-input singleton repair, [cold comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44327753894) | All 40 normal and six overload candidate cycles meet available absolute checks; normal 34.14/63 MiB, p99 1,665–1,738/2,437 us |
-| Mapped-input singleton repair, complete local `bin/verify` | Pass, all source hashes unchanged; Rust/native, full VM/consumers and real Chrome/Wasm; full final-head PR CI pending |
+| Mapped-input singleton repair, complete local `bin/verify` | Pass, all source hashes unchanged; Rust/native, full VM/consumers and real Chrome/Wasm; historical mapped-input source, superseded by the complete managed-input/RPC qualification |
 | Dart 3.14 source `9dc7b2d4`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44268728740) | All 55 main jobs pass, including all 16 memory/performance shards |
 | Dart 3.14 full PR checks at `9dc7b2d4` | All 61 checks pass, zero skipped/cancelled; Codecov project 94.20% vs 94.16%, patch 100% |
-| Dart 3.14 final-source local `bin/verify` | Pass, Rust/native/Dart/consumers/ObjectBox/Chrome/Wasm; clean worktree at completion |
+| Earlier Dart 3.14 source `9dc7b2d4`, local `bin/verify` | Pass, Rust/native/Dart/consumers/ObjectBox/Chrome/Wasm; clean worktree at completion |
 | Released source `72c078f1`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/42228480314) | All 61 PR checks pass, zero skipped checks; all sixteen performance/memory shards pass |
 | Published native builds / production profiles | Five platforms pass, 170 cases, zero skips |
 | Fresh hosted-only beta.9 consumer | All eight exact versions; MQTT 5/3.1.1 and both gateway directions pass; zero duplicates |
