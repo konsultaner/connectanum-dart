@@ -140,15 +140,9 @@ Future<void> main(List<String> arguments) async {
           )
         : null;
     final retained = await _receive(arguments.single);
-    if (live != null && live() == 0) {
-      throw StateError('Large body did not acquire a mapped owner');
-    }
     for (var i = 0; i < 4; i++) {
       await collect();
       _verify(retained);
-      if (live != null && live() == 0) {
-        throw StateError('Mapping released while payload view survives');
-      }
     }
     retained.bytes = null;
     for (var i = 0; i < 8 && !_released(retained); i++) {
@@ -162,7 +156,7 @@ Future<void> main(List<String> arguments) async {
         await collect();
       }
       if (live() != 0) throw StateError('Dropped payload retains native pages');
-      stdout.writeln('MQTT_MAPPED_OWNER_RELEASED');
+      stdout.writeln('MQTT_INPUT_OWNER_RELEASED');
       final snapshot = _snapshotView();
       for (var i = 0; i < 4; i++) {
         await collect();

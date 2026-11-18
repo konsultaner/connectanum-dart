@@ -1,7 +1,7 @@
 # Project State
 
 Last updated: 2026-11-18.
-Current milestone: final-head CI qualification of the Dart 3.14 repair.
+Current milestone: final-head CI qualification of the managed-input QoS/gateway repair.
 Active plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
 [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
@@ -28,8 +28,9 @@ these through `Dart_NewUnmodifiableExternalTypedDataWithFinalizer`. A private
 carrier preserves that ownership contract; remote routing retains the immutable
 backing, while public callbacks receive mutable owned copies. Older native
 libraries/VMs keep the existing transfer fallback. Default eligible CBOR Events
-use the existing bounded fragment path. Native MQTT input mappings and heap snapshots
-each have one owner, independent of runtime shutdown.
+use the existing bounded fragment path. Native MQTT input uses the Core
+decoder’s owned managed bytes; heap snapshots have their independent native
+owner, independent of runtime shutdown.
 
 All 41 fanout cases pass unchanged identity/content/count assertions. New tests
 cover source mutation, two isolate hops, public mutable recipients, optional old
@@ -40,18 +41,32 @@ unchanged. The App-Lab process race has a deterministic failing regression;
 rechecking child liveness after failed `ps` fixes it, with all 16 App-Lab tests
 passing and every deadline preserved.
 
-The current candidate also keeps singleton binary Events on the negotiated
-fragment path. Both new singleton regressions and all 41 prior fanout cases
-pass on macOS and Linux, including legacy workers. In the unchanged cold
-comparison, all 40 candidate normal cycles and six overload cycles meet every
-available absolute CPU/rate/latency/process-memory check: normal peak 34.14/63
-MiB, p99 campaign medians 1,665–1,738/2,437 us; overload peak 52.56/126 MiB.
-All candidate production source hashes exactly match the working tree.
-Earlier mapped and heap-only candidates remain rejected; GC traces retain
-the evidence behind the missing singleton path. Fresh full `bin/verify` on the
-20-file source passes, including Rust/native, VM, consumers and real
-Chrome/Dart2Wasm. Complete relative-control, collected-retention
-and all-profile acceptance still requires all checks on the final PR head.
+The singleton repair `669a7bc8` passes all 43 gateway regressions, full local
+verification and its cold ARM64 comparison: 40 normal cycles peak at 34.14/63
+MiB, p99 1,665–1,738/2,437 us, and six overload cycles peak at 52.56/126 MiB.
+Its regular CI then finds a separate standalone MQTT 64-KiB/window-32 blocker:
+throughput ratio 0.7416/0.75, CPU ratio 4.095/4, p95 ratio 2.342/2 and p99
+2.278/2.25; memory remains below 96 MiB. That head is not accepted. Twenty-nine
+checks pass before the obsolete failing workflow is cancelled for requalification.
+
+The standalone broker decodes its packets in Dart, so mapping every large input
+body adds work to that path. Restoring SDK-finalized external heap input fixes
+CPU/latency but fails the unchanged 96-MiB memory limit in both cold campaigns;
+that intermediate candidate is rejected. The current candidate instead uses
+the existing Core decoder’s owned managed body, retaining immutable shared
+native snapshots and singleton fragments. Its two strict QoS campaigns pass:
+throughput ratios 0.9205/0.9629 (minimum 0.75), CPU 2.917/3.182 (maximum 4), p95
+1.102/1.019 (maximum 2), p99 1.117/1.050 (maximum 2.25), and peak 54.38/55.68
+MiB against 96 MiB. Original mapping fails CPU in both matching campaigns.
+
+The managed input’s complete bytes and view lifetime after runtime disposal
+remain covered by actual GC; independent native snapshot ownership still has
+its exact release counter. The unchanged ARM64 comparison also passes all 40
+normal and six overload candidate cycles: normal peak 31.39/63 MiB, p99 1,429–1,541/2,437 us; overload
+75.15/126 MiB. All candidate production source hashes exactly match. Complete local `bin/verify`
+passes on all 20 unchanged source/test/tool files, including real Chrome/
+Dart2Wasm (4,814 Core and 2,830 client cases; 20 existing native-only browser
+skips). Complete final-head CI remains open.
 
 All numeric budgets, coverage/mutation thresholds, queues, workloads,
 warm-up/drain/stall durations, default VM options and original timeout controls
@@ -86,8 +101,11 @@ See the [MQTT contract](mqtt.md) and completed
 
 | Source/check | Verified result |
 | --- | --- |
-| Current Dart 3.14 repair, [cold comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44327753894) | All 40 normal and six overload candidate cycles meet available absolute checks; normal 34.14/63 MiB, p99 1,665–1,738/2,437 us |
-| Current 20-file repair, complete local `bin/verify` | Pass, all source hashes unchanged; Rust/native, full VM/consumers and real Chrome/Wasm; full final-head PR CI pending |
+| Managed-input repair, [strict standalone QoS](https://github.com/konsultaner/connectanum-dart/actions/runs/44339526524) | Both cold campaigns pass every original CPU/rate/latency/RSS gate; peaks 54.38/55.68 MiB against 96 MiB |
+| Managed-input repair, [cold gateway comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44339531343) | All 40 normal/six overload candidate cycles pass available absolute checks; peaks 31.39/63 MiB and 75.15/126 MiB |
+| Managed-input repair, complete local `bin/verify` | Pass, all 20 source/test/tool hashes unchanged; Rust/native/VM/consumers/Chrome/Wasm; final PR CI pending |
+| Mapped-input singleton repair, [cold comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44327753894) | All 40 normal and six overload candidate cycles meet available absolute checks; normal 34.14/63 MiB, p99 1,665–1,738/2,437 us |
+| Mapped-input singleton repair, complete local `bin/verify` | Pass, all source hashes unchanged; Rust/native, full VM/consumers and real Chrome/Wasm; full final-head PR CI pending |
 | Dart 3.14 source `9dc7b2d4`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44268728740) | All 55 main jobs pass, including all 16 memory/performance shards |
 | Dart 3.14 full PR checks at `9dc7b2d4` | All 61 checks pass, zero skipped/cancelled; Codecov project 94.20% vs 94.16%, patch 100% |
 | Dart 3.14 final-source local `bin/verify` | Pass, Rust/native/Dart/consumers/ObjectBox/Chrome/Wasm; clean worktree at completion |

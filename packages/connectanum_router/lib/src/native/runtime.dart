@@ -2887,15 +2887,8 @@ class NativeTransportRuntime
     if (length == 0) return null;
     // The final decoder copies input into owned bodies synchronously. It cannot
     // invoke caller code or retain this view while another poll reuses it.
-    return decoder.add(
-      _mqttReadBuffer!.asTypedList(length),
-      allocateBody: _allocateMqttFrameBody,
-    );
+    return decoder.add(_mqttReadBuffer!.asTypedList(length));
   }
-
-  late final _allocateMqttFrameBody = NativeMqttFrameBufferAllocator.forLibrary(
-    _library,
-  ).allocate;
 
   int _pollMqttChunkLength(int connectionId) {
     final call = _bindings.ctPollMqttChunk;
