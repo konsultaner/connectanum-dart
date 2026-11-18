@@ -282,8 +282,6 @@ final class WorkerFrameBatch {
   }
 }
 
-int _rssEventReports = 0;
-
 void sendWorkerMessagePayload(
   SendPort target,
   NativeMessageSerializer serializer,
@@ -291,26 +289,6 @@ void sendWorkerMessagePayload(
   Map<String, Object?> envelope, {
   WorkerFrameBatch? frameBatch,
 }) {
-  if (serializer == NativeMessageSerializer.messagePack &&
-      message is event_msg.Event &&
-      _rssEventReports++ < 3) {
-    rss_io.stderr.writeln(
-      jsonEncode({
-        'kind': 'event-shape',
-        'lazyArgs': message.hasLazyArguments,
-        'lazyKwargs': message.hasLazyArgumentsKeywords,
-        'encoding': message.lazyPayloadEncoding?.name,
-        'encodedArgs': message.debugEncodedArgumentsBytes?.length,
-        'ppt': message.details.pptScheme,
-        'decodedPpt': message.hasDecodedPptPayload,
-        'transparent': message.transparentBinaryPayload != null,
-        'argumentType': message.hasLazyArguments
-            ? null
-            : message.wireArguments?.firstOrNull.runtimeType.toString(),
-      }),
-    );
-  }
-
   if (frameBatch != null &&
       serializer == NativeMessageSerializer.flatbuffers &&
       envelope['acceptedReply'] == null &&
@@ -358,7 +336,17 @@ void sendWorkerMessagePayload(
       return;
     }
   }
-  target.send({...envelope, 'payload': encodeMessage(serializer, message)});
+  final payload = encodeMessage(serializer, message);
+  // Sending a large managed byte array copies it into the receiver's heap.
+  // Transfer ownership instead so these short-lived frames stay external.
+  target.send({
+    ...envelope,
+    'payload':
+        serializer == NativeMessageSerializer.messagePack &&
+            payload.length >= 16 * 1024
+        ? TransferableTypedData.fromList([payload])
+        : payload,
+  });
 }
 
 Uint8List encodeMessage(

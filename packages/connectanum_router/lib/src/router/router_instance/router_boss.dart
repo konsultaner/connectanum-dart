@@ -1913,7 +1913,11 @@ class _RouterBoss {
       var accepted = false;
       try {
         if (fragments == null) {
-          runtime.sendMessage(connectionId, message['payload'] as Uint8List);
+          final transferred = message['payload'];
+          final bytes = transferred is TransferableTypedData
+              ? transferred.materialize().asUint8List()
+              : transferred as Uint8List;
+          runtime.sendMessage(connectionId, bytes);
         } else {
           sendNativeMessageFragments(
             runtime,
