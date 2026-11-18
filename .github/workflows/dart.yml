@@ -49,8 +49,8 @@ jobs:
           set -euo pipefail
           export CONNECTANUM_NATIVE_LIB="$GITHUB_WORKSPACE/out/probe-native/libct_ffi.so"
           export PAHO_PYTHON="$RUNNER_TEMP/probe-python/bin/python"
-          export HEAPTRACK_PRELOAD="$(dpkg-query -L libheaptrack | rg '/libheaptrack_preload.so$')"
-          export HEAPTRACK_INTERPRET="$(dpkg-query -L libheaptrack | rg '/heaptrack_interpret$')"
+          export HEAPTRACK_PRELOAD="$(dpkg-query -L libheaptrack | grep '/libheaptrack_preload.so$')"
+          export HEAPTRACK_INTERPRET="$(dpkg-query -L libheaptrack | grep '/heaptrack_interpret$')"
           test -f "$HEAPTRACK_PRELOAD"
           test -x "$HEAPTRACK_INTERPRET"
           "$PAHO_PYTHON" tool/dart314_rss_probe.py
