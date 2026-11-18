@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
@@ -120,10 +121,22 @@ Future<void> main(List<String> arguments) async {
   }
 
   try {
+    final library = ffi.DynamicLibrary.open(arguments.single);
+    final live = library.providesSymbol('ct_test_mapped_bytes_live_allocations')
+        ? library.lookupFunction<ffi.UintPtr Function(), int Function()>(
+            'ct_test_mapped_bytes_live_allocations',
+          )
+        : null;
     final retained = await _receive(arguments.single);
+    if (live != null && live() == 0) {
+      throw StateError('Large body did not acquire a mapped owner');
+    }
     for (var i = 0; i < 4; i++) {
       await collect();
       _verify(retained);
+      if (live != null && live() == 0) {
+        throw StateError('Mapping released while payload view survives');
+      }
     }
     retained.bytes = null;
     for (var i = 0; i < 8 && !_released(retained); i++) {
@@ -131,6 +144,13 @@ Future<void> main(List<String> arguments) async {
     }
     if (!_released(retained)) {
       throw StateError('Dropped payload retains its body');
+    }
+    if (live != null) {
+      for (var i = 0; i < 8 && live() != 0; i++) {
+        await collect();
+      }
+      if (live() != 0) throw StateError('Dropped payload retains native pages');
+      stdout.writeln('MQTT_MAPPED_OWNER_RELEASED');
     }
     stdout.writeln('MQTT_FRAME_GC_OK');
   } finally {

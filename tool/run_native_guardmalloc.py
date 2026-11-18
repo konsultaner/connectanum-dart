@@ -15,6 +15,7 @@ import time
 
 GROUPS = (
     ('runtime::owned_buffers::tests::', 9),
+    ('runtime::mapped_bytes::tests::', 3),
     ('runtime::ffi::flatbuffers_e2ee_tests::', 9),
     ('runtime::ffi::crypto_copy_tests::', 4),
     ('runtime::ffi::segmented_forwarding_tests::', 12),
