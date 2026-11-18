@@ -37,6 +37,10 @@ jobs:
           dart pub get
           python3 -m venv "$RUNNER_TEMP/probe-python"
           "$RUNNER_TEMP/probe-python/bin/pip" install paho-mqtt==2.1.0
+      - name: Build diagnostic snapshot callback
+        run: |
+          mkdir -p out/probe-heap
+          cc -shared -fPIC -O2 tool/dart314_heap_snapshot.c -o out/probe-heap/libprobe.so
       - name: Observe unchanged normal and read-only heap workers
         env:
           CONNECTANUM_SKIP_NATIVE_BUILD: '1'

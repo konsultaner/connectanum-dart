@@ -2,6 +2,8 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:convert';
 
+import 'package:ffi/ffi.dart';
+
 import 'package:connectanum_bench/src/mqtt_gateway_worker.dart';
 
 final class Mallinfo extends ffi.Struct {
@@ -52,11 +54,35 @@ Future<void> main(List<String> args) async {
   final malloc = lib.lookupFunction<Mallinfo Function(), Mallinfo Function()>(
     'mallinfo2',
   );
+  final writeSnapshot = lib.lookup<ffi.Void>('Dart_WriteHeapSnapshot');
+  final capture =
+      ffi.DynamicLibrary.open(Platform.environment['RSS_PROBE_LIB']!)
+          .lookupFunction<
+            ffi.Int32 Function(ffi.Pointer<ffi.Void>, ffi.Pointer<Utf8>),
+            int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<Utf8>)
+          >('capture_heap');
+  var captured = false;
   await runGatewayBenchmarkWorker(
     args,
     emit: (event) {
       stdout.writeln(jsonEncode(event));
       if (args.first == 'server' && event['kind'] == 'sampled') {
+        if (!captured && ProcessInfo.currentRss > 58 * 1024 * 1024) {
+          captured = true;
+          final path =
+              '${Platform.environment['RSS_PROBE_DIR']}/broker.heapsnapshot'
+                  .toNativeUtf8();
+          try {
+            stderr.writeln(
+              jsonEncode({
+                'kind': 'snapshot',
+                'result': capture(writeSnapshot, path),
+              }),
+            );
+          } finally {
+            calloc.free(path);
+          }
+        }
         final m = malloc();
         final smaps = File('/proc/self/smaps_rollup').readAsStringSync();
         final status = File('/proc/self/status').readAsStringSync();

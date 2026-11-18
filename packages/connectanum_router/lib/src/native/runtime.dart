@@ -2882,21 +2882,7 @@ class NativeTransportRuntime
     if (length == 0) return null;
     // The final decoder copies input into owned bodies synchronously. It cannot
     // invoke caller code or retain this view while another poll reuses it.
-    return decoder.add(
-      _mqttReadBuffer!.asTypedList(length),
-      allocateBody: _allocateMqttFrameBody,
-    );
-  }
-
-  static Uint8List _allocateMqttFrameBody(int length) {
-    if (length < 16 * 1024) return Uint8List(length);
-    // Keep transient large bodies out of the managed old generation. The VM
-    // accounts their external bytes and owns the allocation through every view,
-    // independently of this runtime's shutdown/disposal.
-    return calloc<ffi.Uint8>(length).asTypedList(
-      length,
-      finalizer: calloc.nativeFree,
-    );
+    return decoder.add(_mqttReadBuffer!.asTypedList(length));
   }
 
   int _pollMqttChunkLength(int connectionId) {

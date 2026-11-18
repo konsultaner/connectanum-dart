@@ -94,13 +94,7 @@ final class MqttFrameDecoder {
   /// Accept bytes and return every complete packet in input order.
   ///
   /// A malformed packet is terminal for this decoder and its connection.
-  /// [allocateBody] can supply independently owned storage, including external
-  /// typed data. It must return exactly the requested capacity; input is still
-  /// copied and partial bodies keep the same bounded growth policy.
-  List<MqttFrame> add(
-    Uint8List input, {
-    Uint8List Function(int length)? allocateBody,
-  }) {
+  List<MqttFrame> add(Uint8List input) {
     if (_failed) {
       throw StateError('MQTT decoder is terminal after a protocol error');
     }
@@ -145,9 +139,8 @@ final class MqttFrameDecoder {
             // Reserve modest headroom for fragmented input, rather than the
             // entire advertised body before its bytes arrive.
             final capacity = (input.length - offset) * 2 + 4096;
-            body = _newBody(
+            body = Uint8List(
               remainingLength < capacity ? remainingLength : capacity,
-              allocateBody,
             );
             break;
           }
@@ -165,7 +158,7 @@ final class MqttFrameDecoder {
         final required = bodyEnd + count + 4096;
         if (capacity < required) capacity = required;
         if (capacity > remainingLength) capacity = remainingLength;
-        final next = _newBody(capacity, allocateBody);
+        final next = Uint8List(capacity);
         next.setRange(0, bodyEnd, body);
         body = next;
       }
@@ -196,14 +189,6 @@ final class MqttFrameDecoder {
     _body = body;
     _bodyEnd = bodyEnd;
     return frames;
-  }
-
-  static Uint8List _newBody(int capacity, Uint8List Function(int)? allocator) {
-    final result = allocator?.call(capacity) ?? Uint8List(capacity);
-    if (result.length != capacity) {
-      throw StateError('MQTT body allocator must return $capacity bytes');
-    }
-    return result;
   }
 
   Never _fail(String message) {

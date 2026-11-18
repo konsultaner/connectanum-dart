@@ -282,6 +282,8 @@ final class WorkerFrameBatch {
   }
 }
 
+int _rssEventReports = 0;
+
 void sendWorkerMessagePayload(
   SendPort target,
   NativeMessageSerializer serializer,
@@ -289,6 +291,26 @@ void sendWorkerMessagePayload(
   Map<String, Object?> envelope, {
   WorkerFrameBatch? frameBatch,
 }) {
+  if (serializer == NativeMessageSerializer.messagePack &&
+      message is event_msg.Event &&
+      _rssEventReports++ < 3) {
+    rss_io.stderr.writeln(
+      jsonEncode({
+        'kind': 'event-shape',
+        'lazyArgs': message.hasLazyArguments,
+        'lazyKwargs': message.hasLazyArgumentsKeywords,
+        'encoding': message.lazyPayloadEncoding?.name,
+        'encodedArgs': message.debugEncodedArgumentsBytes?.length,
+        'ppt': message.details.pptScheme,
+        'decodedPpt': message.hasDecodedPptPayload,
+        'transparent': message.transparentBinaryPayload != null,
+        'argumentType': message.hasLazyArguments
+            ? null
+            : message.wireArguments?.firstOrNull.runtimeType.toString(),
+      }),
+    );
+  }
+
   if (frameBatch != null &&
       serializer == NativeMessageSerializer.flatbuffers &&
       envelope['acceptedReply'] == null &&
@@ -311,8 +333,7 @@ void sendWorkerMessagePayload(
     }
   }
   frameBatch?.flush();
-  if ((serializer == NativeMessageSerializer.cbor ||
-          serializer == NativeMessageSerializer.messagePack) &&
+  if (serializer == NativeMessageSerializer.cbor &&
       message is event_msg.Event &&
       message.details.pptScheme == null &&
       !message.hasLazyArguments &&
@@ -324,9 +345,7 @@ void sendWorkerMessagePayload(
     if (arguments?.length == 1 &&
         arguments!.single is Uint8List &&
         (arguments.single as Uint8List).length >= 16 * 1024) {
-      final fragments = serializer == NativeMessageSerializer.cbor
-          ? _cborSerializer.serializeEventFragments(message)!
-          : _msgpackSerializer.serializeEventFragments(message)!;
+      final fragments = _cborSerializer.serializeEventFragments(message)!;
       final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
       final output = _workerFrameBuffer(length);
       var offset = 0;

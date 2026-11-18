@@ -17,6 +17,8 @@ for index,label in enumerate(['normal','heap','normal','heap','normal','heap','n
  output.mkdir()
  config={**profile,'path':'mqtt_to_wamp','port':0,'native_library':str(library),'paho_python':os.environ['PAHO_PYTHON'],'mosquitto':'mosquitto','diagnostic_only':True,'certificate':str(bench.reference.TLS_CERT),'ca_certificate':str(bench.reference.TLS_CA),'key':str(bench.reference.TLS_KEY)}
  campaign=bench.Campaign(workers[label],output,config,load_timeout=300)
+ campaign.env['RSS_PROBE_DIR']=str(output)
+ campaign.env['RSS_PROBE_LIB']=str(ROOT/'out/probe-heap/libprobe.so')
  try:
   rows=campaign.run(profile,'mqtt_to_wamp',5,5000,200,.5,1)
   output.joinpath('rows.json').write_text(json.dumps(rows,indent=2))
