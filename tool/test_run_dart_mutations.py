@@ -484,6 +484,27 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(native_cli['testConcurrency'], 2)
         self.assertEqual(native_cli['testTimeoutSeconds'], 20)
 
+    def test_every_cli_suite_target_hashes_the_complete_real_protocol_fixture(self):
+        targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
+        suite = Path('packages/connectanum_mcp/test/cli/router_hosted_client_protocol_test.dart')
+        fixture = 'packages/connectanum_mcp/test/cli/fixtures/router_protocol_2025_06_18.json.gz'
+        executing = {name for name, target in targets.items()
+                     if any(suite.is_relative_to(Path(path)) for path in target['tests'])}
+        self.assertEqual(executing, {'mcp', 'mcp-library', 'mcp-cli', 'mcp-cli-native'})
+        for name in executing:
+            with self.subTest(target=name):
+                self.assertIn(fixture, targets[name]['supportFiles'])
+                self.assertIn('packages/connectanum_mcp/test/cli/owned_http_client_test_support.dart',
+                              targets[name]['supportFiles'])
+        import gzip
+        transcript = json.loads(gzip.decompress((runner.ROOT / fixture).read_bytes()))
+        self.assertEqual(transcript['protocol'], '2025-06-18')
+        self.assertEqual(len(transcript['requests']), 208)
+        self.assertTrue(transcript['transcript'])
+        for row in transcript['requests']:
+            self.assertEqual(set(row), {'method', 'path', 'headers', 'body',
+                                       'status', 'responseHeaders', 'responseBody'})
+
     def test_pem_pkcs8_targets_share_tests_and_record_key_fixtures(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         for runtime in ('vm', 'web'):

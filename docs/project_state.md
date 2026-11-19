@@ -169,3 +169,31 @@ Pre-existing auxiliary blockers remain: strict kTLS lacks Linux TLS ULP support;
 WAMP diagnostics miss their existing buffered file/heavy RawSocket floors.
 FlatBuffers parity, the broader security audit and regression/mutation target
 remain prerequisites for final `3.0.0`. No release gate is relaxed for beta.9.
+
+Checkpoint `f604a27e` WAMP diagnostics still fail three scenario families; all
+existing 2,000-Mbps floors remain. Core MessagePack browser coverage is repaired
+locally to 178/182 lines (97.802% > 97.29%), with its complete 205-mutant VM gate
+passing again at 95.288% and only the same five revalidated functional proofs.
+MCP success oracles now assert deliberate product validator/smoke rejections as
+ordinary behavior failures; 20 boundary controls keep compiler, signal, asset,
+unknown and timeout failures in their original infrastructure classes. A complete
+208-exchange real-router fixture adds fast adversarial protocol checks without
+removing native cases. Complete current CLI replay, performance repair, quiet
+bin/verify and final-head hosted qualification are still pending.
+The hosted RawSocket compiler-diagnostic errors are reproduced as ANSI-decorated
+Rust E0277 failures. Native campaigns/restorations now request undecorated raw
+logs before capture; all 57 native tool tests pass and the strict classifier is
+unchanged. The full fast CLI replay retains all 1,207 candidates but still has
+183 survivors; it does not substitute for the mandatory native aggregate.
+Owned HTTP-client lifecycle, the existing 1,024-page boundary, one-sided WAMP
+metadata and resource-notification oracles are being strengthened before the
+next full hosted run.
+The current local diagnostic controls pass 451 fast CLI cases, 20 smoke-boundary
+cases, both clean/restored MCP/native CLI baselines, 117 runner/CI contracts
+(one existing skip) and the formerly red RawSocket batch with three correctly
+classified compiler failures. Complete inventories now use 32/16 MCP/CLI shards
+with all original per-job/per-command deadlines intact. Native JSON binding uses
+the standard fused UTF-8/JSON decoder; all 1,895 binding cases pass on VM and
+Chrome/Wasm, including malformed-input and owned-value controls. The microbench
+shows lower decode cost but hosted WAMP budgets remain unqualified. PR #139
+remains draft pending full final-head workflows and quiet bin/verify.

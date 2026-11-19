@@ -6,6 +6,41 @@ import 'package:test/test.dart';
 
 import 'native_lib.dart';
 
+/// A completed Dart process rejected MCP behavior in the public example.
+/// Compiler, native/preflight, signal and deadline failures are not this type.
+class RouterExampleSmokeFailure implements Exception {
+  RouterExampleSmokeFailure(this.diagnostics);
+
+  final String diagnostics;
+
+  static RouterExampleSmokeFailure? fromExit(int code, String report) {
+    final smokeFrame = RegExp(
+      r'^#\d+\s+_(?:smoke|expect|assert)\w+ .*'
+      r'/packages/connectanum_router/example/router_hosted_mcp\.dart:\d+:\d+\)',
+      multiLine: true,
+    );
+    final lines = const LineSplitter().convert(report);
+    final productValidation =
+        lines.length > 1 &&
+        (lines[1].startsWith('Bad state:') ||
+            lines[1].startsWith('Invalid argument') ||
+            lines[1].startsWith('FormatException:') ||
+            lines[1].startsWith('McpException('));
+    if (code != 255 ||
+        !report.startsWith('Unhandled exception:') ||
+        !productValidation ||
+        report.contains('TimeoutException') ||
+        !(report.contains('package:connectanum_mcp/') ||
+            smokeFrame.hasMatch(report))) {
+      return null;
+    }
+    return RouterExampleSmokeFailure(report);
+  }
+
+  @override
+  String toString() => 'Public MCP example smoke failed: $diagnostics';
+}
+
 class RouterExample {
   RouterExample(this.process);
   final Process process;
@@ -55,20 +90,26 @@ class RouterExample {
             }
           }),
     );
+    final diagnostics = StringBuffer();
+    final stderrDone = Completer<void>();
     fixture.subscriptions.add(
       fixture.process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
-          .listen((_) {}),
+          .listen(diagnostics.writeln, onDone: stderrDone.complete),
     );
     try {
       await Future.any([
         fixture.ready.future,
-        fixture.process.exitCode.then(
-          (code) => throw StateError(
-            'Router example exited before readiness ($code).',
-          ),
-        ),
+        fixture.process.exitCode.then((code) async {
+          await stderrDone.future;
+          final report = diagnostics.toString();
+          final smoke = RouterExampleSmokeFailure.fromExit(code, report);
+          if (smoke != null) throw smoke;
+          throw StateError(
+            'Router example exited before readiness ($code).\n$report',
+          );
+        }),
       ]).timeout(const Duration(seconds: 20));
       return fixture;
     } catch (_) {

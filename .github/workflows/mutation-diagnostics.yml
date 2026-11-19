@@ -104,76 +104,148 @@ jobs:
         include:
           - target: mcp
             shard: 0
-            count: 16
+            count: 32
           - target: mcp
             shard: 1
-            count: 16
+            count: 32
           - target: mcp
             shard: 2
-            count: 16
+            count: 32
           - target: mcp
             shard: 3
-            count: 16
+            count: 32
           - target: mcp
             shard: 4
-            count: 16
+            count: 32
           - target: mcp
             shard: 5
-            count: 16
+            count: 32
           - target: mcp
             shard: 6
-            count: 16
+            count: 32
           - target: mcp
             shard: 7
-            count: 16
+            count: 32
           - target: mcp
             shard: 8
-            count: 16
+            count: 32
           - target: mcp
             shard: 9
-            count: 16
+            count: 32
           - target: mcp
             shard: 10
-            count: 16
+            count: 32
           - target: mcp
             shard: 11
-            count: 16
+            count: 32
           - target: mcp
             shard: 12
-            count: 16
+            count: 32
           - target: mcp
             shard: 13
-            count: 16
+            count: 32
           - target: mcp
             shard: 14
-            count: 16
+            count: 32
           - target: mcp
             shard: 15
-            count: 16
+            count: 32
+          - target: mcp
+            shard: 16
+            count: 32
+          - target: mcp
+            shard: 17
+            count: 32
+          - target: mcp
+            shard: 18
+            count: 32
+          - target: mcp
+            shard: 19
+            count: 32
+          - target: mcp
+            shard: 20
+            count: 32
+          - target: mcp
+            shard: 21
+            count: 32
+          - target: mcp
+            shard: 22
+            count: 32
+          - target: mcp
+            shard: 23
+            count: 32
+          - target: mcp
+            shard: 24
+            count: 32
+          - target: mcp
+            shard: 25
+            count: 32
+          - target: mcp
+            shard: 26
+            count: 32
+          - target: mcp
+            shard: 27
+            count: 32
+          - target: mcp
+            shard: 28
+            count: 32
+          - target: mcp
+            shard: 29
+            count: 32
+          - target: mcp
+            shard: 30
+            count: 32
+          - target: mcp
+            shard: 31
+            count: 32
           - target: mcp-cli-native
             shard: 0
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 1
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 2
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 3
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 4
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 5
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 6
-            count: 8
+            count: 16
           - target: mcp-cli-native
             shard: 7
-            count: 8
+            count: 16
+          - target: mcp-cli-native
+            shard: 8
+            count: 16
+          - target: mcp-cli-native
+            shard: 9
+            count: 16
+          - target: mcp-cli-native
+            shard: 10
+            count: 16
+          - target: mcp-cli-native
+            shard: 11
+            count: 16
+          - target: mcp-cli-native
+            shard: 12
+            count: 16
+          - target: mcp-cli-native
+            shard: 13
+            count: 16
+          - target: mcp-cli-native
+            shard: 14
+            count: 16
+          - target: mcp-cli-native
+            shard: 15
+            count: 16
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-ci
@@ -214,10 +286,10 @@ jobs:
             count: 8
             native: false
           - target: mcp
-            count: 16
+            count: 32
             native: true
           - target: mcp-cli-native
-            count: 8
+            count: 16
             native: true
     steps:
       - uses: actions/checkout@v5

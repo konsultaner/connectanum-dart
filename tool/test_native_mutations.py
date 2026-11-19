@@ -591,6 +591,7 @@ class NativeMutationTests(unittest.TestCase):
         self.assertIn('--cargo-arg=--locked', campaign)
         for command in [campaign, restored]:
             self.assertEqual(command[:2], ['env', 'CARGO_TARGET_DIR=/private/test work/target'])
+            self.assertIn('CARGO_TERM_COLOR=never', command[:command.index('cargo')])
             self.assertEqual(command[command.index('--manifest-path') + 1],
                              '/private/test work/native/transport/Cargo.toml')
             self.assertEqual(command[-3:], ['--', 'rawsocket::tests', '--test-threads=1'])
@@ -786,6 +787,7 @@ class NativeMutationTests(unittest.TestCase):
                     self.assertNotIn(forbidden, campaign)
                 for command in [campaign, restored]:
                     self.assertEqual(command[:2], ['env', 'CARGO_TARGET_DIR=/private/test work/target'])
+                    self.assertIn('CARGO_TERM_COLOR=never', command[:command.index('cargo')])
                     self.assertEqual(command[command.index('--package') + 1], 'ct_core')
                     self.assertEqual(command[command.index('--manifest-path') + 1],
                                      '/private/test work/native/transport/Cargo.toml')

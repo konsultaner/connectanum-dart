@@ -289,13 +289,13 @@ int _readScalarEnd(Uint8List bytes, int offset) {
       return _checkedEnd(bytes, offset + 1, 8);
     case 0xd9:
     case 0xc4:
-      return _readLengthPrefixedEnd(bytes, offset, 1);
+      return _readLengthPrefixedEnd(bytes, offset, _LengthReader.byte);
     case 0xda:
     case 0xc5:
-      return _readLengthPrefixedEnd(bytes, offset, 2);
+      return _readLengthPrefixedEnd(bytes, offset, _LengthReader.word);
     case 0xdb:
     case 0xc6:
-      return _readLengthPrefixedEnd(bytes, offset, 4);
+      return _readLengthPrefixedEnd(bytes, offset, _LengthReader.dword);
     case 0xd4:
       return _checkedEnd(bytes, offset + 2, 1);
     case 0xd5:
@@ -307,36 +307,44 @@ int _readScalarEnd(Uint8List bytes, int offset) {
     case 0xd8:
       return _checkedEnd(bytes, offset + 2, 16);
     case 0xc7:
-      return _readExtensionEnd(bytes, offset, 1);
+      return _readExtensionEnd(bytes, offset, _LengthReader.byte);
     case 0xc8:
-      return _readExtensionEnd(bytes, offset, 2);
+      return _readExtensionEnd(bytes, offset, _LengthReader.word);
     case 0xc9:
-      return _readExtensionEnd(bytes, offset, 4);
+      return _readExtensionEnd(bytes, offset, _LengthReader.dword);
     default:
       throw const FormatException('Unsupported MessagePack value');
   }
 }
 
-int _readLengthPrefixedEnd(Uint8List bytes, int offset, int lengthBytes) {
-  _requireAvailable(bytes, offset + 1, lengthBytes);
-  final length = _readLength(bytes, offset + 1, lengthBytes);
-  return _checkedEnd(bytes, offset + 1 + lengthBytes, length);
+// Each MessagePack marker selects its exact header width and byte-data reader.
+// Pair them once so callers cannot request an unsupported integer width.
+class _LengthReader {
+  _LengthReader._(this.bytes, this.read);
+
+  static final byte = _LengthReader._(1, (data) => data.getUint8(0));
+  static final word = _LengthReader._(2, (data) => data.getUint16(0));
+  static final dword = _LengthReader._(4, (data) => data.getUint32(0));
+
+  final int bytes;
+  final int Function(ByteData) read;
 }
 
-int _readExtensionEnd(Uint8List bytes, int offset, int lengthBytes) {
-  _requireAvailable(bytes, offset + 1, lengthBytes + 1);
-  final length = _readLength(bytes, offset + 1, lengthBytes);
-  return _checkedEnd(bytes, offset + 2 + lengthBytes, length);
+int _readLengthPrefixedEnd(Uint8List bytes, int offset, _LengthReader width) {
+  _requireAvailable(bytes, offset + 1, width.bytes);
+  final length = _readLength(bytes, offset + 1, width);
+  return _checkedEnd(bytes, offset + 1 + width.bytes, length);
 }
 
-int _readLength(Uint8List bytes, int offset, int lengthBytes) {
-  final data = ByteData.sublistView(bytes, offset, offset + lengthBytes);
-  return switch (lengthBytes) {
-    1 => data.getUint8(0),
-    2 => data.getUint16(0),
-    4 => data.getUint32(0),
-    _ => throw const FormatException('Invalid MessagePack length'),
-  };
+int _readExtensionEnd(Uint8List bytes, int offset, _LengthReader width) {
+  _requireAvailable(bytes, offset + 1, width.bytes + 1);
+  final length = _readLength(bytes, offset + 1, width);
+  return _checkedEnd(bytes, offset + 2 + width.bytes, length);
+}
+
+int _readLength(Uint8List bytes, int offset, _LengthReader width) {
+  final data = ByteData.sublistView(bytes, offset, offset + width.bytes);
+  return width.read(data);
 }
 
 void _requireAvailable(Uint8List bytes, int offset, int length) {

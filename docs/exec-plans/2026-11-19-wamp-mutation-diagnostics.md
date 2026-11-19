@@ -238,3 +238,87 @@ no merge or release is authorized for it. All numeric policy JSON files,
 workloads, serializer/security matrices, queue bounds and GC defaults remain
 unchanged. Final quiet `bin/verify`, review and complete final-head workflow
 qualification remain outstanding.
+
+### Checkpoint f604 hosted results and ordinary MCP success oracles
+
+Checkpoint `f604a27e` publishes the native repair and complete native batching.
+Its WAMP run 44615131514 still fails fragmentation, buffered file transfer and
+heavy RawSocket lifecycle floors. Artifact 14574519151 SHA256:
+`2ca9dedffe4cf7a761289396e94ee2104389dd7ff2d3f1e20a6e245692852190`.
+All eight workloads execute; the same 2,000-Mbps floors are retained. The native
+String adapter alone does not qualify the affected paths. Final optimization
+and hosted proof remain outstanding; no successful WAMP claim is made.
+
+Core browser coverage at `a4d6dd92` reports 177/182 MessagePack codec lines,
+97.253%, below its unchanged 97.29% floor. Pairing each legal width and exact
+byte-data reader removes the unreachable invalid-width branch. A real Chrome
+probe now covers 178/182 (97.8022%). A complete 205-candidate VM mutation run
+passes again at 95.288%, including clean/restored baselines and the same five
+revalidated hash-bound functional equivalences. Final hosted coverage is pending.
+
+MCP partial results reveal a test-oracle gap: the standard `completes` matcher
+forwards deliberate CLI `StateError` validation rejections as test errors. The
+success helper now explicitly asserts that a valid exchange is not rejected by
+that product validator. Other exception classes and deadlines retain their
+original classification. A completed child exit 255 is treated as a public smoke
+rejection only with explicit unhandled MCP/example-smoke stack evidence; compiler
+exits, signals, missing assets, unclassified failures and any nested timeout still
+fail setup. All 20 classification-boundary tests pass. Focused replay detects the
+former WAMP-metadata setup failure with ordinary assertion evidence, while the
+strict runner classifier is unchanged. This is a partial counterexample replay,
+not full-target qualification.
+
+A SHA256-pinned fixture retains all 208 real public-router HTTP exchanges and
+exact CLI output. Fast protocol regressions check every baseline request/output,
+single-response faults, exact rejection diagnostics and cleanup-only behavior.
+The native integration cases remain intact; every target executing the new CLI
+suite explicitly snapshots/hashes the compressed fixture. The full current CLI
+inventory is being replayed independently to identify remaining negative cases.
+Complete final-head MCP/native/browser campaigns and quiet bin/verify remain
+required; PR #139 stays draft.
+
+The hosted RawSocket batches expose colored compiler diagnostics rather than a
+new native survivor: three actual `error[E0277]` build failures on each host
+contain ANSI escapes from GitHub's `CARGO_TERM_COLOR=always`. Every native
+campaign and restored command now explicitly requests `CARGO_TERM_COLOR=never`
+before capturing raw evidence. The strict classifier, phase/status checks and
+zero-survivor policy are unchanged. All 57 native tool tests pass; a current
+raw batch under an inherited `always` environment remains to be replayed.
+
+The first complete fast CLI replay is diagnostic only: all 1,207 disjoint
+candidates are retained (697 detections, 327 compile failures, 183 survivors).
+This configured CLI-only target omits no test from its own inventory but does
+not replace the mandatory native/full MCP aggregates. Of the 148 previously
+non-assertion/undetected partial native cases, 71 now have fast-test detections.
+Further regressions observe actual owned HTTP clients even when idle, retain
+original infrastructure exceptions and reap leaks after recording the failure.
+They add the existing 1,024-page catalog boundary and procedure-only/topic-only
+metadata cases. No source/operator or native suite is removed and no deadline
+is extended. Final complete-native/full-MCP scores remain unqualified.
+
+The complete MCP/CLI inventories now use 32/16 disjoint hosted shards rather
+than 16/8. This preserves every configured test, source and operator and each
+original 60-minute job / 45-second command / five- or 20-second test deadline;
+full native sessions are still exercised for every assigned mutant. The same
+independent full-inventory aggregates require all shards, reclassify raw logs
+and enforce the original 95% threshold. Partitioning reduces total per-job work
+instead of extending any execution deadline. No release workflow is dispatched.
+
+Current local controls pass: 451 fast CLI tests, 20 child-smoke classification
+boundaries, clean/restored full MCP and native CLI baselines (2,308 / 1,207
+inventoried mutants), and 117 mutation-runner/CI contracts (one existing skip).
+The RawSocket batch replay under inherited `CARGO_TERM_COLOR=always` now has
+20 assertion kills, three compile failures, no errors/timeouts, clean evidence.
+The proxy enforces its existing one-poll oracle before forwarding, so an
+unexpected empty upstream SSE wait cannot masquerade as mutation evidence.
+
+Native full-frame and deferred JSON binding now use the SDK's fused UTF-8/JSON
+decoder, retaining normalization, strict malformed-input handling and ownership.
+All 1,895 binding cases pass on VM and real Chrome/Wasm, including BOM/nonzero
+offset views, large strings, Unicode/surrogates, binary markers, malformed UTF-8,
+trailing data and retained decoded values after input mutation. A matched AOT
+microcomparison reduces 16 four-MiB decodes from about 80 to 31 ms; this is not
+hosted throughput qualification. Canonical native JSON pub/sub comparisons and
+a separate file-write backpressure experiment remain exploratory. The earlier
+fused JSON encoder prototype was slower and is not shipped. No temporary CPU
+profiling code, pacing timer, allocator setting or GC override is included.

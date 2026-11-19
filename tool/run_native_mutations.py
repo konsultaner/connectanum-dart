@@ -140,7 +140,9 @@ def commands(work, output, target='core-rawsocket', exclusions=()):
     test_timeout = '90' if target == 'core-protocol' else '30'
     if whole:
         test_timeout = '180'
-    prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}']
+    # Auditing requires literal rustc diagnostics. Hosted toolchains export
+    # CARGO_TERM_COLOR=always; prevent decoration before capturing raw evidence.
+    prefix = ['env', f'CARGO_TARGET_DIR={work / "target"}', 'CARGO_TERM_COLOR=never']
     manifest = str(work / 'native/transport/Cargo.toml')
     campaign = [*prefix, 'cargo', 'mutants', '--no-config', '--in-place',
                 '--manifest-path', manifest, '--package', package,

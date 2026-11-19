@@ -9,6 +9,8 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';
 import 'package:test/test.dart';
 
+import '../../connectanum_mcp/test/cli/owned_http_client_test_support.dart';
+
 import 'support/router_example.dart';
 
 const _task = {'taskId': 'T-cli-regression', 'status': 'open'};
@@ -20,9 +22,27 @@ void main() {
   group('CLI against the public router example', () {
     late RouterExample router;
     RouterExample? started;
+    RouterExampleSmokeFailure? smokeFailure;
+    void routerTest(String name, Future<void> Function() body) {
+      test(name, () async {
+        expect(
+          smokeFailure,
+          isNull,
+          reason: 'The public example must pass its MCP smoke before CLI use.',
+        );
+        await body();
+      });
+    }
+
     setUpAll(() async {
-      router = await RouterExample.start();
-      started = router;
+      try {
+        router = await RouterExample.start();
+        started = router;
+      } on RouterExampleSmokeFailure catch (error) {
+        // A deliberate product smoke rejection belongs to the behavior oracle.
+        // Missing native assets, compiler errors and deadlines still fail setup.
+        smokeFailure = error;
+      }
     });
     tearDownAll(() => started?.close());
 
@@ -32,7 +52,7 @@ void main() {
       (version: '2025-06-18', route: '/mcp/secure', ticket: true),
       (version: '2025-06-18', route: '/mcp/secure-json-post', ticket: true),
     ]) {
-      test(
+      routerTest(
         '${scenario.version} ${scenario.route} complete CLI session',
         () async {
           String? bearer;
@@ -179,7 +199,7 @@ void main() {
     }
 
     for (final auth in ['none', 'bearer', 'ticket']) {
-      test(
+      routerTest(
         'minimal compatibility session supports $auth authentication',
         () async {
           String? bearer;
@@ -210,7 +230,20 @@ void main() {
           );
           expect(transcript, containsPair('directPing', <String, Object?>{}));
           expect(transcript, isNot(contains('directPubSub')));
+          expect(transcript, isNot(contains('directWampMetadata')));
+          expect(transcript['directBatch'], {
+            'responseIds': [
+              'direct-batch-standard-tools',
+              'direct-batch-tools',
+            ],
+          });
           final session = transcript['streamable'] as Map;
+          expect(session, isNot(contains('wampMetadata')));
+          expect(session['activeDirectJson'], isA<Map>());
+          expect(
+            session['activeDirectJson'] as Map,
+            isNot(contains('wampMetadata')),
+          );
           expect(session['protocolVersion'], '2025-06-18');
           expect(session['sessionId'], isNotEmpty);
           if (auth == 'ticket') {
@@ -224,6 +257,62 @@ void main() {
               'revokedRefreshRejected': true,
             });
           }
+        },
+      );
+    }
+
+    for (final procedureOnly in [true, false]) {
+      routerTest(
+        'one WAMP selector preserves ${procedureOnly ? 'procedure' : 'topic'} metadata',
+        () async {
+          final transcript = await _runSuccessfully(router, '/mcp', [
+            '--protocol-version',
+            '2025-06-18',
+            if (procedureOnly) ...[
+              '--wamp-procedure',
+              _procedure,
+            ] else ...[
+              '--wamp-topic',
+              _topic,
+            ],
+          ]);
+          final selected = procedureOnly ? 'procedure' : 'topic';
+          final absent = procedureOnly ? 'topic' : 'procedure';
+          for (final (value, sessionKey) in [
+            (transcript['directWampMetadata'], 'sessionMetadata'),
+            ((transcript['streamable'] as Map)['wampMetadata'], 'sessionCount'),
+            (
+              ((transcript['streamable'] as Map)['activeDirectJson']
+                  as Map)['wampMetadata'],
+              'sessionMetadata',
+            ),
+          ]) {
+            expect(value, isA<Map>());
+            expect(value as Map, contains(selected));
+            expect(value, isNot(contains(absent)));
+            expect(value, contains(sessionKey));
+          }
+          final batch = transcript['directBatch'];
+          expect(batch, isA<Map>());
+          expect(batch as Map, contains('wampSessionMetadata'));
+          expect(
+            batch,
+            contains(
+              procedureOnly
+                  ? 'configuredRegistrationMetadata'
+                  : 'configuredSubscriptionMetadata',
+            ),
+          );
+          expect(
+            batch,
+            isNot(
+              contains(
+                procedureOnly
+                    ? 'configuredSubscriptionMetadata'
+                    : 'configuredRegistrationMetadata',
+              ),
+            ),
+          );
         },
       );
     }
@@ -247,7 +336,7 @@ void main() {
       ];
       for (final (probe, diagnostic) in probes) {
         for (final fault in ['status', 'session header', 'body']) {
-          test('$probe rejects a wrong $fault', () async {
+          routerTest('$probe rejects a wrong $fault', () async {
             final proxy = await _ResponseFaultProxy.start(
               router.endpoint('/mcp'),
               'unused-json-target',
@@ -305,7 +394,7 @@ void main() {
       }
     });
 
-    test(
+    routerTest(
       'resource update consumes its matching notification before another poll',
       () async {
         final proxy = await _ResponseFaultProxy.start(
@@ -497,7 +586,7 @@ void main() {
         ),
       ];
       for (final (suffix, patch, diagnostic) in faults) {
-        test(
+        routerTest(
           '$suffix ${jsonEncode(patch)} rejects before further requests',
           () async {
             final proxy = await _ResponseFaultProxy.start(
@@ -564,7 +653,7 @@ void main() {
           (operation, 'flat'),
         ],
       ]) {
-        test(
+        routerTest(
           '$shape $operation batch passes the proxy and reaches session cleanup',
           () async {
             final proxy = await _ResponseFaultProxy.start(
@@ -639,7 +728,7 @@ void main() {
       (flag: '--wampcra-secret', secret: 'mcp-demo-secret', method: 'wampcra'),
       (flag: '--scram-secret', secret: 'mcp-demo-secret', method: 'scram'),
     ]) {
-      test(
+      routerTest(
         'modern ${auth.method} refresh and revocation remain sessionless',
         () async {
           final transcript = await _runSuccessfully(router, '/mcp/secure', [
@@ -700,26 +789,29 @@ void main() {
       );
     }
 
-    test('wrong realm and unprotected auth discovery fail closed', () async {
-      for (final scenario in [
-        (route: '/mcp/secure', realm: 'wrong.realm'),
-        (route: '/mcp', realm: 'example.realm'),
-      ]) {
-        await expectLater(
-          _run(router, scenario.route, [
-            '--realm',
-            scenario.realm,
-            '--auth-id',
-            'mcp-user',
-            '--ticket',
-            'mcp-demo-ticket',
-            '--protocol-version',
-            '2026-07-28',
-          ]),
-          throwsA(isA<ConnectanumHttpAuthProtocolException>()),
-        );
-      }
-    });
+    routerTest(
+      'wrong realm and unprotected auth discovery fail closed',
+      () async {
+        for (final scenario in [
+          (route: '/mcp/secure', realm: 'wrong.realm'),
+          (route: '/mcp', realm: 'example.realm'),
+        ]) {
+          await expectLater(
+            _run(router, scenario.route, [
+              '--realm',
+              scenario.realm,
+              '--auth-id',
+              'mcp-user',
+              '--ticket',
+              'mcp-demo-ticket',
+              '--protocol-version',
+              '2026-07-28',
+            ]),
+            throwsA(isA<ConnectanumHttpAuthProtocolException>()),
+          );
+        }
+      },
+    );
 
     for (final prefix in [
       'direct-pubsub',
@@ -727,54 +819,57 @@ void main() {
       'streamable-pubsub',
     ]) {
       for (final field in ['topic', 'queueLimit']) {
-        test('$prefix releases subscription after rejected $field', () async {
-          final proxy = await _ResponseFaultProxy.start(
-            router.endpoint('/mcp'),
-            '$prefix-subscribe',
-            field,
-          );
-          try {
-            await expectLater(
-              IOOverrides.runZoned(
-                () => runRouterHostedClient([
-                  '--endpoint',
-                  proxy.endpoint.toString(),
-                  '--protocol-version',
-                  '2025-06-18',
-                  '--pubsub-topic',
-                  _topic,
-                ]),
-                stdout: _Output.new,
-                stderr: _Output.new,
-              ),
-              throwsA(
-                isA<StateError>().having(
-                  (error) => error.message,
-                  'subscription diagnostic',
-                  contains(
-                    field == 'topic'
-                        ? 'returned subscription for'
-                        : 'returned queue limit',
+        routerTest(
+          '$prefix releases subscription after rejected $field',
+          () async {
+            final proxy = await _ResponseFaultProxy.start(
+              router.endpoint('/mcp'),
+              '$prefix-subscribe',
+              field,
+            );
+            try {
+              await expectLater(
+                IOOverrides.runZoned(
+                  () => runRouterHostedClient([
+                    '--endpoint',
+                    proxy.endpoint.toString(),
+                    '--protocol-version',
+                    '2025-06-18',
+                    '--pubsub-topic',
+                    _topic,
+                  ]),
+                  stdout: _Output.new,
+                  stderr: _Output.new,
+                ),
+                throwsA(
+                  isA<StateError>().having(
+                    (error) => error.message,
+                    'subscription diagnostic',
+                    contains(
+                      field == 'topic'
+                          ? 'returned subscription for'
+                          : 'returned queue limit',
+                    ),
                   ),
                 ),
-              ),
-            );
-            expect(proxy.changedResponses, 1);
-            expect(proxy.subscriptionHandle, isNotEmpty);
-            expect(proxy.cleanedHandles, contains(proxy.subscriptionHandle));
-            final afterFault = proxy.requests
-                .skipWhile(
-                  (request) => request.$2 != '$prefix-subscribe',
-                )
-                .skip(1);
-            expect(afterFault, [
-              ('POST', '$prefix-unsubscribe'),
-              if (prefix != 'direct-pubsub') ('DELETE', null),
-            ], reason: 'Only cleanup may follow the rejected subscription');
-          } finally {
-            await proxy.close();
-          }
-        });
+              );
+              expect(proxy.changedResponses, 1);
+              expect(proxy.subscriptionHandle, isNotEmpty);
+              expect(proxy.cleanedHandles, contains(proxy.subscriptionHandle));
+              final afterFault = proxy.requests
+                  .skipWhile(
+                    (request) => request.$2 != '$prefix-subscribe',
+                  )
+                  .skip(1);
+              expect(afterFault, [
+                ('POST', '$prefix-unsubscribe'),
+                if (prefix != 'direct-pubsub') ('DELETE', null),
+              ], reason: 'Only cleanup may follow the rejected subscription');
+            } finally {
+              await proxy.close();
+            }
+          },
+        );
       }
     }
   });
@@ -861,6 +956,18 @@ class _ResponseFaultProxy {
       final id = message is Map ? message['id'] : null;
       final requestIndex = requests.length;
       requests.add((request.method, id));
+      if (targetTrace != null &&
+          request.headers.value('x-consumer-trace') == targetTrace &&
+          maximumTraceResponses != null) {
+        // Reject an extra poll before forwarding it: an empty upstream SSE
+        // poll can otherwise wait past the unchanged test deadline.
+        expect(
+          changedResponses,
+          lessThan(maximumTraceResponses!),
+          reason:
+              'The matching notification must be consumed before another poll',
+        );
+      }
       final outgoing = await client.openUrl(
         request.method,
         upstream.replace(query: request.uri.query),
@@ -1106,10 +1213,11 @@ Future<Map<String, dynamic>> _runSuccessfully(
   List<String> args,
 ) async {
   late Map<String, dynamic> result;
-  await expectLater(
-    _run(router, route, args).then((value) => result = value),
-    completes,
-  );
+  try {
+    result = await _run(router, route, args);
+  } on StateError catch (error) {
+    fail('The valid CLI exchange was rejected: $error');
+  }
   return result;
 }
 
@@ -1122,11 +1230,13 @@ Future<Map<String, dynamic>> _run(
   final errors = _Output();
   try {
     await IOOverrides.runZoned(
-      () => runRouterHostedClient([
-        '--endpoint',
-        router.endpoint(route).toString(),
-        ...args,
-      ]),
+      () => expectOwnedHttpClientsClosed(
+        () => runRouterHostedClient([
+          '--endpoint',
+          router.endpoint(route).toString(),
+          ...args,
+        ]),
+      ),
       stdout: () => output,
       stderr: () => errors,
     );

@@ -31,10 +31,10 @@ class CompositeSetupTests(unittest.TestCase):
         self.assertIn('shard: [0, 1, 2, 3, 4, 5, 6, 7]', stanzas['web-shards'])
         native = re.findall(r'- target: ([\w-]+)\n\s+shard: (\d+)\n\s+count: (\d+)',
                             stanzas['native-dart-shards'])
-        for target, count in (('mcp', 16), ('mcp-cli-native', 8)):
+        for target, count in (('mcp', 32), ('mcp-cli-native', 16)):
             self.assertEqual(sorted((int(index), int(total)) for name, index, total in native
                                     if name == target), [(index, count) for index in range(count)])
-        self.assertEqual(len(native), 24)
+        self.assertEqual(len(native), 48)
         for name, minutes in (('dart', 60), ('web-shards', 60),
                               ('native-dart-shards', 360), ('rust', 45), ('rust-aggregate', 45)):
             self.assertIn(f'timeout-minutes: {minutes}\n', stanzas[name])

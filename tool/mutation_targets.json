@@ -1135,7 +1135,9 @@
     "supportFiles": [
       "packages/connectanum_router/example/router_hosted_mcp.dart",
       "packages/connectanum_router/test/support/router_example.dart",
-      "packages/connectanum_router/test/support/native_lib.dart"
+      "packages/connectanum_router/test/support/native_lib.dart",
+      "packages/connectanum_mcp/test/cli/fixtures/router_protocol_2025_06_18.json.gz",
+      "packages/connectanum_mcp/test/cli/owned_http_client_test_support.dart"
     ]
   },
   "mcp-library": {
@@ -1156,6 +1158,10 @@
     ],
     "tests": [
       "packages/connectanum_mcp/test"
+    ],
+    "supportFiles": [
+      "packages/connectanum_mcp/test/cli/fixtures/router_protocol_2025_06_18.json.gz",
+      "packages/connectanum_mcp/test/cli/owned_http_client_test_support.dart"
     ]
   },
   "mcp-cli": {
@@ -1164,6 +1170,10 @@
     ],
     "tests": [
       "packages/connectanum_mcp/test/cli"
+    ],
+    "supportFiles": [
+      "packages/connectanum_mcp/test/cli/fixtures/router_protocol_2025_06_18.json.gz",
+      "packages/connectanum_mcp/test/cli/owned_http_client_test_support.dart"
     ]
   },
   "client-installer": {
@@ -1195,7 +1205,9 @@
     "supportFiles": [
       "packages/connectanum_router/example/router_hosted_mcp.dart",
       "packages/connectanum_router/test/support/router_example.dart",
-      "packages/connectanum_router/test/support/native_lib.dart"
+      "packages/connectanum_router/test/support/native_lib.dart",
+      "packages/connectanum_mcp/test/cli/fixtures/router_protocol_2025_06_18.json.gz",
+      "packages/connectanum_mcp/test/cli/owned_http_client_test_support.dart"
     ],
     "requiresNativeLibrary": true,
     "isolateTestFiles": false,

@@ -9,6 +9,8 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';
 import 'package:test/test.dart';
 
+import 'owned_http_client_test_support.dart';
+
 const _protocol = '2026-07-28';
 const _tool = {
   'name': 'echo',
@@ -40,6 +42,34 @@ void main() {
         expect(jsonEncode(result.lines), isNot(contains(token)));
       },
     );
+
+    test('catalog search stops at the existing 1024-page bound', () async {
+      var pages = 0;
+      peer.rewrite = (request, result) {
+        if ((request['id'] as String?)?.startsWith('direct-standard-tools-') !=
+            true) {
+          return result;
+        }
+        pages++;
+        expect(
+          pages,
+          lessThanOrEqualTo(1024),
+          reason: 'No request beyond the catalog bound',
+        );
+        return {'tools': [], 'nextCursor': 'page-$pages'};
+      };
+      await expectLater(
+        _run(peer, ['--tool', 'echo']),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'specific bound',
+            'Direct standard tool exceeded 1024 catalog pages.',
+          ),
+        ),
+      );
+      expect(pages, 1024);
+    });
 
     for (final discover in [false, true]) {
       test(
@@ -1693,10 +1723,11 @@ Future<({List<Map<String, Object?>> lines, String err})> _runSuccessfully(
   List<String> options,
 ) async {
   late ({List<Map<String, Object?>> lines, String err}) result;
-  await expectLater(
-    _run(peer, options).then((value) => result = value),
-    completes,
-  );
+  try {
+    result = await _run(peer, options);
+  } on StateError catch (error) {
+    fail('The valid HTTP fixture exchange was rejected: $error');
+  }
   return result;
 }
 
@@ -1710,13 +1741,15 @@ Future<({List<Map<String, Object?>> lines, String err})> _run(
   // Only the option suite owns process-wide exitCode. HTTP tests use valid
   // arguments and assert the completed transcript or the specific exception.
   await IOOverrides.runZoned(
-    () => runRouterHostedClient([
-      '--endpoint',
-      'http://127.0.0.1:${peer.server.port}/mcp',
-      '--protocol-version',
-      _protocol,
-      ...options,
-    ]),
+    () => expectOwnedHttpClientsClosed(
+      () => runRouterHostedClient([
+        '--endpoint',
+        'http://127.0.0.1:${peer.server.port}/mcp',
+        '--protocol-version',
+        _protocol,
+        ...options,
+      ]),
+    ),
     stdout: () => capturedOutput,
     stderr: () => errors,
   );
