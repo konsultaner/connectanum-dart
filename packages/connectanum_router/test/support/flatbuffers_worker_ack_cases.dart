@@ -38,12 +38,18 @@ void _enqueueAcceptanceWorker(Map<String, Object?> init) {
       final target = raw[1] as int;
       final receipt = ReceivePort();
       try {
+        final bytes = init['transferPayload'] == true
+            ? encodeMessage(
+                NativeMessageSerializer.messagePack,
+                Event(1, 2, EventDetails(), arguments: [Uint8List(65536)]),
+              )
+            : Uint8List.fromList(utf8.encode('[6,{},"wamp.close.normal"]'));
         boss.send({
           'type': 'worker_send',
           'connectionId': target,
-          'payload': Uint8List.fromList(
-            utf8.encode('[6,{},"wamp.close.normal"]'),
-          ),
+          'payload': init['transferPayload'] == true
+              ? TransferableTypedData.fromList([bytes])
+              : bytes,
           'acceptedReply': receipt.sendPort,
         });
         final result = await receipt.first.timeout(const Duration(seconds: 2));
@@ -86,6 +92,10 @@ void _enqueueAcceptanceWorker(Map<String, Object?> init) {
   });
 }
 
+void _transferredEnqueueAcceptanceWorker(Map<String, Object?> init) {
+  _enqueueAcceptanceWorker({...init, 'transferPayload': true});
+}
+
 void _flatbuffersWorkerAckTests() {
   final failures = <String, Object?>{
     'accepted': null,
@@ -103,65 +113,81 @@ void _flatbuffersWorkerAckTests() {
       'controlled full send queue',
     ),
   };
-  for (final entry in failures.entries) {
-    test('native worker enqueue acknowledgement: ${entry.key}', () async {
-      final runtime = _EnqueueAcceptanceRuntime(
-        entry.value,
-        closeFailure: entry.key == 'closed slow peer'
-            ? NativeTransportException(
-                NativeTransportErrorCode.connectionNotFound,
-                'peer closed while rejecting full queue',
-              )
-            : null,
-      );
-      final router = Router(
-        RouterConfig(
-          endpoints: [
-            Endpoint(
-              host: '127.0.0.1',
-              port: 0,
-              tlsMode: TlsMode.disabled,
-              maxRawSocketSizeExponent: 16,
+  for (final transfer in [false, true]) {
+    for (final entry in failures.entries) {
+      test(
+        'native worker enqueue acknowledgement: ${entry.key} transferred=$transfer',
+        () async {
+          final runtime = _EnqueueAcceptanceRuntime(
+            entry.value,
+            closeFailure: entry.key == 'closed slow peer'
+                ? NativeTransportException(
+                    NativeTransportErrorCode.connectionNotFound,
+                    'peer closed while rejecting full queue',
+                  )
+                : null,
+          );
+          final router = Router(
+            RouterConfig(
+              endpoints: [
+                Endpoint(
+                  host: '127.0.0.1',
+                  port: 0,
+                  tlsMode: TlsMode.disabled,
+                  maxRawSocketSizeExponent: 16,
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+          final events = <Object>[];
+          final binding = router.start(
+            runtime,
+            workerEntryPoint: transfer
+                ? _transferredEnqueueAcceptanceWorker
+                : _enqueueAcceptanceWorker,
+            onEvent: events.add,
+            workerPollInterval: const Duration(milliseconds: 1),
+          );
+          addTearDown(binding.dispose);
+          runtime.enqueueHandle(binding.listeners.single.listenerId, 9001);
+          for (var attempt = 0; attempt < 600; attempt++) {
+            binding.pollNativeMessages();
+            if (_enqueueAcceptanceResults(events).isNotEmpty) break;
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+          }
+          final acknowledgement = _enqueueAcceptanceResults(events).single;
+          expect(
+            acknowledgement.containsKey('error'),
+            isFalse,
+            reason: acknowledgement.toString(),
+          );
+          expect(acknowledgement['result'], {'accepted': entry.value == null});
+          if (entry.key.contains('slow peer')) {
+            expect(runtime.closedConnections, contains(9001));
+            expect(
+              () => binding.forwardMessageToConnection(
+                9001,
+                Event(1, 2, EventDetails()),
+              ),
+              throwsStateError,
+            );
+          }
+          expect(
+            runtime.sentMessages[9001] ?? const [],
+            hasLength(entry.value == null ? 1 : 0),
+          );
+          if (transfer && entry.value == null) {
+            expect(
+              runtime.sentMessages[9001]!.single,
+              encodeMessage(
+                NativeMessageSerializer.messagePack,
+                Event(1, 2, EventDetails(), arguments: [Uint8List(65536)]),
+              ),
+            );
+          }
+        },
       );
-      final events = <Object>[];
-      final binding = router.start(
-        runtime,
-        workerEntryPoint: _enqueueAcceptanceWorker,
-        onEvent: events.add,
-        workerPollInterval: const Duration(milliseconds: 1),
-      );
-      addTearDown(binding.dispose);
-      runtime.enqueueHandle(binding.listeners.single.listenerId, 9001);
-      for (var attempt = 0; attempt < 600; attempt++) {
-        binding.pollNativeMessages();
-        if (_enqueueAcceptanceResults(events).isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-      final acknowledgement = _enqueueAcceptanceResults(events).single;
-      expect(
-        acknowledgement.containsKey('error'),
-        isFalse,
-        reason: acknowledgement.toString(),
-      );
-      expect(acknowledgement['result'], {'accepted': entry.value == null});
-      if (entry.key.contains('slow peer')) {
-        expect(runtime.closedConnections, contains(9001));
-        expect(
-          () => binding.forwardMessageToConnection(
-            9001,
-            Event(1, 2, EventDetails()),
-          ),
-          throwsStateError,
-        );
-      }
-      expect(
-        runtime.sentMessages[9001] ?? const [],
-        hasLength(entry.value == null ? 1 : 0),
-      );
-    });
+    }
   }
 }
 

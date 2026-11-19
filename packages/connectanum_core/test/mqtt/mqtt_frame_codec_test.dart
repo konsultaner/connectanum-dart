@@ -36,6 +36,93 @@ void main() {
       expect(decoder.bufferedBytes, 0);
     });
 
+    test(
+      'custom owned storage follows bounded growth and owns every frame',
+      () {
+        final allocations = <Uint8List>[];
+        Uint8List allocate(int length) {
+          final body = Uint8List(length);
+          allocations.add(body);
+          return body;
+        }
+
+        final expected = Uint8List.fromList(
+          List.generate(65536, (i) => i % 251),
+        );
+        final wire = MqttFrame(
+          MqttPacketType.publish,
+          flags: 0,
+          body: expected,
+        ).encode();
+        final decoder = MqttFrameDecoder();
+        final first = Uint8List.sublistView(wire, 0, 8);
+        expect(decoder.add(first, allocateBody: allocate), isEmpty);
+        expect(allocations.single.length, lessThan(8192));
+        first.fillRange(0, first.length, 0);
+        final frame = decoder
+            .add(Uint8List.sublistView(wire, 8), allocateBody: allocate)
+            .single;
+        expect(allocations, hasLength(2));
+        expect(frame.body, same(allocations.last));
+        expect(frame.body, expected);
+        wire.fillRange(0, wire.length, 0);
+        final ping = decoder
+            .add(bytes([0xc0, 0]), allocateBody: allocate)
+            .single;
+        expect(ping.body, isEmpty);
+        expect(frame.body, expected);
+      },
+    );
+
+    test('custom allocator cannot change packet size or bypass validation', () {
+      for (final extra in [-1, 1]) {
+        final decoder = MqttFrameDecoder();
+        expect(
+          () => decoder.add(
+            bytes([0x30, 2, 1, 2]),
+            allocateBody: (n) => Uint8List(n + extra),
+          ),
+          throwsStateError,
+        );
+      }
+      var allocated = 0;
+      expect(
+        () => MqttFrameDecoder(maxPacketSize: 5).add(
+          bytes([0x30, 127]),
+          allocateBody: (n) {
+            allocated++;
+            return Uint8List(n);
+          },
+        ),
+        throwsA(isA<MqttProtocolException>()),
+      );
+      expect(allocated, 0);
+    });
+
+    test('allocator failure is terminal and drops the partial body', () {
+      for (final allocator in <Uint8List Function(int)>[
+        (_) => throw StateError('allocation failed'),
+        (length) => Uint8List(length - 1),
+      ]) {
+        final decoder = MqttFrameDecoder();
+        final packet = MqttFrame(
+          MqttPacketType.publish,
+          flags: 0,
+          body: Uint8List(65536),
+        ).encode();
+        expect(decoder.add(Uint8List.sublistView(packet, 0, 8)), isEmpty);
+        expect(
+          () => decoder.add(
+            Uint8List.sublistView(packet, 8),
+            allocateBody: allocator,
+          ),
+          throwsStateError,
+        );
+        expect(() => decoder.add(bytes([0xc0, 0])), throwsStateError);
+        expect(decoder.bufferedBytes, 0);
+      }
+    });
+
     test('copies a trailing partial frame before caller input changes', () {
       final input = bytes([0x30, 0x02, 0xa1, 0xb2, 0x30, 0x03, 0xc3]);
       final decoder = MqttFrameDecoder(maxPacketSize: 5);

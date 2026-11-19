@@ -129,7 +129,7 @@ class CompositeSetupTests(unittest.TestCase):
         # the parent composite's GITHUB_ACTION_PATH, where it does not exist.
         # Explicitly opting out prevents a runner error before any checks run.
         self.assertRegex(dart_step, r"(?m)^\s+problem-matcher:\s*'false'\s*$")
-        self.assertIn('sdk: 3.13.1', dart_step)
+        self.assertIn('sdk: 3.14.0', dart_step)
         fast = (ROOT / 'bin/test-ci-fast').read_text()
         self.assertIn('dart analyze', fast)
         self.assertIn('set -euo pipefail', fast)

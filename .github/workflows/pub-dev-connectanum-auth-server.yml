@@ -18,6 +18,8 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.14.0
 
       - name: Validate package tag and archive
         run: |
@@ -38,4 +40,6 @@ jobs:
     uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
     with:
       working-directory: packages/connectanum_auth_server
+      sdk: 3.14.0
+      use-flutter: false
       environment: pub.dev

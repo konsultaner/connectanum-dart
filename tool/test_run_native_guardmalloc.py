@@ -15,6 +15,28 @@ LOADER = 'dyld[123]: <123> /usr/lib/libgmalloc.dylib\n'
 OK = 'test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n'
 
 class GuardMallocChecks(unittest.TestCase):
+    def run_ready_logged(self, command, destination, stem, timeout, ready):
+        launch = subprocess.Popen
+
+        def launch_ready(*args, **kwargs):
+            child = launch(*args, **kwargs)
+            # Exercise timeout/cleanup only after the real fixture is armed.
+            # Bound setup separately; retain the exact .2s/.3s cleanup deadlines.
+            deadline = time.monotonic() + 5
+            try:
+                output = destination / f'{stem}.stdout.log'
+                while ready not in output.read_text():
+                    self.assertIsNone(child.poll(), 'Fixture exited before readiness')
+                    self.assertLess(time.monotonic(), deadline, 'Fixture did not become ready')
+                    time.sleep(.01)
+                return child
+            except BaseException:
+                guard.stop_process_group(child)
+                raise
+
+        with mock.patch.object(guard.subprocess, 'Popen', side_effect=launch_ready):
+            return guard.run_logged(command, destination, destination, stem, timeout)
+
     def test_requires_actual_loader_and_one_positive_success(self):
         self.assertEqual(guard.observed_result(OK, LOADER, 9), 9)
         for out, err, minimum in [
@@ -36,8 +58,8 @@ class GuardMallocChecks(unittest.TestCase):
             self.assertFalse(result['timedOut'])
             self.assertEqual((destination / result['stdoutLog']).read_text(), 'fail\n')
             self.assertEqual(result['stdoutSha256'], guard.sha(destination / result['stdoutLog']))
-            command = [sys.executable, '-c', 'import time,sys;print("partial",flush=True);print("error",file=sys.stderr,flush=True);time.sleep(10)']
-            result = guard.run_logged(command, destination, destination, 'timeout', .2)
+            command = [sys.executable, '-c', 'import time,sys;print("error",file=sys.stderr,flush=True);print("partial",flush=True);time.sleep(10)']
+            result = self.run_ready_logged(command, destination, 'timeout', .2, 'partial\n')
             self.assertTrue(result['timedOut'])
             self.assertNotEqual(result['exitCode'], 0)
             self.assertEqual((destination / result['stdoutLog']).read_text(), 'partial\n')
@@ -48,9 +70,11 @@ class GuardMallocChecks(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             destination = Path(folder)
             child_code = 'import signal,time,pathlib;signal.signal(signal.SIGTERM,signal.SIG_IGN);print("ready",flush=True);time.sleep(1);pathlib.Path("escaped").write_text("bad")'
-            parent_code = f'import subprocess,sys,time;subprocess.Popen([sys.executable,"-c",{child_code!r}]);time.sleep(10)'
-            result = guard.run_logged([sys.executable, '-c', parent_code], destination, destination, 'descendant', .3)
+            parent_code = f'import subprocess,sys,time;time.sleep(.4);subprocess.Popen([sys.executable,"-c",{child_code!r}]);time.sleep(10)'
+            result = self.run_ready_logged([sys.executable, '-c', parent_code], destination, 'descendant', .3, 'ready\n')
             self.assertTrue(result['timedOut'])
+            self.assertEqual(result['deadlineSeconds'], .3)
+            self.assertIsNone(result['cleanupError'])
             self.assertIn('ready', (destination / result['stdoutLog']).read_text())
             time.sleep(1)
             self.assertFalse((destination / 'escaped').exists())

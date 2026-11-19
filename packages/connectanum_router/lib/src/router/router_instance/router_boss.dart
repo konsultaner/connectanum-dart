@@ -1913,7 +1913,11 @@ class _RouterBoss {
       var accepted = false;
       try {
         if (fragments == null) {
-          runtime.sendMessage(connectionId, message['payload'] as Uint8List);
+          final transferred = message['payload'];
+          final bytes = transferred is TransferableTypedData
+              ? transferred.materialize().asUint8List()
+              : transferred as Uint8List;
+          runtime.sendMessage(connectionId, bytes);
         } else {
           sendNativeMessageFragments(
             runtime,
@@ -2489,7 +2493,7 @@ class _RouterBoss {
       (grouped[worker] ??= []).add([message.connectionId, message.message]);
     }
     for (final entry in grouped.entries) {
-      if (entry.key.supportsMessageBatches && entry.value.length > 1) {
+      if (entry.key.supportsMessageBatches) {
         entry.key.commandPort.send([_workerCmdSendMessages, entry.value]);
       } else {
         // Custom workers keep their existing single-message protocol.

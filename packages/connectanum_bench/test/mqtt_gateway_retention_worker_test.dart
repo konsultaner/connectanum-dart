@@ -9,11 +9,14 @@ import 'support/mqtt_gateway_retention_worker.dart' as retention;
 
 void main() {
   test('internal collection is restricted to the verified SDK', () {
-    retention.RetentionCollector.validateSdk('3.13.1 (stable) (build)');
+    retention.RetentionCollector.validateSdk('3.14.0 (stable) (build)');
     for (final version in [
+      '3.13.1 (stable)',
       '3.13.10 (stable)',
-      '3.13.1 (dev)',
-      '3.14.0 (stable)',
+      '3.14.1 (stable)',
+      '3.14.0 (dev)',
+      '3.14.0 (beta)',
+      '3.14.00 (stable)',
       '',
     ]) {
       expect(

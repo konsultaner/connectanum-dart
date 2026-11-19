@@ -178,10 +178,10 @@ old-generation collection and unused allocator-cache release before/after load.
 They cover normal traffic and stalled-consumer recovery. Raw RSS drift remains
 available separately; stress timings are not performance results.
 
-The internal test executable requires Dart 3.13.1 stable and qualified glibc
-Linux. Dart's [verification API](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/include/dart_native_api.h)
-restricts `gc-now` to tests. Its [implementation](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/native_api_impl.cc)
-collects the old generation; the SDK's [nursery metric](https://github.com/dart-lang/sdk/blob/3.13.1/runtime/vm/metrics.cc)
+The internal test executable requires Dart 3.14.0 stable and qualified glibc
+Linux. Dart's [verification API](https://github.com/dart-lang/sdk/blob/3.14.0/runtime/include/dart_native_api.h)
+restricts `gc-now` to tests. Its [implementation](https://github.com/dart-lang/sdk/blob/3.14.0/runtime/vm/native_api_impl.cc)
+collects the old generation; the SDK's [nursery metric](https://github.com/dart-lang/sdk/blob/3.14.0/runtime/vm/metrics.cc)
 reports capacity rather than live bytes, so the separate test bounds that
 capacity instead of treating it as a leak. [GNU malloc trimming](https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c)
 releases unused native allocator pages without changing live allocations.
@@ -204,13 +204,24 @@ allocation pressure; absolute RSS gates still include every resident page.
 
 Manual gateway campaigns use unique [concurrency groups](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency), so a newer dispatch cannot replace queued or running benchmark evidence.
 
-Large ordinary CBOR worker events reuse up to four exact-size encoding buffers,
-with a combined limit of 1 MiB per worker. The synchronous isolate send
-[snapshots mutable bytes](https://api.dart.dev/dart-isolate/SendPort/send.html)
-before a buffer can be reused; oversized frames retain owned storage.
+The MQTT decoder copies its reusable native read buffer into owned managed
+bodies. Large internal binary values can use privately owned, VM-immutable
+native snapshots across isolate hops. Materializing such a snapshot for a
+public event or RPC result returns mutable owned bytes. Older native libraries
+retain the transferable-byte fallback; neither body lifetime depends on the
+runtime remaining open.
 
-Large ordinary FlatBuffers EVENT fan-out shares one binary body per worker graph,
-bounded to 64 frames and 1 MiB. Each frame is joined into native-owned storage
-through the existing send ABI. Control/profile acceptance and PPT/lazy/keyword
-fallback flush the group first. Other messages keep their existing owned-frame
-path. FlatBuffers validation reuses field-name sets from the generated schema.
+Eligible ordinary CBOR and FlatBuffers worker events use the existing fragment
+batch path even for one recipient. A graph shares its immutable binary backing,
+with the existing limits of 64 frames and 1 MiB. Each frame is joined into
+native-owned storage through the existing send ABI. Control/profile acceptance
+and PPT/lazy/keyword fallback flush the group first.
+
+Standalone or custom-worker CBOR fallback reuses up to four exact-size encoding
+buffers, with a combined limit of 1 MiB per worker. The synchronous isolate send
+[snapshots mutable bytes](https://api.dart.dev/dart-isolate/SendPort/send.html)
+before a buffer can be reused. Large contiguous worker frames transfer their
+owned bytes; oversized frames retain owned storage.
+
+Other messages keep their existing owned-frame path. FlatBuffers validation
+reuses field-name sets from the generated schema.

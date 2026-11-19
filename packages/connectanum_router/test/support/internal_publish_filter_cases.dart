@@ -1,6 +1,98 @@
 part of '../router_runtime_test.dart';
 
 void _internalPublishFilterCases() {
+  for (final size in [16383, 16384, 65536, 65537]) {
+    test(
+      'internal external publication snapshots $size bytes before returning',
+      () async {
+        NativeMqttFrameBufferAllocator.forLibrary(
+          ffi.DynamicLibrary.open(NativeLibraryLoader.resolvePath(null)),
+        );
+        final realm = RealmSettingsBuilder('realm1')
+          ..addRoleFromBuilder(
+            RoleSettingsBuilder('internal')..addPermissionFromBuilder(
+              PermissionSettingsBuilder('app.binary')
+                ..allowOperations(const ['subscribe', 'publish']),
+            ),
+          );
+        final binding = Router(
+          RouterConfig(
+            endpoints: [
+              Endpoint(
+                host: '127.0.0.1',
+                port: 0,
+                maxRawSocketSizeExponent: 16,
+                tlsMode: TlsMode.native,
+                sniCertificates: [_cert('localhost')],
+              ),
+            ],
+          ),
+          settings: (RouterSettingsBuilder()..addRealmFromBuilder(realm))
+              .build(),
+        ).start(_HandleRuntime());
+        addTearDown(binding.dispose);
+        final publisher = await binding.createInternalSession(
+          realmUri: 'realm1',
+          authId: 'binary-origin',
+          authRole: 'internal',
+        );
+        addTearDown(publisher.close);
+        final received = <Future<Event>>[];
+        for (var index = 0; index < 2; index++) {
+          final receiver = await binding.createInternalSession(
+            realmUri: 'realm1',
+            authId: 'binary-$index',
+            authRole: 'internal',
+          );
+          addTearDown(receiver.close);
+          final event = Completer<Event>();
+          (await receiver.subscribe('app.binary')).onEvent(event.complete);
+          received.add(event.future);
+        }
+        final externalKind = ffi.DynamicLibrary.process()
+            .lookupFunction<ffi.Int Function(ffi.Handle), int Function(Object)>(
+              'Dart_GetTypeOfExternalTypedData',
+            );
+        final backing = ffi.DynamicLibrary.process()
+            .lookupFunction<
+              ffi.Handle Function(ffi.Handle),
+              Object Function(Object)
+            >('Dart_GetDataFromByteBuffer');
+        final managedKind = externalKind(backing(Uint8List(0).buffer));
+        final storage = calloc<ffi.Uint8>(size + 12).asTypedList(
+          size + 12,
+          finalizer: calloc.nativeFree,
+        );
+        final nativeKind = externalKind(backing(storage.buffer));
+        expect(nativeKind, isNot(managedKind));
+        final expected = List.generate(size, (i) => i % 251);
+        final body = Uint8List.sublistView(storage, 7, 7 + size)
+          ..setAll(0, expected);
+        final pending = publisher.publish(
+          'app.binary',
+          arguments: [body],
+          options: PublishOptions(acknowledge: true),
+        );
+        body.fillRange(0, body.length, 0);
+        final publication = await pending;
+        final events = await Future.wait(
+          received,
+        ).timeout(const Duration(seconds: 5));
+        for (final event in events) {
+          expect(event.publicationId, publication!.publicationId);
+          expect(event.arguments!.single, expected);
+          final receivedBody = event.arguments!.single as Uint8List;
+          expect(
+            externalKind(backing(receivedBody.buffer)),
+            size < 16 * 1024 ? nativeKind : managedKind,
+          );
+          receivedBody[0] = 249;
+          expect(receivedBody.first, 249);
+        }
+      },
+    );
+  }
+
   for (final filter in [
     'exclude-session',
     'exclude-authid',

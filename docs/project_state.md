@@ -1,7 +1,50 @@
 # Project State
 
-Last updated: 2026-11-06.
-Current milestone: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
+Last updated: 2026-11-18.
+Current milestone: Dart 3.14 upgrade and CI repair qualified.
+Active plan: none.
+Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
+
+[PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
+Dart 3.14.0 across `.tool-versions`, CI/cache keys and all eight publishing jobs.
+Package SDK lower bounds remain 3.10.0.
+
+The repair keeps MQTT input in the Core decoder's owned managed body. Large
+internal binary values use privately owned, VM-immutable native snapshots across
+isolate hops; public callbacks receive mutable owned copies. The existing
+negotiated, bounded fragment/batch path also handles singleton gateway recipients.
+Older native libraries and custom workers retain their capability fallback.
+The App-Lab child-exit race has a deterministic regression. Lifecycle, copy/GC
+ownership, file-counter and worker-error paths have regression coverage.
+Six added normal/lazy RPC cases at 16,383/16,384/65,537 bytes cover the native
+snapshot public-copy path, nested keywords and independent mutable results.
+Removing that copy fails the regression; original tests stay unchanged.
+
+Implementation `8a70e37c` passes **all 61 PR checks**, without skipped or
+cancelled checks: all 55 [main CI jobs](https://github.com/konsultaner/connectanum-dart/actions/runs/44356684316), all sixteen gateway
+performance/memory shards, exact gateway coverage, all mutation gates and both
+Codecov contexts, three ObjectBox platforms and package dry runs. GuardMalloc
+observes and passes 93 native ownership cases. All 20 standalone MQTT QoS
+profiles pass. Critical 64-KiB/window-32 result: peak 61.65/96 MiB, CPU ratio
+2.467/4, p95 1.116/2, p99 1.096/2.25 and throughput 0.9467/0.75.
+
+Complete current-source local `bin/verify` passes with both the committed head
+and all 21 frozen implementation/test/tool hashes unchanged throughout,
+including real Chrome/Dart2Wasm (4,814 Core and 2,830 client cases; 20 existing
+native-only browser skips). Qualifying cold comparisons match production
+Dart/native source hashes and clear both strict standalone QoS and all 40
+normal/six overload gateway cycles. Full PR CI independently qualifies the
+complete profile/retention/control matrix.
+
+All 19 benchmark-budget JSON files match `master`; measured critical QoS
+budgets equal checked-in values. Numeric memory/performance, coverage and
+mutation limits, workloads, queue bounds, warm-up/drain/stall durations,
+default VM settings and timeout controls remain unchanged. No forced production
+GC or global allocator tuning is added. The completed plan preserves original
+failures, rejected candidates and checksum-verified evidence. No merge or release
+is made.
+
+Latest release: coordinated `3.0.0-beta.9` publication completed on 2026-11-06.
 All eight Dart packages are public, with matching signed native assets for five
 platforms. [Release and evidence](https://github.com/konsultaner/connectanum-dart/releases/tag/v3.0.0-beta.9).
 Completed plan: [beta.9 release](exec-plans/2026-11-06-3.0.0-beta.9-release.md).
@@ -28,6 +71,17 @@ See the [MQTT contract](mqtt.md) and completed
 
 | Source/check | Verified result |
 | --- | --- |
+| Managed-input/RPC repair `8a70e37c`, [main CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44356684316) | All 55 jobs pass on attempt 1, including all sixteen performance/memory shards and exact coverage/mutation gates |
+| Managed-input/RPC repair `8a70e37c`, complete PR rollup | All 61 checks pass, zero skipped/cancelled checks; both Codecov contexts, three ObjectBox platforms and package dry runs pass |
+| Managed-input/RPC repair `8a70e37c`, committed-head `bin/verify` | Pass, head and all 21 source/test/tool hashes unchanged; Rust/native/VM/consumers/real Chrome/Wasm |
+| Managed-input repair, [strict standalone QoS](https://github.com/konsultaner/connectanum-dart/actions/runs/44339526524) | Both cold campaigns pass every original CPU/rate/latency/RSS gate; peaks 54.38/55.68 MiB against 96 MiB |
+| Managed-input repair, [cold gateway comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44339531343) | All 40 normal/six overload candidate cycles pass available absolute checks; peaks 31.39/63 MiB and 75.15/126 MiB |
+| Managed-input repair, complete local `bin/verify` | Pass, all 20 source/test/tool hashes unchanged; Rust/native/VM/consumers/Chrome/Wasm; complete source-head CI passes at `8a70e37c` |
+| Mapped-input singleton repair, [cold comparison](https://github.com/konsultaner/connectanum-dart/actions/runs/44327753894) | All 40 normal and six overload candidate cycles meet available absolute checks; normal 34.14/63 MiB, p99 1,665–1,738/2,437 us |
+| Mapped-input singleton repair, complete local `bin/verify` | Pass, all source hashes unchanged; Rust/native, full VM/consumers and real Chrome/Wasm; historical mapped-input source, superseded by the complete managed-input/RPC qualification |
+| Dart 3.14 source `9dc7b2d4`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/44268728740) | All 55 main jobs pass, including all 16 memory/performance shards |
+| Dart 3.14 full PR checks at `9dc7b2d4` | All 61 checks pass, zero skipped/cancelled; Codecov project 94.20% vs 94.16%, patch 100% |
+| Earlier Dart 3.14 source `9dc7b2d4`, local `bin/verify` | Pass, Rust/native/Dart/consumers/ObjectBox/Chrome/Wasm; clean worktree at completion |
 | Released source `72c078f1`, [CI](https://github.com/konsultaner/connectanum-dart/actions/runs/42228480314) | All 61 PR checks pass, zero skipped checks; all sixteen performance/memory shards pass |
 | Published native builds / production profiles | Five platforms pass, 170 cases, zero skips |
 | Fresh hosted-only beta.9 consumer | All eight exact versions; MQTT 5/3.1.1 and both gateway directions pass; zero duplicates |

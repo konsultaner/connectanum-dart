@@ -12,6 +12,7 @@ import 'package:meta/meta.dart';
 
 import 'ffi_bindings.dart';
 import 'message_binding.dart';
+import 'mqtt_frame_buffer.dart';
 
 abstract class NativeRuntime {
   void start();
@@ -2178,7 +2179,9 @@ class NativeMessageHandleDecoder {
     : _messageBindings = _MessageBindings(
         _bindings,
         NativeMessageBytes(_library),
-      );
+      ) {
+    NativeMqttFrameBufferAllocator.forLibrary(_library);
+  }
 
   final String libraryPath;
   // ignore: unused_field
@@ -2374,7 +2377,9 @@ class NativeTransportRuntime
     : _messageBindings = _MessageBindings(
         _bindings,
         NativeMessageBytes(_library),
-      );
+      ) {
+    NativeMqttFrameBufferAllocator.forLibrary(_library);
+  }
 
   final String _libraryPath;
   final ffi.DynamicLibrary _library; // Retain library for runtime lifetime.

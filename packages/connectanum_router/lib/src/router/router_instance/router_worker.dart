@@ -324,6 +324,7 @@ void sendWorkerMessagePayload(
         arguments!.single is Uint8List &&
         (arguments.single as Uint8List).length >= 16 * 1024) {
       final fragments = _cborSerializer.serializeEventFragments(message)!;
+      if (frameBatch?.add(envelope, fragments) == true) return;
       final length = fragments.fold<int>(0, (sum, part) => sum + part.length);
       final output = _workerFrameBuffer(length);
       var offset = 0;
@@ -332,11 +333,22 @@ void sendWorkerMessagePayload(
         offset += fragment.length;
       }
       // Mutable bytes are snapshotted before send returns, then reused.
-      target.send({...envelope, 'payload': output});
+      target.send({
+        ...envelope,
+        'payload': TransferableTypedData.fromList([output]),
+      });
       return;
     }
   }
-  target.send({...envelope, 'payload': encodeMessage(serializer, message)});
+  final payload = encodeMessage(serializer, message);
+  // Sending a large managed byte array copies it into the receiver's heap.
+  // Transfer ownership instead so these short-lived frames stay external.
+  target.send({
+    ...envelope,
+    'payload': payload.length >= 16 * 1024
+        ? TransferableTypedData.fromList([payload])
+        : payload,
+  });
 }
 
 Uint8List encodeMessage(

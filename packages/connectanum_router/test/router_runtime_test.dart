@@ -4,12 +4,14 @@ library router_runtime_test;
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cbor/cbor.dart' as cbor;
+import 'package:ffi/ffi.dart' show calloc;
 import 'package:connectanum_core/authentication.dart'
     show CraAuthentication, ScramAuthentication, TicketAuthentication;
 import 'package:connectanum_core/flatbuffers_serializer.dart' as flat;
@@ -38,6 +40,7 @@ import 'package:connectanum_core/connectanum_core.dart'
         WampCborAes256GcmProvider,
         WampCborXsalsa20Poly1305Provider;
 import 'package:connectanum_router/src/native/runtime.dart';
+import 'package:connectanum_router/src/native/mqtt_frame_buffer.dart';
 import 'package:connectanum_router/src/router/config/auth_registry.dart';
 import 'package:connectanum_router/src/router/config/authenticator.dart';
 import 'package:connectanum_router/src/router/auth/security.dart';

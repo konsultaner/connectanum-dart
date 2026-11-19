@@ -181,6 +181,22 @@ impl Drop for View {
     }
 }
 
+// The tracked send consumes its slice handle. Before submission, unwind must
+// release it so the producer's affine cleanup cannot be stranded.
+struct PendingSlice(i32);
+impl PendingSlice {
+    fn into_raw(mut self) -> i32 {
+        std::mem::take(&mut self.0)
+    }
+}
+impl Drop for PendingSlice {
+    fn drop(&mut self) {
+        if self.0 > 0 {
+            let _ = ct_owned_buffer_release(self.0);
+        }
+    }
+}
+
 struct Receipt(i32);
 impl Receipt {
     fn new(connection: i32, buffer: i32) -> Self {
@@ -330,6 +346,29 @@ fn read_payload(stream: &mut TcpStream, websocket: bool) -> Vec<u8> {
 }
 
 #[test]
+fn pending_slice_releases_before_submission_on_unwind() {
+    let _guard = test_guard();
+    let producer = Producer::new();
+    let slice = ct_owned_buffer_slice(producer.handle, 0, LENGTH);
+    assert!(slice > 0);
+    let result = std::panic::catch_unwind(move || {
+        let _pending = PendingSlice(slice);
+        panic!("controlled pending-slice unwind");
+    });
+    // Clean both handles before asserting, including the negative-control case
+    // where a missing Drop would otherwise strand Producer::drop's join.
+    let residue = ct_owned_buffer_release(slice);
+    let original = ct_owned_buffer_release(producer.handle);
+    producer.assert_released();
+    assert!(result.is_err());
+    assert_eq!(original, SUCCESS);
+    assert_ne!(
+        residue, SUCCESS,
+        "unwind must already have released the slice"
+    );
+}
+
+#[test]
 fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
     #[derive(Clone, Copy, Debug)]
     enum Termination {
@@ -351,25 +390,30 @@ fn registered_transaction_fanout_survives_disconnect_and_shutdown() {
             let mut view = Some(View::new(producer.handle));
             assert_eq!(view.as_ref().unwrap().0.ptr as usize, producer.base);
             assert_eq!(view.as_ref().unwrap().0.len, LENGTH);
-            let copy = ct_owned_buffer_slice(producer.handle, 0, LENGTH);
-            assert!(copy > 0);
+            let copy = PendingSlice(ct_owned_buffer_slice(producer.handle, 0, LENGTH));
+            assert!(copy.0 > 0);
             let mut info = std::mem::MaybeUninit::uninit();
-            assert_eq!(ct_owned_buffer_info(copy, info.as_mut_ptr()), SUCCESS);
+            assert_eq!(ct_owned_buffer_info(copy.0, info.as_mut_ptr()), SUCCESS);
             let info = unsafe { info.assume_init() };
             assert_eq!(info.base as usize, producer.base);
             assert_eq!(info.writable, 0);
+            let slow_receipt = Receipt::new(slow, producer.handle);
+            // Observe actual payload progress before interrupting this write.
+            // The fixed small receive window cannot accept the full 8 MiB body.
+            let _partial_payload = read_payload_prefix(&mut slow_peer, websocket);
+            assert_eq!(slow_receipt.outcome(), 0);
+            // Establish the blocked leg before starting the fast reader's I/O
+            // deadline. Both writes still share the same live borrowed owner.
             let reader = thread::spawn(move || {
                 let payload = read_payload(&mut fast_peer, websocket);
                 // Reading the final byte does not prove the local writer has
                 // published its receipt. Keep the peer open until that boundary.
                 (fast_peer, payload)
             });
-            let fast_receipt = Receipt::new(fast, copy);
-            let slow_receipt = Receipt::new(slow, producer.handle);
-            // Observe actual payload progress before interrupting this write.
-            // The fixed small receive window cannot accept the full 8 MiB body.
-            let _partial_payload = read_payload_prefix(&mut slow_peer, websocket);
-            until("fast local write", || fast_receipt.outcome() == 1);
+            let fast_receipt = Receipt::new(fast, copy.into_raw());
+            let fast_boundary =
+                format!("fast local write (websocket={websocket}, {termination:?})");
+            until(&fast_boundary, || fast_receipt.outcome() == 1);
             let (_fast_peer, payload) = reader.join().unwrap();
             assert!(valid_payload(&payload));
             // The slow receiver has consumed only the verified payload prefix.

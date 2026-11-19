@@ -430,6 +430,82 @@ void _internalCallLifecycleCases() {
         expect(fixture.errors, isEmpty);
       });
     }
+
+    for (final size in [16383, 16384, 65537]) {
+      for (final lazy in [false, true]) {
+        test(
+          'native snapshot RPC owns $size result bytes lazy=$lazy',
+          () async {
+            NativeMqttFrameBufferAllocator.forLibrary(
+              ffi.DynamicLibrary.open(NativeLibraryLoader.resolvePath(null)),
+            );
+            final fixture = _internalCloseFixture();
+            final caller = await fixture.binding.createInternalSession(
+              realmUri: 'realm1',
+            );
+            final callee = await fixture.binding.createInternalSession(
+              realmUri: 'realm1',
+            );
+            addTearDown(caller.close);
+            addTearDown(callee.close);
+            final storage = Uint8List.fromList(
+              List.generate(size + 9, (i) => i % 251),
+            );
+            final body = Uint8List.sublistView(storage, 5, size + 5);
+            final expected = List.generate(size, (i) => (i + 5) % 251);
+            late Uint8List invokedBody;
+            late Uint8List invokedKeyword;
+            final registered = await callee.register('app.snapshot_echo');
+            registered.onInvoke((invocation) {
+              invokedBody = invocation.arguments!.single as Uint8List;
+              invokedKeyword =
+                  (invocation.argumentsKeywords!['nested'] as Map)['bytes']
+                      as Uint8List;
+              expect(invokedBody, expected);
+              expect(invokedKeyword, expected);
+              invocation.respondWith(
+                arguments: invocation.arguments,
+                argumentsKeywords: invocation.argumentsKeywords,
+              );
+            });
+            final arguments = <dynamic>[body];
+            final keywords = <String, dynamic>{
+              'nested': <String, dynamic>{'bytes': body},
+            };
+            final results =
+                await (lazy
+                        ? caller.callLazyPayload(
+                            'app.snapshot_echo',
+                            payload: LazyMessagePayload.materialized(
+                              arguments: arguments,
+                              argumentsKeywords: keywords,
+                            ),
+                          )
+                        : caller.call(
+                            'app.snapshot_echo',
+                            arguments: arguments,
+                            argumentsKeywords: keywords,
+                          ))
+                    .toList()
+                    .timeout(const Duration(seconds: 5));
+            final returned = results.single.arguments!.single as Uint8List;
+            final returnedKeyword =
+                (results.single.argumentsKeywords!['nested'] as Map)['bytes']
+                    as Uint8List;
+            expect(returned, expected);
+            expect(returnedKeyword, expected);
+            expect(identical(returned, invokedBody), isFalse);
+            returned[0] = 249;
+            expect(returnedKeyword, expected);
+            returnedKeyword[1] = 248;
+            expect(invokedBody, expected);
+            expect(invokedKeyword, expected);
+            expect(body, expected);
+            expect(fixture.errors, isEmpty);
+          },
+        );
+      }
+    }
   });
 }
 
