@@ -924,6 +924,10 @@ fn raw_frame_ranges_preserve_bytes_and_storage_ownership() {
             frame.slice_or_copy(&(0..9)),
             Err(ParseError::Deserialize(_))
         ));
+        assert_condition!(matches!(
+            frame.slice_or_copy(&(7..1)),
+            Err(ParseError::Deserialize(_))
+        ));
         let retained = frame.slice_or_copy(&(1..7)).assert_success();
         drop(frame);
         assert_eq!(retained.as_ref(), b"bcdefg");
@@ -959,4 +963,19 @@ fn segmented_reader_respects_empty_reads_partial_reads_and_eof() {
     assert_eq!(reader.read(&mut buffer).assert_success(), 0);
     assert_eq!(reader.read(&mut buffer).assert_success(), 0);
     assert_eq!(buffer, *b"dec");
+}
+
+#[test]
+fn segmented_part_reader_preserves_remaining_bytes_after_empty_reads() {
+    let mut reader = SegmentedPartsReader {
+        segments: VecDeque::from([Bytes::new(), Bytes::from_static(b"ab"), Bytes::new()]),
+    };
+    let mut buffer = [0xaa; 1];
+    assert_eq!(reader.read(&mut buffer).assert_success(), 1);
+    assert_eq!(buffer, *b"a");
+    assert_eq!(reader.read(&mut []).assert_success(), 0);
+    assert_eq!(reader.read(&mut buffer).assert_success(), 1);
+    assert_eq!(buffer, *b"b");
+    assert_eq!(reader.read(&mut buffer).assert_success(), 0);
+    assert_eq!(reader.read(&mut buffer).assert_success(), 0);
 }

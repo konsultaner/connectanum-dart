@@ -616,6 +616,117 @@ void main() {
       timeout: const Timeout(Duration(seconds: 45)),
     );
 
+    for (final transport in WampTransport.values) {
+      for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+        for (final serializer in [
+          WampSerializer.cbor,
+          WampSerializer.msgpack,
+        ]) {
+          test(
+            'Dart large PPT ${transport.name} ${mode.name} ${serializer.name} '
+            'preserves the payload across router workers',
+            () async {
+              final samples = await harness!.runDart(
+                WampScenario(
+                  transport: transport,
+                  clientImplementation: WampClientImplementation.dart,
+                  serializer: serializer,
+                  mode: mode,
+                  uri: mode == WampMode.rpc
+                      ? 'bench.rpc.lazy_echo'
+                      : 'bench.topic',
+                  iterations: 2,
+                  concurrency: 2,
+                  payloadBytes: 65536,
+                  pptScheme: 'x_custom_scheme',
+                  pptSerializer: serializer.name,
+                ),
+              );
+              expect(samples, hasLength(4));
+              for (final sample in samples) {
+                expect(sample.requestBytes, 65536);
+                expect(sample.responseBytes, 65536);
+              }
+            },
+            skip: skipReason,
+            timeout: const Timeout(Duration(seconds: 45)),
+          );
+        }
+      }
+    }
+
+    for (final transport in WampTransport.values) {
+      for (final serializer in [WampSerializer.cbor, WampSerializer.msgpack]) {
+        test(
+          'large PPT ${transport.name} ${serializer.name} retains exact binary values',
+          () async {
+            final listener = harness!.binding.listeners.firstWhere(
+              (listener) =>
+                  listener.settings?.protocols.contains(
+                    transport == WampTransport.rawsocket
+                        ? ListenerProtocol.rawsocket
+                        : ListenerProtocol.websocket,
+                  ) ??
+                  false,
+            );
+            final session = await switch (transport) {
+              WampTransport.rawsocket => RawSocketWampSessionFactory(
+                host: '127.0.0.1',
+                port: listener.port,
+                realmUri: 'bench.control',
+                serializer: serializer,
+                clientImplementation: WampClientImplementation.dart,
+                nativeLibraryPath: nativeLib,
+              ).call(),
+              WampTransport.websocket => WebSocketWampSessionFactory(
+                url: 'ws://127.0.0.1:${listener.port}/wamp',
+                realmUri: 'bench.control',
+                serializer: serializer,
+                clientImplementation: WampClientImplementation.dart,
+                nativeLibraryPath: nativeLib,
+              ).call(),
+            };
+            final input = Uint8List.fromList(
+              List.generate(65536, (i) => (i * 37 + 11) & 255),
+            );
+            final expected = Uint8List.fromList(input);
+            try {
+              final result = await session.callSingleWithLazyPayload(
+                'bench.rpc.lazy_echo',
+                payload: wamp_core.LazyMessagePayload.materialized(
+                  arguments: [
+                    input,
+                    {'nested': input},
+                  ],
+                ),
+                options: wamp_core.CallOptions(
+                  pptScheme: 'x_custom_scheme',
+                  pptSerializer: serializer.name,
+                ),
+              );
+              expect(result.pptScheme, 'x_custom_scheme');
+              expect(result.pptSerializer, serializer.name);
+              final returned = result.arguments!;
+              expect(returned, [
+                expected,
+                {'nested': expected},
+              ]);
+              input.fillRange(0, input.length, 0);
+              await session.close();
+              expect(returned, [
+                expected,
+                {'nested': expected},
+              ]);
+            } finally {
+              await session.close();
+            }
+          },
+          skip: skipReason,
+          timeout: const Timeout(Duration(seconds: 45)),
+        );
+      }
+    }
+
     test(
       'Dart same-serializer CBOR E2EE RPC runs against a real router',
       () async {
@@ -2177,6 +2288,8 @@ class _WampTransportHarness {
           argumentsKeywords: invocation.argumentsKeywords,
         );
       });
+      final lazyRegistration = await session.register('bench.rpc.lazy_echo');
+      lazyRegistration.onLazyInvokePayload(respondEchoLazyInvocation);
     }
 
     final rawSocketListener = binding.listeners.firstWhere(

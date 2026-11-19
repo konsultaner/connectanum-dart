@@ -14,7 +14,8 @@ PROVENANCE = ('schemaVersion', 'scope', 'runnerSha256', 'configSha256',
               'equivalentsSha256', 'commit', 'operatorScope', 'executionTimeoutSeconds')
 TARGET_PROVENANCE = ('sources', 'tests', 'generated', 'selected', 'platform', 'testRunner',
                      'compiler', 'sourceHashes', 'testHashes', 'supportHashes', 'resolvedTests',
-                     'mutationLineRanges', 'testName', 'equivalenceReasons', 'testCommands')
+                     'mutationLineRanges', 'testName', 'equivalenceReasons', 'testCommands',
+                     'nativeArtifact')
 
 
 def merge(paths, expected, count):
@@ -46,6 +47,8 @@ def merge(paths, expected, count):
         if (any(target.get(key) != reference.get(key) for key in TARGET_PROVENANCE)
                 or target.get('inventory') != inventory):
             raise ValueError('Shard test/source/inventory identity differs')
+        if reference.get('nativeArtifact') and target.get('nativeArtifactUnchanged') is not True:
+            raise ValueError('Native shard did not preserve its independently pinned artifact')
         assigned = runner.partition_mutations(inventory, index, count)
         if target.get('assigned') != len(assigned) or len(target['outcomes']) != len(assigned):
             raise ValueError('Incomplete shard outcomes')
@@ -95,6 +98,8 @@ def merge(paths, expected, count):
     target.update(runner.summarize(target['outcomes']))
     target.update(baseline='survived', baselineExitCode=0, restoredBaseline='survived',
                   restoredBaselineExitCode=0, shardBaselineEvidence=baseline_evidence)
+    if expected['targets'][name].get('nativeArtifact'):
+        target['nativeArtifactUnchanged'] = True
     target['gatePassed'] = runner.passes_assertion_gate(target, expected['gate']['threshold'])
     return {**expected, 'complete': True, 'baselineOnly': False,
             'shardsVerified': count, 'targets': {name: target},
@@ -114,6 +119,10 @@ def main():
     subprocess.run([sys.executable, str(runner.ROOT / 'tool/run_dart_mutations.py'),
                     '--target', args.target, '--list', '--output', str(inventory_dir)], check=True)
     expected = json.loads((inventory_dir / 'mutation-report.json').read_text())
+    config = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text(),
+                        object_pairs_hook=runner.unique_json_object)
+    if config[args.target].get('requiresNativeLibrary'):
+        expected['targets'][args.target]['nativeArtifact'] = runner.native_artifact()
     report = merge(paths, expected, args.shard_count)
     # Keep the accepted aggregate independently auditable with sibling raw logs.
     for path in paths:
@@ -125,6 +134,9 @@ def main():
         for phase, label in (('baseline', 'baseline'), ('restoredBaseline', 'restored-baseline')):
             shutil.copy2(path.parent / f'{args.target}-{label}.log',
                          args.output / f'{args.target}-shard-{index}-{phase}.log')
+    if expected['targets'][args.target].get('nativeArtifact') and (
+            runner.native_artifact() != expected['targets'][args.target]['nativeArtifact']):
+        raise ValueError('Native artifact changed during aggregation')
     report['aggregatorSha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     (args.output / 'mutation-report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(f'{args.target}: complete union assertion score '

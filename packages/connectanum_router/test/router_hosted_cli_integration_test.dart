@@ -1,4 +1,5 @@
 @TestOn('vm')
+@Timeout(Duration(seconds: 20))
 library;
 
 import 'dart:convert';
@@ -47,7 +48,7 @@ void main() {
               auth.close(force: true);
             }
           }
-          final transcript = await _run(router, scenario.route, [
+          final transcript = await _runSuccessfully(router, scenario.route, [
             '--protocol-version',
             scenario.version,
             '--rejected-origin',
@@ -176,6 +177,185 @@ void main() {
         },
       );
     }
+
+    for (final auth in ['none', 'bearer', 'ticket']) {
+      test(
+        'minimal compatibility session supports $auth authentication',
+        () async {
+          String? bearer;
+          if (auth == 'bearer') {
+            final client = ConnectanumHttpAuthClient(router.endpoint('/auth'));
+            try {
+              bearer = (await client.issueTicketToken(
+                realm: 'example.realm',
+                authId: 'mcp-user',
+                ticket: 'mcp-demo-ticket',
+              )).accessToken;
+            } finally {
+              client.close(force: true);
+            }
+          }
+          final transcript = await _runSuccessfully(
+            router,
+            auth == 'none' ? '/mcp' : '/mcp/secure',
+            [
+              '--protocol-version',
+              '2025-06-18',
+              if (bearer != null) ...['--bearer-token', bearer],
+              if (auth == 'ticket') ...[
+                ..._credentials('--ticket', 'mcp-demo-ticket'),
+                '--auth-lifecycle-smoke',
+              ],
+            ],
+          );
+          expect(transcript, containsPair('directPing', <String, Object?>{}));
+          expect(transcript, isNot(contains('directPubSub')));
+          final session = transcript['streamable'] as Map;
+          expect(session['protocolVersion'], '2025-06-18');
+          expect(session['sessionId'], isNotEmpty);
+          if (auth == 'ticket') {
+            expect(transcript['authLifecycle'], {
+              'method': 'ticket',
+              'issued': true,
+              'refreshed': true,
+              'refreshedDirectPing': true,
+              'refreshedStreamableSession': true,
+              'revokedAccessRejected': true,
+              'revokedRefreshRejected': true,
+            });
+          }
+        },
+      );
+    }
+
+    group('adversarial HTTP rejection diagnostics', () {
+      final probes = <(String, String)>[
+        for (final method in ['post', 'get', 'delete']) ...[
+          ('malformed-session-id-$method', 'malformed MCP-Session-Id'),
+          ('unsupported-protocol-version-$method', 'unsupported MCP protocol'),
+          ('rejected-origin-${method.toUpperCase()}', 'rejected-Origin'),
+        ],
+        for (final label in [
+          'compatibility-method',
+          'stateless-method',
+          'compatibility-get-accept',
+          'compatibility-post-accept',
+          'stateless-post-accept',
+          'compatibility-post-content-type',
+        ])
+          ('negotiation-$label', '$label negotiation'),
+      ];
+      for (final (probe, diagnostic) in probes) {
+        for (final fault in ['status', 'session header', 'body']) {
+          test('$probe rejects a wrong $fault', () async {
+            final proxy = await _ResponseFaultProxy.start(
+              router.endpoint('/mcp'),
+              'unused-json-target',
+              null,
+              targetTrace: 'router-hosted-client-streamable-$probe',
+              rewriteHttp: (request, response, text) {
+                switch (fault) {
+                  case 'status':
+                    request.response.statusCode = HttpStatus.badGateway;
+                  case 'session header':
+                    request.response.headers.set(
+                      'MCP-Session-Id',
+                      'wrong-session',
+                    );
+                  case 'body':
+                    return 'A different rejection';
+                }
+                return text;
+              },
+            );
+            try {
+              await expectLater(
+                IOOverrides.runZoned(
+                  () => runRouterHostedClient([
+                    '--endpoint',
+                    proxy.endpoint.toString(),
+                    '--protocol-version',
+                    '2025-06-18',
+                    '--rejected-origin',
+                    'https://rejected.example',
+                  ]),
+                  stdout: _Output.new,
+                  stderr: _Output.new,
+                ),
+                throwsA(
+                  isA<StateError>().having(
+                    (error) => error.message,
+                    'HTTP rejection diagnostic',
+                    contains(diagnostic),
+                  ),
+                ),
+              );
+              expect(proxy.changedResponses, 1);
+              expect(proxy.faultRequestIndex, isNotNull);
+              expect(
+                proxy.requests.skip(proxy.faultRequestIndex! + 1),
+                everyElement(('DELETE', null)),
+                reason: 'Only session cleanup may follow a rejected probe',
+              );
+            } finally {
+              await proxy.close();
+            }
+          });
+        }
+      }
+    });
+
+    test(
+      'resource update consumes its matching notification before another poll',
+      () async {
+        final proxy = await _ResponseFaultProxy.start(
+          router.endpoint('/mcp'),
+          'unused-json-target',
+          null,
+          targetTrace: 'router-hosted-client-resource-update-poll',
+          rewriteHttp: (request, response, text) {
+            expect(response.statusCode, HttpStatus.ok);
+            return text;
+          },
+          maximumTraceResponses: 1,
+        );
+        try {
+          final output = _Output();
+          await expectLater(
+            IOOverrides.runZoned(
+              () => runRouterHostedClient([
+                '--endpoint',
+                proxy.endpoint.toString(),
+                '--protocol-version',
+                '2025-06-18',
+                '--resource-uri',
+                _resource,
+                '--resource-update-topic',
+                'example.events.context.updated',
+              ]),
+              stdout: () => output,
+              stderr: _Output.new,
+            ),
+            completes,
+          );
+          expect(proxy.changedResponses, 1);
+          final transcript = <String, dynamic>{};
+          for (final line in const LineSplitter().convert(
+            output.text.toString(),
+          )) {
+            transcript.addAll(jsonDecode(line) as Map<String, dynamic>);
+          }
+          final resource =
+              (transcript['streamable'] as Map)['resourceSubscription'] as Map;
+          final event = resource['notification'] as Map;
+          expect(event['method'], 'notifications/resources/updated');
+          expect(event['params'], containsPair('uri', _resource));
+          expect(resource['unsubscribed'], isTrue);
+        } finally {
+          await proxy.close();
+        }
+      },
+    );
 
     group('adversarial direct batch metadata', () {
       final faults = <(String, Map<String, Object?>, String)>[
@@ -462,7 +642,7 @@ void main() {
       test(
         'modern ${auth.method} refresh and revocation remain sessionless',
         () async {
-          final transcript = await _run(router, '/mcp/secure', [
+          final transcript = await _runSuccessfully(router, '/mcp/secure', [
             '--protocol-version',
             '2026-07-28',
             ..._credentials(auth.flag, auth.secret),
@@ -609,6 +789,9 @@ class _ResponseFaultProxy {
     this.targetId,
     this.field, {
     this.rewrite,
+    this.targetTrace,
+    this.rewriteHttp,
+    this.maximumTraceResponses,
   }) {
     server.listen((request) {
       late Future<void> pending;
@@ -622,6 +805,9 @@ class _ResponseFaultProxy {
   final String targetId;
   final String? field;
   final Map<String, Object?> Function(Map<String, Object?>)? rewrite;
+  final String? targetTrace;
+  final String Function(HttpRequest, HttpClientResponse, String)? rewriteHttp;
+  final int? maximumTraceResponses;
   final client = HttpClient();
   final requests = <(String, Object?)>[];
   final cleanedHandles = <String>[];
@@ -639,12 +825,18 @@ class _ResponseFaultProxy {
     String id,
     String? field, {
     Map<String, Object?> Function(Map<String, Object?>)? rewrite,
+    String? targetTrace,
+    String Function(HttpRequest, HttpClientResponse, String)? rewriteHttp,
+    int? maximumTraceResponses,
   }) async => _ResponseFaultProxy(
     await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     upstream,
     id,
     field,
     rewrite: rewrite,
+    targetTrace: targetTrace,
+    rewriteHttp: rewriteHttp,
+    maximumTraceResponses: maximumTraceResponses,
   );
 
   Future<void> close() async {
@@ -699,7 +891,16 @@ class _ResponseFaultProxy {
       final targetsBatch =
           message is List &&
           message.any((item) => item is Map && item['id'] == targetId);
-      if (id == targetId ||
+      if (targetTrace != null &&
+          request.headers.value('x-consumer-trace') == targetTrace) {
+        final text = await utf8.decoder.bind(response).join();
+        changedResponses++;
+        faultRequestIndex = requestIndex;
+        if (maximumTraceResponses != null) {
+          expect(changedResponses, lessThanOrEqualTo(maximumTraceResponses!));
+        }
+        request.response.write(rewriteHttp!(request, response, text));
+      } else if (id == targetId ||
           targetsBatch ||
           (id is String && id.endsWith('-pubsub-unsubscribe'))) {
         final text = await utf8.decoder.bind(response).join();
@@ -766,6 +967,7 @@ class _ResponseFaultProxy {
     } catch (error) {
       if (!_closing || error is! IOException) failures.add(error);
       try {
+        request.response.statusCode = HttpStatus.internalServerError;
         await request.response.close();
       } on IOException catch (closeError) {
         if (!_closing) failures.add(closeError);
@@ -896,6 +1098,19 @@ void _expectPubSub(Map value) {
   expect(event['subscriptionId'], subscription['subscriptionId']);
   expect(event['publicationId'], publication['publicationId']);
   expect(event['argumentsKeywords'], _task);
+}
+
+Future<Map<String, dynamic>> _runSuccessfully(
+  RouterExample router,
+  String route,
+  List<String> args,
+) async {
+  late Map<String, dynamic> result;
+  await expectLater(
+    _run(router, route, args).then((value) => result = value),
+    completes,
+  );
+  return result;
 }
 
 Future<Map<String, dynamic>> _run(

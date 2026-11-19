@@ -1334,7 +1334,10 @@ LazyMessagePayload? _lazyPayloadFromTransferredWithPpt(
   if (!_isTransferredLazyPayload(value)) {
     return null;
   }
-  final raw = (value as Map).cast<Object?, Object?>();
+  // Internal transfer carriers must become bytes before PPT extraction or wire
+  // serialization. Retain native byte ownership until the payload is released.
+  final raw = (_materializeTransferredValue(value) as Map)
+      .cast<Object?, Object?>();
   final encoding = _lazyPayloadEncodingFromName(
     raw[_transferredLazyPayloadEncodingKey] as String?,
   );

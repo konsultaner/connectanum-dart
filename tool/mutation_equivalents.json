@@ -640,5 +640,49 @@
       "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
       "reason": "The preceding startsWith guard excludes shorter candidates and the preceding length-equality branch already returned; only strictly longer candidates reach this comparison."
     }
+  },
+  "core-msgpack-vm": {
+    "28a038302ac94298a3e4": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes only map BytesBuilder copy=false to true. Every chunk is a fresh private encoding/header; no chunk is written after add or escapes before takeBytes. Eager copying and retaining those immutable private chunks produce identical returned bytes and caller ownership. Allocation timing differs and receives no performance waiver."
+    },
+    "6df36a52729b8d698c5c": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes only iterable BytesBuilder copy=false to true. Each recursively encoded element/header is a fresh private Uint8List, not caller storage, and is never written between add and takeBytes. Both settings return the identical wire bytes independent of later input mutation. This is functional equivalence only; performance/allocation gates remain applicable."
+    },
+    "2bbad549520ff41f565b": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes only growability of the private list produced from a non-List Iterable. Both branches enumerate the source exactly once in order, then read the resulting length and elements. The list is neither grown, written, inspected for capacity nor exposed. Wire bytes and source traversal/errors are identical; private capacity/allocation policy may differ."
+    },
+    "82a7c7c5a6c00616f3d9": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes the first || to && in offset<0 || length<0 || offset+length>bytes.length. Every private caller supplies offset at least one (decoded offset plus one/two/header width) and a nonnegative constant or unsigned length. Thus the first two disjuncts are both false, so their conjunction/disjunction is false. The final bounds admission and every error remain unchanged, including malformed/truncated wire."
+    },
+    "8791c724a0b7fb56cb66": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes offset<0 to offset<=0 in the private availability guard. All callers add at least one to a nonnegative decoded offset before invoking this guard; none passes zero. Read lengths come from unsigned bytes or nonnegative constants. Therefore the changed equality case is unreachable for every public input, including malformed wire. The length/end checks are unchanged."
+    }
+  },
+  "core-msgpack-web": {
+    "28a038302ac94298a3e4": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes only map BytesBuilder copy=false to true. Every chunk is a fresh private encoding/header; no chunk is written after add or escapes before takeBytes. Eager copying and retaining those immutable private chunks produce identical returned bytes and caller ownership. Allocation timing differs and receives no performance waiver."
+    },
+    "6df36a52729b8d698c5c": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes only iterable BytesBuilder copy=false to true. Each recursively encoded element/header is a fresh private Uint8List, not caller storage, and is never written between add and takeBytes. Both settings return the identical wire bytes independent of later input mutation. This is functional equivalence only; performance/allocation gates remain applicable."
+    },
+    "2bbad549520ff41f565b": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes only growability of the private list produced from a non-List Iterable. Both branches enumerate the source exactly once in order, then read the resulting length and elements. The list is neither grown, written, inspected for capacity nor exposed. Wire bytes and source traversal/errors are identical; private capacity/allocation policy may differ."
+    },
+    "82a7c7c5a6c00616f3d9": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes the first || to && in offset<0 || length<0 || offset+length>bytes.length. Every private caller supplies offset at least one (decoded offset plus one/two/header width) and a nonnegative constant or unsigned length. Thus the first two disjuncts are both false, so their conjunction/disjunction is false. The final bounds admission and every error remain unchanged, including malformed/truncated wire."
+    },
+    "8791c724a0b7fb56cb66": {
+      "sourceHash": "a637874f6fea92cd5eb0afb08c501020271308bfc97267221681f1f3c5e9037e",
+      "reason": "Changes offset<0 to offset<=0 in the private availability guard. All callers add at least one to a nonnegative decoded offset before invoking this guard; none passes zero. Read lengths come from unsigned bytes or nonnegative constants. Therefore the changed equality case is unreachable for every public input, including malformed wire. The length/end checks are unchanged."
+    }
   }
 }

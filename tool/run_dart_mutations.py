@@ -531,9 +531,9 @@ def main():
     unknown = set(selected) - config.keys()
     if unknown:
         parser.error(f'Unknown targets: {sorted(unknown)}')
-    if sharded and (len(selected) != 1 or config[selected[0]].get('requiresNativeLibrary')
+    if sharded and (len(selected) != 1
                     or config[selected[0]].get('testRunner', 'dart') != 'dart'):
-        parser.error('Sharding requires one non-native Dart target')
+        parser.error('Sharding requires one Dart target')
     if not args.list and any(config[name].get('requiresNativeLibrary') for name in selected):
         native_artifact()
     if args.output.exists():

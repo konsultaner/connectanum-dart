@@ -11,12 +11,14 @@ part 'support/file_receiver_failure_cases.dart';
 part 'support/file_receiver_admission_cases.dart';
 part 'support/file_receiver_chunk_cases.dart';
 part 'support/file_transfer_edge_cases.dart';
+part 'support/file_source_io_cases.dart';
 
 void main() {
   _fileReceiverFailureCases();
   _fileReceiverAdmissionCases();
   _fileReceiverChunkCases();
   _fileTransferEdgeCases();
+  _fileSourceIoCases();
   group('progressive file transfer', () {
     test('setFile sends metadata then bounded binary chunks', () async {
       final transport = _FileTransferTransport();

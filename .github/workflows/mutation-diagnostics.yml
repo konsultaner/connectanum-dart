@@ -11,33 +11,234 @@ permissions:
   contents: read
 
 jobs:
+  native-build:
+    name: Shared diagnostic ffi-test build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - name: Build and fingerprint the same-run native library
+        run: |
+          set -euo pipefail
+          source bin/common.sh
+          build_native_ffi_test_release
+          python3 tool/ci_native_artifact.py record --directory out/ci-native \
+            --library "$CONNECTANUM_NATIVE_LIB"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: diagnostic-native-ffi-test
+          path: out/ci-native
+          if-no-files-found: error
+
   dart:
     name: Dart ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ (matrix.target == 'mcp' || matrix.target == 'mcp-cli-native') && 360 || 60 }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, core-e2ee-web, core-lazy-web, mcp, mcp-cli-native]
+        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-lazy-web]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: 3.14.0
-      - uses: dtolnay/rust-toolchain@stable
-        if: matrix.target == 'mcp-cli-native'
       - id: chrome
         uses: browser-actions/setup-chrome@v2
       - name: Run complete target inventory (survivors fail the target)
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.target == 'mcp-cli-native' && '1' || '0' }}
         run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
       - if: always()
         uses: actions/upload-artifact@v7
         with:
           name: mutations-${{ matrix.target }}
           path: out/mutations
+          if-no-files-found: error
+
+  web-shards:
+    name: Dart ${{ matrix.target }} shard ${{ matrix.shard }}/8
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [core-msgpack-web, core-e2ee-web]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.14.0
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Execute the assigned inventory with clean and restored baselines
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/test-mutations --target "${{ matrix.target }}" --shard-index "${{ matrix.shard }}" --shard-count 8 --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-shard-${{ matrix.shard }}
+          path: out/mutations
+          if-no-files-found: error
+
+  native-dart-shards:
+    name: Dart ${{ matrix.target }} shard ${{ matrix.shard }}/${{ matrix.count }}
+    runs-on: ubuntu-latest
+    needs: native-build
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: mcp
+            shard: 0
+            count: 16
+          - target: mcp
+            shard: 1
+            count: 16
+          - target: mcp
+            shard: 2
+            count: 16
+          - target: mcp
+            shard: 3
+            count: 16
+          - target: mcp
+            shard: 4
+            count: 16
+          - target: mcp
+            shard: 5
+            count: 16
+          - target: mcp
+            shard: 6
+            count: 16
+          - target: mcp
+            shard: 7
+            count: 16
+          - target: mcp
+            shard: 8
+            count: 16
+          - target: mcp
+            shard: 9
+            count: 16
+          - target: mcp
+            shard: 10
+            count: 16
+          - target: mcp
+            shard: 11
+            count: 16
+          - target: mcp
+            shard: 12
+            count: 16
+          - target: mcp
+            shard: 13
+            count: 16
+          - target: mcp
+            shard: 14
+            count: 16
+          - target: mcp
+            shard: 15
+            count: 16
+          - target: mcp-cli-native
+            shard: 0
+            count: 8
+          - target: mcp-cli-native
+            shard: 1
+            count: 8
+          - target: mcp-cli-native
+            shard: 2
+            count: 8
+          - target: mcp-cli-native
+            shard: 3
+            count: 8
+          - target: mcp-cli-native
+            shard: 4
+            count: 8
+          - target: mcp-cli-native
+            shard: 5
+            count: 8
+          - target: mcp-cli-native
+            shard: 6
+            count: 8
+          - target: mcp-cli-native
+            shard: 7
+            count: 8
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: diagnostic-native-ffi-test
+          path: out/ci-native
+      - name: Verify native source, toolchain, dependency lock and binary identity
+        run: |
+          set -euo pipefail
+          library="$(python3 tool/ci_native_artifact.py prepare --directory out/ci-native)"
+          echo "CONNECTANUM_NATIVE_LIB=$library" >> "$GITHUB_ENV"
+      - name: Execute the assigned inventory with the shared native library
+        run: bin/test-mutations --target "${{ matrix.target }}" --shard-index "${{ matrix.shard }}" --shard-count "${{ matrix.count }}" --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-shard-${{ matrix.shard }}
+          path: out/mutations
+          if-no-files-found: error
+
+  dart-aggregate:
+    name: Dart ${{ matrix.target }} complete assertion gate
+    runs-on: ubuntu-latest
+    needs: [native-build, web-shards, native-dart-shards]
+    if: ${{ !cancelled() }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: core-msgpack-web
+            count: 8
+            native: false
+          - target: core-e2ee-web
+            count: 8
+            native: false
+          - target: mcp
+            count: 16
+            native: true
+          - target: mcp-cli-native
+            count: 8
+            native: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: ${{ matrix.native && 'true' || 'false' }}
+      - if: matrix.native
+        uses: actions/download-artifact@v8
+        with:
+          name: diagnostic-native-ffi-test
+          path: out/ci-native
+      - name: Verify the independently expected native library
+        if: matrix.native
+        run: |
+          set -euo pipefail
+          library="$(python3 tool/ci_native_artifact.py prepare --directory out/ci-native)"
+          echo "CONNECTANUM_NATIVE_LIB=$library" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutations-${{ matrix.target }}-shard-*
+          path: out/shards
+      - name: Audit the complete union against an independent full inventory
+        run: python3 tool/merge_dart_mutation_shards.py --input out/shards --output out/complete --target "${{ matrix.target }}" --shard-count "${{ matrix.count }}"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-complete
+          path: out/complete
           if-no-files-found: error
 
   rust:

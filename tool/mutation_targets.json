@@ -1123,7 +1123,14 @@
       "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
     ],
     "tests": [
-      "packages/connectanum_mcp/test"
+      "packages/connectanum_mcp/test",
+      "packages/connectanum_router/test/router_hosted_cli_integration_test.dart"
+    ],
+    "requiresNativeLibrary": true,
+    "supportFiles": [
+      "packages/connectanum_router/example/router_hosted_mcp.dart",
+      "packages/connectanum_router/test/support/router_example.dart",
+      "packages/connectanum_router/test/support/native_lib.dart"
     ]
   },
   "mcp-library": {
@@ -1194,7 +1201,8 @@
       "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"
     ],
     "supportFiles": [
-      "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart"
+      "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_test_support.dart"
     ],
     "tests": [
       "packages/connectanum_core/test/serializer/msgpack/codec_test.dart"
@@ -1327,7 +1335,8 @@
       "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart"
     ],
     "supportFiles": [
-      "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart"
+      "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_test_support.dart"
     ],
     "tests": [
       "packages/connectanum_core/test/serializer/msgpack/codec_test.dart",

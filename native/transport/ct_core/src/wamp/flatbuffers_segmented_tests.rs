@@ -1,4 +1,5 @@
 use super::*;
+use crate::wamp::test_support::AssertSuccess;
 use bytes::Bytes;
 use serde_value::Value;
 
@@ -11,7 +12,7 @@ fn guarded(bytes: Vec<u8>) -> Bytes {
 }
 
 fn assert_segments(message: WampMessage, payload: Payload) {
-    let segments = encode_flatbuffers_message_segments(&message).unwrap();
+    let segments = encode_flatbuffers_message_segments(&message).assert_success();
     for bytes in [&payload.args, &payload.kwargs, &payload.transparent]
         .into_iter()
         .flatten()
@@ -30,9 +31,9 @@ fn assert_segments(message: WampMessage, payload: Payload) {
     }
     let expected = parse_message(
         crate::rawsocket::Serializer::Flatbuffers,
-        encode_flatbuffers_message(&message).unwrap(),
+        encode_flatbuffers_message(&message).assert_success(),
     )
-    .unwrap()
+    .assert_success()
     .message;
     drop(message);
     drop(payload);
@@ -43,15 +44,16 @@ fn assert_segments(message: WampMessage, payload: Payload) {
             .collect::<Vec<_>>(),
     );
     super::flatbuffers_generated::wamp::proto::root_as_message(&wire)
-        .expect("the pinned generated verifier accepts the assembled frame");
-    let decoded = parse_message(crate::rawsocket::Serializer::Flatbuffers, wire.clone()).unwrap();
+        .assert_expected("the pinned generated verifier accepts the assembled frame");
+    let decoded =
+        parse_message(crate::rawsocket::Serializer::Flatbuffers, wire.clone()).assert_success();
     assert_eq!(decoded.message, expected);
     for split in [0, 1, 3, wire.len() / 2, wire.len()] {
         let decoded = parse_message_segments(
             crate::rawsocket::Serializer::Flatbuffers,
             vec![wire.slice(..split), wire.slice(split..)],
         )
-        .unwrap();
+        .assert_success();
         assert_eq!(decoded.message, expected);
     }
 }
@@ -60,7 +62,8 @@ fn assert_segments(message: WampMessage, payload: Payload) {
 fn flatbuffers_segments_retain_application_allocations_and_valid_offsets() {
     for length in 0..40 {
         let args = guarded(
-            serde_cbor::to_vec(&Value::Seq(vec![Value::Bytes(vec![0x5a; length])])).unwrap(),
+            serde_cbor::to_vec(&Value::Seq(vec![Value::Bytes(vec![0x5a; length])]))
+                .assert_success(),
         );
         let payload = Payload {
             args: Some(args),
@@ -115,7 +118,8 @@ fn flatbuffers_segments_preserve_empty_absent_and_opaque_vectors() {
 fn flatbuffers_segments_keep_large_binary_payloads_in_their_original_storage() {
     let payload = Payload {
         args: Some(guarded(
-            serde_cbor::to_vec(&Value::Seq(vec![Value::Bytes(vec![0x37; 128 * 1024])])).unwrap(),
+            serde_cbor::to_vec(&Value::Seq(vec![Value::Bytes(vec![0x37; 128 * 1024])]))
+                .assert_success(),
         )),
         kwargs: None,
         transparent: None,
@@ -135,14 +139,14 @@ fn flatbuffers_segments_cover_all_public_models_with_the_generated_verifier() {
     let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
         "../../../../../schemas/wamp_flatbuffers/codec_cases.json"
     ))
-    .unwrap();
+    .assert_success();
     assert_eq!(cases.len(), 25);
     for case in cases {
         let message = parse_message(
             crate::rawsocket::Serializer::Cbor,
-            Bytes::from(serde_cbor::to_vec(&case["message"]).unwrap()),
+            Bytes::from(serde_cbor::to_vec(&case["message"]).assert_success()),
         )
-        .unwrap()
+        .assert_success()
         .message;
         let payload = match &message {
             WampMessage::Publish { payload, .. }
@@ -165,14 +169,14 @@ fn composed_flatbuffers_frames_cover_all_public_models_with_the_generated_verifi
     let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
         "../../../../../schemas/wamp_flatbuffers/codec_cases.json"
     ))
-    .unwrap();
+    .assert_success();
     assert_eq!(cases.len(), 25);
     for case in cases {
         let expected = parse_message(
             crate::rawsocket::Serializer::Cbor,
-            Bytes::from(serde_cbor::to_vec(&case["message"]).unwrap()),
+            Bytes::from(serde_cbor::to_vec(&case["message"]).assert_success()),
         )
-        .unwrap()
+        .assert_success()
         .message;
         let mut control_message = expected.clone();
         let payload = match &mut control_message {
@@ -187,8 +191,9 @@ fn composed_flatbuffers_frames_cover_all_public_models_with_the_generated_verifi
             | WampMessage::Goodbye { payload, .. } => std::mem::take(payload),
             _ => Payload::default(),
         };
-        let control = encode_flatbuffers_message(&control_message).unwrap();
-        let segments = compose_flatbuffers_message_segments(control, payload.clone()).unwrap();
+        let control = encode_flatbuffers_message(&control_message).assert_success();
+        let segments =
+            compose_flatbuffers_message_segments(control, payload.clone()).assert_success();
         for bytes in [&payload.args, &payload.kwargs, &payload.transparent]
             .into_iter()
             .flatten()
@@ -208,10 +213,10 @@ fn composed_flatbuffers_frames_cover_all_public_models_with_the_generated_verifi
                 .collect::<Vec<_>>(),
         );
         super::flatbuffers_generated::wamp::proto::root_as_message(&wire)
-            .expect("generated verifier accepts composed frame");
+            .assert_expected("generated verifier accepts composed frame");
         assert_eq!(
             parse_message(crate::rawsocket::Serializer::Flatbuffers, wire)
-                .unwrap()
+                .assert_success()
                 .message,
             expected
         );

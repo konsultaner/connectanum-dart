@@ -9,14 +9,38 @@ const _minimumInt32 = -0x80000000;
 const _uint32Base = 0x100000000;
 const _maximumExactInteger = 0x20000000000000;
 final _supports64BitAccessors = _probe64BitAccessors();
+const _portableCodec = PortableMessagePackCodec();
+
+/// MessagePack backend for runtimes without exact 64-bit byte-data accessors.
+///
+/// The same backend can be used explicitly when a platform-independent integer
+/// range and strict single-value decoding are required.
+class PortableMessagePackCodec {
+  const PortableMessagePackCodec();
+
+  Uint8List encode(Object? value) => _serializeWithout64BitAccessors(value);
+
+  Object? decode(Uint8List bytes) {
+    final decoded = _decodeValue(bytes, 0, 0);
+    if (decoded.nextOffset != bytes.length) {
+      throw const FormatException('Trailing data after MessagePack value');
+    }
+    return decoded.value;
+  }
+}
 
 @pragma('vm:prefer-inline')
 @pragma('dart2js:tryInline')
 Uint8List serialize(Object? value) {
+  // A failed delegate attempt may already consume a streaming iterable. Choose
+  // the portable backend up front when the runtime cannot encode wide integers.
+  if (!_supports64BitAccessors) {
+    return _portableCodec.encode(value);
+  }
   try {
     return delegate.serialize(value);
   } on UnsupportedError {
-    return _serializeWithout64BitAccessors(value);
+    return _portableCodec.encode(value);
   }
 }
 
@@ -26,20 +50,12 @@ Object? deserialize(Uint8List bytes) {
   if (!_supports64BitAccessors &&
       bytes.isNotEmpty &&
       (bytes[0] == 0xcf || bytes[0] == 0xd3)) {
-    final decoded = _decodeValue(bytes, 0, 0);
-    if (decoded.nextOffset != bytes.length) {
-      throw const FormatException('Trailing data after MessagePack value');
-    }
-    return decoded.value;
+    return _portableCodec.decode(bytes);
   }
   try {
     return delegate.deserialize(bytes);
   } on UnsupportedError {
-    final decoded = _decodeValue(bytes, 0, 0);
-    if (decoded.nextOffset != bytes.length) {
-      throw const FormatException('Trailing data after MessagePack value');
-    }
-    return decoded.value;
+    return _portableCodec.decode(bytes);
   }
 }
 
@@ -61,8 +77,8 @@ Uint8List _serializeWithout64BitAccessors(Object? value) {
       ..add(_encodeCollectionHeader(value.length, 0x80, 0xde, 0xdf));
     for (final entry in value.entries) {
       builder
-        ..add(serialize(entry.key))
-        ..add(serialize(entry.value));
+        ..add(_portableCodec.encode(entry.key))
+        ..add(_portableCodec.encode(entry.value));
     }
     return builder.takeBytes();
   }
@@ -71,7 +87,7 @@ Uint8List _serializeWithout64BitAccessors(Object? value) {
     final builder = BytesBuilder(copy: false)
       ..add(_encodeCollectionHeader(values.length, 0x90, 0xdc, 0xdd));
     for (final item in values) {
-      builder.add(serialize(item));
+      builder.add(_portableCodec.encode(item));
     }
     return builder.takeBytes();
   }
@@ -193,26 +209,16 @@ _DecodedValue _decode64BitInteger(
     throw const FormatException('Truncated MessagePack integer');
   }
   final data = ByteData.sublistView(bytes, offset + 1, end);
-  final high = data.getUint32(0);
+  final high = signed ? data.getInt32(0) : data.getUint32(0);
   final low = data.getUint32(4);
-  if ((!signed && (high > 0x200000 || (high == 0x200000 && low != 0))) ||
-      (signed &&
-          ((high < 0x80000000 &&
-                  (high > 0x200000 || (high == 0x200000 && low != 0))) ||
-              (high >= 0x80000000 && high < 0xffe00000)))) {
+  // Check the words before arithmetic: JavaScript would round 2^53 + 1 down
+  // to the admissible endpoint. At -2^53 every nonzero low word is in range.
+  if (high < -0x200000 || high > 0x200000 || (high == 0x200000 && low != 0)) {
     throw const FormatException(
       'MessagePack integer exceeds the exact Dart web range',
     );
   }
-  final value = signed && high >= 0x80000000
-      ? (high - _uint32Base) * _uint32Base + low
-      : high * _uint32Base + low;
-  if (value < -_maximumExactInteger || value > _maximumExactInteger) {
-    throw const FormatException(
-      'MessagePack integer exceeds the exact Dart web range',
-    );
-  }
-  return _DecodedValue(value, end);
+  return _DecodedValue(high * _uint32Base + low, end);
 }
 
 bool _probe64BitAccessors() {

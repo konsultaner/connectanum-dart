@@ -267,6 +267,8 @@ fn challenge(body: &Fields) -> Result<String, ParseError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::wamp::test_support::AssertSuccess;
+
     use super::super::flatbuffers_generated::wamp::proto as generated;
     use super::*;
     use bytes::Bytes;
@@ -307,7 +309,7 @@ mod tests {
             CborValue::String("timeout".into()),
             CborValue::U64(4),
         )]))
-        .unwrap();
+        .assert_success();
         assert!(parse(RawFrame::Contiguous(call(3, &metadata, None, None))).is_err());
         assert!(parse(RawFrame::Contiguous(call(4, &metadata, None, None))).is_ok());
     }
@@ -320,17 +322,26 @@ mod tests {
             Some(&[0x82, 1, 2]),
             Some(&[0xa1, 0x61, b'x', 3]),
         );
-        let root = generated::root_as_message(&frame).unwrap();
-        let expected = root.msg_as_call().unwrap().args().unwrap().bytes().as_ptr();
-        let parsed = parse(RawFrame::Contiguous(frame.clone())).unwrap();
+        let root = generated::root_as_message(&frame).assert_success();
+        let expected = root
+            .msg_as_call()
+            .assert_success()
+            .args()
+            .assert_success()
+            .bytes()
+            .as_ptr();
+        let parsed = parse(RawFrame::Contiguous(frame.clone())).assert_success();
         let WampMessage::Call { payload, .. } = parsed.message else {
             panic!("CALL expected");
         };
         drop(frame);
         drop(parsed.raw);
-        assert_eq!(payload.args.as_ref().unwrap().as_ptr(), expected);
-        assert_eq!(payload.args.unwrap().as_ref(), &[0x82, 1, 2]);
-        assert_eq!(payload.kwargs.unwrap().as_ref(), &[0xa1, 0x61, b'x', 3]);
+        assert_eq!(payload.args.as_ref().assert_success().as_ptr(), expected);
+        assert_eq!(payload.args.assert_success().as_ref(), &[0x82, 1, 2]);
+        assert_eq!(
+            payload.kwargs.assert_success().as_ref(),
+            &[0xa1, 0x61, b'x', 3]
+        );
     }
 
     #[test]
@@ -366,11 +377,11 @@ mod tests {
                 bytes.slice(..split),
                 bytes.slice(split..),
             ]))
-            .unwrap();
+            .assert_success();
             let WampMessage::Call { payload, .. } = parsed.message else {
                 panic!("CALL expected");
             };
-            assert_eq!(payload.args.unwrap().as_ref(), &[0x81, 0x01]);
+            assert_eq!(payload.args.assert_success().as_ref(), &[0x81, 0x01]);
             assert!(parsed.raw.as_contiguous().is_some());
         }
     }
@@ -378,8 +389,8 @@ mod tests {
     #[test]
     fn identifiers_accept_the_portable_limit_and_reject_larger_values() {
         let original = call(0, &[0xa0], None, None);
-        let root = generated::root_as_message(&original).unwrap();
-        let table = root.msg_as_call().unwrap()._tab;
+        let root = generated::root_as_message(&original).assert_success();
+        let table = root.msg_as_call().assert_success()._tab;
         let field = table.loc() + table.vtable().get(generated::Call::VT_REQUEST) as usize;
         for (value, valid) in [
             (9_007_199_254_740_992u64, true),
@@ -401,16 +412,16 @@ mod tests {
         let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
             "../../../../../schemas/wamp_flatbuffers/fixtures.json"
         ))
-        .unwrap();
+        .assert_success();
         for case in cases {
-            let name = case["name"].as_str().unwrap();
+            let name = case["name"].as_str().assert_success();
             let bytes = Bytes::from(
                 std::fs::read(
                     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                         .join("../../../schemas/wamp_flatbuffers/fixtures")
                         .join(format!("{name}.bin")),
                 )
-                .unwrap(),
+                .assert_success(),
             );
             assert!(wire::read(bytes.clone()).is_ok(), "{name}");
             for length in 0..bytes.len() {

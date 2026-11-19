@@ -21,6 +21,29 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class CompositeSetupTests(unittest.TestCase):
+    def test_diagnostic_partition_retains_every_target_and_original_deadlines(self):
+        workflow = (ROOT / '.github/workflows/mutation-diagnostics.yml').read_text()
+        stanzas = dict(re.findall(r'^  ([\w-]+):\n(.*?)(?=^  \S|\Z)',
+                                  workflow.split('jobs:\n', 1)[1], re.MULTILINE | re.DOTALL))
+        self.assertEqual(set(re.findall(r'target: \[([^\n]+)\]', stanzas['dart'])[0].split(', ')),
+                         {'core-base64-vm', 'core-base64-web', 'core-msgpack-vm', 'core-lazy-web'})
+        self.assertIn('target: [core-msgpack-web, core-e2ee-web]', stanzas['web-shards'])
+        self.assertIn('shard: [0, 1, 2, 3, 4, 5, 6, 7]', stanzas['web-shards'])
+        native = re.findall(r'- target: ([\w-]+)\n\s+shard: (\d+)\n\s+count: (\d+)',
+                            stanzas['native-dart-shards'])
+        for target, count in (('mcp', 16), ('mcp-cli-native', 8)):
+            self.assertEqual(sorted((int(index), int(total)) for name, index, total in native
+                                    if name == target), [(index, count) for index in range(count)])
+        self.assertEqual(len(native), 24)
+        for name, minutes in (('dart', 60), ('web-shards', 60),
+                              ('native-dart-shards', 360), ('rust', 45)):
+            self.assertIn(f'timeout-minutes: {minutes}\n', stanzas[name])
+        self.assertIn('needs: [native-build, web-shards, native-dart-shards]', stanzas['dart-aggregate'])
+        self.assertIn('pattern: mutations-${{ matrix.target }}-shard-*', stanzas['dart-aggregate'])
+        self.assertIn('merge_dart_mutation_shards.py', stanzas['dart-aggregate'])
+        self.assertIn('ci_native_artifact.py prepare', stanzas['native-dart-shards'])
+        self.assertIn('ci_native_artifact.py prepare', stanzas['dart-aggregate'])
+
     def test_shared_native_jobs_use_one_fixed_rust_toolchain(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()
         rust_step = action.split('uses: dtolnay/rust-toolchain@stable', 1)[1].split(
@@ -160,6 +183,12 @@ class ShardingTests(unittest.TestCase):
 
 
     def test_main_shards_execute_baselines_and_defer_score_until_aggregation(self):
+        self.exercise_main_shards(native=False)
+
+    def test_native_main_shards_pin_the_binary_and_keep_full_baseline_inventories(self):
+        self.exercise_main_shards(native=True)
+
+    def exercise_main_shards(self, native):
         import sys
         source = 'bool a = true; bool b = true;'
         file = 'packages/fixture/lib/a.dart'
@@ -184,7 +213,10 @@ class ShardingTests(unittest.TestCase):
             root = Path(temp)
             config = root / 'config.json'
             config.write_text(json.dumps({'fixture': {'sources': [file],
-                'tests': ['packages/fixture/test/a_test.dart']}}))
+                'tests': ['packages/fixture/test/a_test.dart'],
+                'requiresNativeLibrary': native}}))
+            library = root / 'native.bin'
+            library.write_bytes(b'independent native fixture')
             equivalents = root / 'equivalents.json'; equivalents.write_text('{}')
             for index in range(2):
                 args = ['runner', '--config', str(config), '--equivalents', str(equivalents),
@@ -192,7 +224,8 @@ class ShardingTests(unittest.TestCase):
                     '--shard-index', str(index), '--shard-count', '2']
                 with patch.object(sys, 'argv', args), patch.object(runner, 'snapshot', snapshot), \
                      patch.object(runner, 'run', execute), \
-                     patch.object(runner.subprocess, 'check_output', return_value='commit'):
+                     patch.object(runner.subprocess, 'check_output', return_value='commit'), \
+                     patch.dict(os.environ, {'CONNECTANUM_NATIVE_LIB': str(library)}):
                     self.assertEqual(runner.main(), 0)
                 report = json.loads((root / str(index) / 'mutation-report.json').read_text())
                 self.assertTrue(report['shardComplete'])
@@ -200,6 +233,12 @@ class ShardingTests(unittest.TestCase):
                 self.assertIsNone(report['gate']['passed'])
                 self.assertEqual(report['targets']['fixture']['inventory'], mutations)
                 self.assertEqual(len(report['targets']['fixture']['outcomes']), 1)
+                if native:
+                    target = report['targets']['fixture']
+                    self.assertEqual(target['nativeArtifact'], {
+                        'path': str(library.resolve()),
+                        'sha256': runner.hashlib.sha256(library.read_bytes()).hexdigest()})
+                    self.assertIs(target['nativeArtifactUnchanged'], True)
                 self.assertEqual(calls[-3], source)
                 self.assertEqual(calls[-1], source)
                 self.assertNotEqual(calls[-2], source)
@@ -241,6 +280,36 @@ class RequiredGateTests(unittest.TestCase):
 
 
 class AggregateTests(unittest.TestCase):
+    def test_native_union_requires_the_independent_binary_and_every_unchanged_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            paths, expected = self.fixture(Path(temporary))
+            artifact = {'path': '/verified/libct_ffi.so', 'sha256': 'a' * 64}
+            expected['targets']['fixture']['nativeArtifact'] = artifact
+            for path in paths:
+                report = json.loads(path.read_text())
+                report['targets']['fixture'].update(
+                    nativeArtifact=artifact, nativeArtifactUnchanged=True)
+                path.write_text(json.dumps(report))
+            merged = merger.merge(paths, expected, 6)
+            self.assertTrue(merged['gate']['passed'])
+            self.assertTrue(merged['targets']['fixture']['nativeArtifactUnchanged'])
+            self.assertEqual(merged['targets']['fixture']['nativeArtifact'], artifact)
+            original = paths[0].read_text()
+            for update in (
+                {'nativeArtifact': None},
+                {'nativeArtifact': {**artifact, 'sha256': 'b' * 64}},
+                {'nativeArtifact': {**artifact, 'path': '/different/libct_ffi.so'}},
+                {'nativeArtifactUnchanged': False},
+                {'nativeArtifactUnchanged': None},
+            ):
+                with self.subTest(update=update):
+                    report = json.loads(original)
+                    report['targets']['fixture'].update(update)
+                    paths[0].write_text(json.dumps(report))
+                    with self.assertRaises(ValueError):
+                        merger.merge(paths, expected, 6)
+            paths[0].write_text(original)
+
     def fixture(self, root, survivor=None):
         inventory = ShardingTests().inventory(20)
         passed = '\n'.join(json.dumps(e) for e in (

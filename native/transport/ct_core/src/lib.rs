@@ -65,6 +65,8 @@ mod ktls;
 mod platform;
 mod protocol;
 mod rawsocket;
+#[cfg(test)]
+mod test_allocations;
 mod tls;
 mod wamp;
 mod write_completion;

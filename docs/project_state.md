@@ -1,9 +1,18 @@
 # Project State
 
-Last updated: 2026-11-18.
-Current milestone: Dart 3.14 upgrade and CI repair qualified.
-Active plan: none.
+Last updated: 2026-11-19.
+Current milestone: repair WAMP and mutation diagnostics without relaxing gates.
+Active plan: [WAMP and mutation diagnostic repair](exec-plans/2026-11-19-wamp-mutation-diagnostics.md).
 Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
+
+PR #138 is merged into `master` at `0a3d96e6`. Its mandatory main CI passes all
+55 jobs and all sixteen performance/memory shards. Additional WAMP diagnostics
+fail fragmentation/file-transfer throughput floors; full mutation diagnostics
+show native restored-baseline errors and MessagePack/MCP CLI assertion scores
+below the original 95% gates. The new active plan records the exact failures;
+the broader diagnostic chain is not qualified. No threshold or inventory is
+relaxed. The previous Dart upgrade qualification below remains historical
+source evidence rather than a claim that these additional workflows pass.
 
 [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
 Dart 3.14.0 across `.tool-versions`, CI/cache keys and all eight publishing jobs.
@@ -51,6 +60,10 @@ Completed plan: [beta.9 release](exec-plans/2026-11-06-3.0.0-beta.9-release.md).
 [PR #137](https://github.com/konsultaner/connectanum-dart/pull/137) retains normal
 GitHub review for the version metadata and release record. Publication used the
 fully qualified commit `72c078f1`; no branch protection was bypassed.
+
+Local diagnostic repair now passes the complete MessagePack VM mutation gate,
+full MCP baselines and focused native/WAMP/file regressions. Final full
+`bin/verify` and hosted diagnostic workflow qualification remain outstanding.
 
 ## Release scope
 

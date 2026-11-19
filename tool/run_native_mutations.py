@@ -14,7 +14,12 @@ import native_mutations
 from run_dart_mutations import run
 
 
-FIXTURES = ('native/bench/bench_tls.crt', 'native/bench/bench_tls.key')
+FIXTURES = (
+    'native/bench/bench_tls.crt',
+    'native/bench/bench_tls.key',
+    'schemas/wamp_flatbuffers/fixtures.json',
+    'schemas/wamp_flatbuffers/codec_cases.json',
+)
 TOOL_INPUTS = ('run_native_mutations.py', 'native_mutations.py',
                'native_coverage.py', 'run_dart_mutations.py', 'native_mutation_batches.py')
 TARGETS = {
@@ -28,6 +33,11 @@ TARGETS = {
     'ffi-all': ('ct_ffi/**', ''),
 }
 WHOLE_COMPONENTS = frozenset(('core-all', 'ffi-all'))
+
+
+def fixture_inputs(root):
+    binaries = sorted((root / 'schemas/wamp_flatbuffers/fixtures').glob('*.bin'))
+    return (*FIXTURES, *(str(path.relative_to(root)) for path in binaries))
 
 
 def select_batch(inventory, index, count):
@@ -182,7 +192,7 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
     (output / 'source-scopes.json').write_text(json.dumps(scope, indent=2) + '\n')
     hashes = {**scope['inputHashes'], **{
-        relative: native_coverage.digest(root / relative) for relative in FIXTURES}}
+        relative: native_coverage.digest(root / relative) for relative in fixture_inputs(root)}}
     tool_root = Path(__file__).resolve().parent
     tool_hashes = {name: native_coverage.digest(tool_root / name) for name in TOOL_INPUTS}
     manifest = {'complete': False, 'scope': target, 'inputHashes': hashes,

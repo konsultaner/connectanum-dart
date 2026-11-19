@@ -15,3 +15,14 @@ Uint8List serialize(Object? value) => _success(() => codec.serialize(value));
 
 dynamic deserialize(Uint8List bytes) =>
     _success(() => codec.deserialize(bytes));
+
+class CheckedCodec {
+  const CheckedCodec(this.encode, this.decode);
+
+  final Uint8List Function(Object?) encode;
+  final Object? Function(Uint8List) decode;
+
+  Uint8List serialize(Object? value) => _success(() => encode(value));
+
+  dynamic deserialize(Uint8List bytes) => _success(() => decode(bytes));
+}
