@@ -182,3 +182,59 @@ error-only failures, elapsed test deadlines and abrupt process exit retain their
 original strict classifications. The focused local review identifies no verified
 correctness defect: every execution/listing path builds the validated command;
 config bytes and recorded commands already bind independent shard auditing.
+
+### Native progress, strict batching and JSON input ownership
+
+The complete local RawSocket repair run preserves all source/test/tool inputs
+through clean, mutant and restored phases: 92 generated, 87 strict assertion
+kills, five compile errors, zero survivors/errors/timeouts. Shared portable
+sendfile result/progress handling replaces duplicated host-specific loops;
+only the actual syscall signature remains platform-specific. Kernel counts,
+EOF, explicit file offsets, interruption and permanent error identities retain
+coverage. The existing zero-survivor gate remains per host; no cross-host OR
+waiver is introduced.
+
+Complete WAMP v3 records 241 assertion kills, 76 compile errors, 12 errors and
+two survivors (331 total). The failures identify unchecked header slicing,
+a pointer-derived test offset lacking a preceding ownership assertion and a
+custom UNREGISTERED test panic. Safe range access and standard assertion
+oracles address those cases; a populated generic payload test checks the last
+unexercised helper against independent wire encoders. All 426 native Core tests
+pass afterward; complete post-fix mutation evidence is still required.
+
+Three hosted native jobs exceed their original 45-minute deadlines. Complete
+inventories are now distributed across four RawSocket/eight WAMP batches per
+host with unchanged 30-second mutant/180-second build limits. Every batch
+retains clean/restored full test inventories and its complete pinned candidate
+inventory. The independent aggregate regenerates that inventory, rejects
+missing/duplicate/tampered evidence, reclassifies raw logs and requires zero
+survivors with no errors/timeouts. Original whole-component users retain their
+95% API; diagnostics explicitly use `--require-all-killed`. One same-run Cargo
+lock is shared across batches and their per-host aggregates. Dynamic binary
+fixtures are hash-bound alongside the schema/TLS fixtures. Real tiny Rust
+fixtures verify both narrow target batches and all original test deadlines.
+
+New E2EE tests preserve preflight-validated plaintext/ciphertext when an
+application key policy replaces arguments, and authenticate a typed XSalsa
+payload above the legacy wrapper's one-MiB cap. All 169 browser cases pass;
+focused, explicitly partial counterexample replay kills three former survivors
+with assertion evidence. Full-inventory browser qualification remains required.
+
+Actual JSON file CPU samples identify the String-to-byte conversion. The
+native String accelerator fills one native ASCII input allocation and reuses
+the existing owned-output decoder; explicit app byte/String decoders and the
+generic fallback stay authoritative. All 65 browser JSON / three native
+boundary tests pass, including Unicode outside the encoded span, malformed
+canonical input, independent mutable results and explicit release. Four
+alternating matched canonical local runs improve WebSocket data median
+1,068.733 to 980.729 ms and lifecycle 1,146 to 1,071 ms; these are exploratory
+Mac observations, not hosted floor qualification. A separate event-loop pacing
+candidate is rejected after poorer measurements and is not shipped. Temporary
+VM CPU instrumentation and profiling subsets remain outside the branch.
+
+The superseded hosted checkpoint is cancelled after its completed artifacts
+are retained, freeing runners for the current source. PR #139 remains draft;
+no merge or release is authorized for it. All numeric policy JSON files,
+workloads, serializer/security matrices, queue bounds and GC defaults remain
+unchanged. Final quiet `bin/verify`, review and complete final-head workflow
+qualification remain outstanding.

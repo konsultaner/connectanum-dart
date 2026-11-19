@@ -44,6 +44,11 @@ typedef CanonicalBase64ByteDecoder =
     Uint8List? Function(Uint8List input, int start, int end);
 typedef CanonicalBase64ByteEncoder = Uint8List? Function(Uint8List input);
 
+/// Decodes one canonical base64 span using UTF-16 offsets and an exclusive end.
+/// Return null to retain normal JSON decoding and its validation.
+typedef CanonicalBase64StringDecoder =
+    Uint8List? Function(String input, int start, int end);
+
 @pragma('vm:never-inline')
 Object? _decodeJsonMessage(String source) {
   try {
@@ -61,7 +66,9 @@ class Serializer extends AbstractSerializer {
   Serializer({
     CanonicalBase64ByteDecoder? canonicalBase64ByteDecoder,
     CanonicalBase64ByteEncoder? canonicalBase64ByteEncoder,
-  }) : _canonicalBase64ByteDecoder = canonicalBase64ByteDecoder,
+    CanonicalBase64StringDecoder? canonicalBase64StringDecoder,
+  }) : _canonicalBase64StringDecoder = canonicalBase64StringDecoder,
+       _canonicalBase64ByteDecoder = canonicalBase64ByteDecoder,
        _canonicalBase64ByteEncoder = canonicalBase64ByteEncoder;
 
   static final String _binaryPrefix = '\u0000';
@@ -123,6 +130,7 @@ class Serializer extends AbstractSerializer {
     'ppt_cipher',
     'ppt_keyid',
   };
+  CanonicalBase64StringDecoder? _canonicalBase64StringDecoder;
   CanonicalBase64ByteDecoder? _canonicalBase64ByteDecoder;
   CanonicalBase64ByteEncoder? _canonicalBase64ByteEncoder;
 
@@ -137,9 +145,12 @@ class Serializer extends AbstractSerializer {
   /// Installs a transport-provided accelerator without replacing an explicit
   /// decoder supplied by the application.
   void installCanonicalBase64ByteDecoder(
-    CanonicalBase64ByteDecoder decoder,
-  ) {
-    _canonicalBase64ByteDecoder ??= decoder;
+    CanonicalBase64ByteDecoder decoder, {
+    CanonicalBase64StringDecoder? stringDecoder,
+  }) {
+    if (_canonicalBase64ByteDecoder != null) return;
+    _canonicalBase64ByteDecoder = decoder;
+    _canonicalBase64StringDecoder ??= stringDecoder;
   }
 
   /// Converts a uint8 JSON message into a WAMP message object
@@ -226,7 +237,8 @@ class Serializer extends AbstractSerializer {
     String payload,
   ) {
     final decoder = _canonicalBase64ByteDecoder;
-    if (decoder == null ||
+    final stringDecoder = _canonicalBase64StringDecoder;
+    if ((decoder == null && stringDecoder == null) ||
         payload.length < _minimumSingleBinaryFastPathBytes ||
         payload.codeUnitAt(0) != 0x5b ||
         payload.codeUnitAt(payload.length - 3) != 0x22 ||
@@ -273,6 +285,12 @@ class Serializer extends AbstractSerializer {
 
     final binaryStart = argumentsStart + prefix.length;
     final binaryEnd = payload.length - 3;
+    if (stringDecoder != null) {
+      final binary = stringDecoder(payload, binaryStart, binaryEnd);
+      if (binary == null) return null;
+      message.arguments = <dynamic>[binary];
+      return message;
+    }
     final encoded = Uint8List(binaryEnd - binaryStart);
     for (var index = binaryStart; index < binaryEnd; index++) {
       final codeUnit = payload.codeUnitAt(index);
@@ -281,7 +299,7 @@ class Serializer extends AbstractSerializer {
       }
       encoded[index - binaryStart] = codeUnit;
     }
-    final binary = decoder(encoded, 0, encoded.length);
+    final binary = decoder!(encoded, 0, encoded.length);
     if (binary == null) {
       return null;
     }

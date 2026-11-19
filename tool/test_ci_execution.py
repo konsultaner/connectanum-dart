@@ -36,13 +36,32 @@ class CompositeSetupTests(unittest.TestCase):
                                     if name == target), [(index, count) for index in range(count)])
         self.assertEqual(len(native), 24)
         for name, minutes in (('dart', 60), ('web-shards', 60),
-                              ('native-dart-shards', 360), ('rust', 45)):
+                              ('native-dart-shards', 360), ('rust', 45), ('rust-aggregate', 45)):
             self.assertIn(f'timeout-minutes: {minutes}\n', stanzas[name])
         self.assertIn('needs: [native-build, web-shards, native-dart-shards]', stanzas['dart-aggregate'])
         self.assertIn('pattern: mutations-${{ matrix.target }}-shard-*', stanzas['dart-aggregate'])
         self.assertIn('merge_dart_mutation_shards.py', stanzas['dart-aggregate'])
         self.assertIn('ci_native_artifact.py prepare', stanzas['native-dart-shards'])
         self.assertIn('ci_native_artifact.py prepare', stanzas['dart-aggregate'])
+        for name in ('native-build', 'rust', 'rust-aggregate'):
+            self.assertIn('name: diagnostic-native-dependency-lock', stanzas[name])
+        self.assertIn('needs: native-build', stanzas['rust'])
+        expected_native = {(os, target, str(index), str(count))
+                           for os in ('ubuntu-latest', 'macos-latest')
+                           for target, count in [('core-rawsocket', 4), ('core-wamp', 8)]
+                           for index in range(count)}
+        native = re.findall(r'- \{ os: ([\w-]+), target: ([\w-]+), batch: (\d+), count: (\d+) \}',
+                            stanzas['rust'])
+        self.assertEqual(set(native), expected_native)
+        self.assertEqual(len(native), len(expected_native))
+        aggregates = re.findall(r'- \{ os: ([\w-]+), target: ([\w-]+), count: (\d+) \}',
+                                stanzas['rust-aggregate'])
+        self.assertEqual(set(aggregates), {(os, target, str(count))
+            for os in ('ubuntu-latest', 'macos-latest')
+            for target, count in [('core-rawsocket', 4), ('core-wamp', 8)]})
+        self.assertEqual(len(aggregates), 4)
+        self.assertIn('--require-all-killed', stanzas['rust-aggregate'])
+
 
     def test_shared_native_jobs_use_one_fixed_rust_toolchain(self):
         action = (ROOT / '.github/actions/setup-ci/action.yml').read_text()

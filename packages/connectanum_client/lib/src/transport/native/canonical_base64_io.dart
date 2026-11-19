@@ -16,6 +16,7 @@ void installNativeCanonicalBase64Codecs(AbstractSerializer serializer) {
   );
   serializer.installCanonicalBase64ByteDecoder(
     _decodeCanonicalBase64WithNative,
+    stringDecoder: _decodeCanonicalBase64WithNative,
   );
 }
 
@@ -35,13 +36,17 @@ Uint8List? _encodeCanonicalBase64WithNative(Uint8List input) {
 }
 
 Uint8List? _decodeCanonicalBase64WithNative(
-  Uint8List input,
+  Object input,
   int start,
   int end,
 ) {
   try {
-    return NativeClientRuntime.instance().decodeCanonicalBase64Bytes(
-      input,
+    final runtime = NativeClientRuntime.instance();
+    if (input is String) {
+      return runtime.decodeCanonicalBase64String(input, start, end);
+    }
+    return runtime.decodeCanonicalBase64Bytes(
+      input as Uint8List,
       start,
       end,
     );

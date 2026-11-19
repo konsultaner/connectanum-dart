@@ -1996,6 +1996,105 @@ void main() {
       expect(result.arguments!.single, orderedEquals(binary));
       expect(decodeCalls, 1);
     });
+    test(
+      'direct String decoder receives the original span and Unicode metadata',
+      () {
+        final binary = Uint8List.fromList(
+          List.generate(4097, (i) => (i * 17) & 255),
+        );
+        final encoded = base64.encode(binary);
+        late String wire;
+        var calls = 0;
+        final accelerated = Serializer(
+          canonicalBase64StringDecoder: (input, start, end) {
+            calls++;
+            expect(input, same(wire));
+            expect(input.substring(start, end), encoded);
+            return Uint8List.fromList(
+              base64.decode(input.substring(start, end)),
+            );
+          },
+        );
+        wire = '[50,77,{"progress":true,"trace_id":"é💡"},["\\u0000$encoded"]]';
+        final result = accelerated.deserializeFromString(wire) as Result;
+        expect(calls, 1);
+        expect(result.callRequestId, 77);
+        expect(result.details.progress, isTrue);
+        expect(result.details.custom, containsPair('trace_id', 'é💡'));
+        expect(result.arguments!.single, orderedEquals(binary));
+        expect(result.argumentsKeywords, isNull);
+      },
+    );
+
+    test('a declined String decoder preserves the generic JSON fallback', () {
+      final binary = Uint8List.fromList(List.generate(4097, (i) => i & 255));
+      final encoded = base64.encode(binary);
+      var calls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteDecoder: (_, _, _) =>
+            fail('String path must use its own accelerator'),
+        canonicalBase64StringDecoder: (_, _, _) {
+          calls++;
+          return null;
+        },
+      );
+      final result =
+          accelerated.deserializeFromString('[50,78,{},["\\u0000$encoded"]]')
+              as Result;
+      expect(calls, 1);
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
+
+    test(
+      'transport String acceleration preserves an explicit byte decoder',
+      () {
+        final binary = Uint8List.fromList(List.generate(4097, (i) => i & 255));
+        final encoded = base64.encode(binary);
+        var calls = 0;
+        final accelerated = Serializer(
+          canonicalBase64ByteDecoder: (input, start, end) {
+            calls++;
+            return Uint8List.fromList(
+              base64.decode(ascii.decode(input.sublist(start, end))),
+            );
+          },
+        );
+        accelerated.installCanonicalBase64ByteDecoder(
+          (_, _, _) => fail('Explicit byte decoder must remain installed'),
+          stringDecoder: (_, _, _) => fail(
+            'Native String decoder must not bypass the explicit byte decoder',
+          ),
+        );
+        final result =
+            accelerated.deserializeFromString('[50,79,{},["\\u0000$encoded"]]')
+                as Result;
+        expect(calls, 1);
+        expect(result.arguments!.single, orderedEquals(binary));
+      },
+    );
+
+    test('transport acceleration preserves an explicit String decoder', () {
+      final binary = Uint8List.fromList(List.generate(4097, (i) => i & 255));
+      final encoded = base64.encode(binary);
+      var calls = 0;
+      final accelerated = Serializer(
+        canonicalBase64StringDecoder: (input, start, end) {
+          calls++;
+          return Uint8List.fromList(base64.decode(input.substring(start, end)));
+        },
+      );
+      accelerated.installCanonicalBase64ByteDecoder(
+        (_, _, _) => fail('String message must retain its explicit decoder'),
+        stringDecoder: (_, _, _) =>
+            fail('Explicit String decoder must remain installed'),
+      );
+      final result =
+          accelerated.deserializeFromString('[50,80,{},["\\u0000$encoded"]]')
+              as Result;
+      expect(calls, 1);
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
+
     test('large binary String path uses an installed canonical decoder', () {
       var decodeCalls = 0;
       late String encodedInput;

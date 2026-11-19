@@ -33,6 +33,7 @@ TARGETS = {
     'ffi-all': ('ct_ffi/**', ''),
 }
 WHOLE_COMPONENTS = frozenset(('core-all', 'ffi-all'))
+BATCH_TARGETS = WHOLE_COMPONENTS | {'core-rawsocket', 'core-wamp'}
 
 
 def fixture_inputs(root):
@@ -167,6 +168,7 @@ def prepare_inventory(work, output, scope, target):
     source, _ = target_options(target)
     command = ['cargo', 'mutants', '--no-config', '--manifest-path',
                str(work / 'native/transport/Cargo.toml'), '--package', source.split('/')[0],
+               *([] if target in WHOLE_COMPONENTS else ['--file', source]),
                '--features', 'ffi-test', '--list', '--json']
     raw = subprocess.check_output(command, cwd=work, text=True, timeout=120)
     (output / 'raw-inventory.json').write_text(raw)
@@ -184,10 +186,10 @@ def prepare_inventory(work, output, scope, target):
 
 def collect(root, output, analyzer, target='core-rawsocket', batch=None):
     target_options(target)
-    if batch is not None and (target not in WHOLE_COMPONENTS or len(batch) != 2
+    if batch is not None and (target not in BATCH_TARGETS or len(batch) != 2
             or any(type(item) is not int for item in batch)
             or not 0 <= batch[0] < batch[1]):
-        raise ValueError('Batches require a whole component and valid zero-based index/count')
+        raise ValueError('Batches require a complete configured target and valid zero-based index/count')
     output.mkdir(parents=True, exist_ok=False)
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
     (output / 'source-scopes.json').write_text(json.dumps(scope, indent=2) + '\n')
@@ -210,7 +212,8 @@ def collect(root, output, analyzer, target='core-rawsocket', batch=None):
     with tempfile.TemporaryDirectory(prefix='connectanum-native-mutations-') as temporary:
         work = Path(temporary)
         copy_inputs(root, work, hashes)
-        partition = prepare_inventory(work, output, scope, target) if target in WHOLE_COMPONENTS else None
+        partition = (prepare_inventory(work, output, scope, target)
+                     if target in WHOLE_COMPONENTS or batch is not None else None)
         if partition is not None:
             verify_inputs(work, hashes)
             verify_inputs(root, hashes)
@@ -299,7 +302,7 @@ def main():
     parser.add_argument('--analyzer', type=Path, required=True)
     parser.add_argument('--target', choices=tuple(TARGETS), default='core-rawsocket')
     parser.add_argument('--batch', nargs=2, type=int, metavar=('INDEX', 'COUNT'),
-                        help='Zero-based deterministic whole-component batch; retain each output separately')
+                        help='Zero-based deterministic complete-target batch; retain each output separately')
     args = parser.parse_args()
     if args.batch is not None:
         return collect(native_coverage.REPO, args.output.resolve(), args.analyzer.resolve(),

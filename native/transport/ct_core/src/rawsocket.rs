@@ -60,144 +60,148 @@ impl std::fmt::Debug for RawSocketFileSender {
 }
 
 impl RawSocketFileSender {
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn from_stream(stream: &IoStream) -> io::Result<Option<Self>> {
-        stream
-            .try_clone_plain_fd()?
-            .map(AsyncFd::new)
-            .transpose()
-            .map(|socket| socket.map(|socket| Self { socket }))
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            stream
+                .try_clone_plain_fd()?
+                .map(AsyncFd::new)
+                .transpose()
+                .map(|socket| socket.map(|socket| Self { socket }))
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            let _ = stream;
+            Ok(None)
+        }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    fn from_stream(_stream: &IoStream) -> io::Result<Option<Self>> {
-        Ok(None)
+    pub async fn send_file_segment(
+        &self,
+        file: &Arc<File>,
+        offset: u64,
+        remaining: usize,
+    ) -> io::Result<()> {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            self.send_file_segment_with(file, offset, remaining, sendfile_once)
+                .await
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            let _ = (file, offset, remaining);
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "zero-copy RawSocket file segments require Linux or macOS",
+            ))
+        }
     }
 
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    async fn send_file_segment_with(
+        &self,
+        file: &Arc<File>,
+        mut offset: u64,
+        mut remaining: usize,
+        mut write: impl FnMut(&AsyncFd<OwnedFd>, &Arc<File>, u64, usize) -> io::Result<usize>,
+    ) -> io::Result<()> {
+        const MAX_SENDFILE_COUNT: usize = 0x7ffff000;
+        while remaining > 0 {
+            let mut readiness = self.socket.writable().await?;
+            let count = remaining.min(MAX_SENDFILE_COUNT);
+            let result = readiness.try_io(|socket| write(socket, file, offset, count));
+            match result {
+                Ok(Ok(sent)) => {
+                    (offset, remaining) = advance_file_segment(offset, remaining, sent)?;
+                    crate::record_rawsocket_zero_copy_file_write(sent);
+                }
+                Ok(Err(err)) => match err.kind() {
+                    io::ErrorKind::Interrupted => continue,
+                    _ => return Err(err),
+                },
+                Err(_would_block) => continue,
+            }
+        }
+        Ok(())
+    }
+}
+
+fn advance_file_segment(offset: u64, remaining: usize, sent: usize) -> io::Result<(u64, usize)> {
+    let sent = std::num::NonZeroUsize::new(sent)
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "file ended before the queued RawSocket segment",
+            )
+        })?
+        .get();
+    let next_offset = offset.checked_add(sent as u64).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "sendfile returned an overflowing file offset",
+        )
+    })?;
+    let next_remaining = remaining.checked_sub(sent).ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            "sendfile returned more than the requested length",
+        )
+    })?;
+    Ok((next_offset, next_remaining))
+}
+
+fn sendfile_result(status: i32, sent: usize, error: io::Error) -> io::Result<usize> {
+    match (status, sent) {
+        (0, _) | (_, 1..) => Ok(sent),
+        _ => Err(error),
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn sendfile_once(
+    socket: &AsyncFd<OwnedFd>,
+    file: &Arc<File>,
+    offset: u64,
+    count: usize,
+) -> io::Result<usize> {
+    let file_offset = libc::off_t::try_from(offset)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "file offset exceeds off_t"))?;
     #[cfg(target_os = "linux")]
-    pub async fn send_file_segment(
-        &self,
-        file: &Arc<File>,
-        mut offset: u64,
-        mut remaining: usize,
-    ) -> io::Result<()> {
-        const MAX_SENDFILE_COUNT: usize = 0x7ffff000;
-
-        while remaining > 0 {
-            let mut readiness = self.socket.writable().await?;
-            let count = remaining.min(MAX_SENDFILE_COUNT);
-            let result = readiness.try_io(|socket| {
-                let mut file_offset = libc::off_t::try_from(offset).map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "file offset exceeds off_t")
-                })?;
-                let sent = unsafe {
-                    libc::sendfile(
-                        socket.get_ref().as_raw_fd(),
-                        file.as_raw_fd(),
-                        &mut file_offset,
-                        count,
-                    )
-                };
-                if sent < 0 {
-                    Err(io::Error::last_os_error())
-                } else {
-                    Ok(sent as usize)
-                }
-            });
-
-            match result {
-                Ok(Ok(0)) => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::UnexpectedEof,
-                        "file ended before the queued RawSocket segment",
-                    ));
-                }
-                Ok(Ok(sent)) => {
-                    crate::record_rawsocket_zero_copy_file_write(sent);
-                    offset += sent as u64;
-                    remaining -= sent;
-                }
-                Ok(Err(err)) if err.kind() == io::ErrorKind::Interrupted => continue,
-                Ok(Err(err)) => return Err(err),
-                Err(_would_block) => continue,
-            }
-        }
-        Ok(())
+    {
+        let mut file_offset = file_offset;
+        let sent = unsafe {
+            libc::sendfile(
+                socket.get_ref().as_raw_fd(),
+                file.as_raw_fd(),
+                &mut file_offset,
+                count,
+            )
+        };
+        let sent = usize::try_from(sent).map_err(|_| io::Error::last_os_error())?;
+        sendfile_result(0, sent, io::Error::last_os_error())
     }
-
     #[cfg(target_os = "macos")]
-    pub async fn send_file_segment(
-        &self,
-        file: &Arc<File>,
-        mut offset: u64,
-        mut remaining: usize,
-    ) -> io::Result<()> {
-        const MAX_SENDFILE_COUNT: usize = 0x7ffff000;
-
-        while remaining > 0 {
-            let mut readiness = self.socket.writable().await?;
-            let count = remaining.min(MAX_SENDFILE_COUNT);
-            let result = readiness.try_io(|socket| {
-                let file_offset = libc::off_t::try_from(offset).map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "file offset exceeds off_t")
-                })?;
-                let mut sent = libc::off_t::try_from(count).map_err(|_| {
-                    io::Error::new(io::ErrorKind::InvalidInput, "file length exceeds off_t")
-                })?;
-                let status = unsafe {
-                    libc::sendfile(
-                        file.as_raw_fd(),
-                        socket.get_ref().as_raw_fd(),
-                        file_offset,
-                        &mut sent,
-                        std::ptr::null_mut(),
-                        0,
-                    )
-                };
-                let sent = usize::try_from(sent).map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "sendfile returned negative length",
-                    )
-                })?;
-                if status == 0 || sent > 0 {
-                    Ok(sent)
-                } else {
-                    Err(io::Error::last_os_error())
-                }
-            });
-
-            match result {
-                Ok(Ok(0)) => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::UnexpectedEof,
-                        "file ended before the queued RawSocket segment",
-                    ));
-                }
-                Ok(Ok(sent)) => {
-                    crate::record_rawsocket_zero_copy_file_write(sent);
-                    offset += sent as u64;
-                    remaining -= sent;
-                }
-                Ok(Err(err)) if err.kind() == io::ErrorKind::Interrupted => continue,
-                Ok(Err(err)) => return Err(err),
-                Err(_would_block) => continue,
-            }
-        }
-        Ok(())
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    pub async fn send_file_segment(
-        &self,
-        _file: &Arc<File>,
-        _offset: u64,
-        _remaining: usize,
-    ) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "zero-copy RawSocket file segments require Linux or macOS",
-        ))
+    {
+        let mut sent = libc::off_t::try_from(count).map_err(|_| {
+            io::Error::new(io::ErrorKind::InvalidInput, "file length exceeds off_t")
+        })?;
+        let status = unsafe {
+            libc::sendfile(
+                file.as_raw_fd(),
+                socket.get_ref().as_raw_fd(),
+                file_offset,
+                &mut sent,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        let sent = usize::try_from(sent).map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "sendfile returned negative length",
+            )
+        })?;
+        sendfile_result(status, sent, io::Error::last_os_error())
     }
 }
 
@@ -242,7 +246,7 @@ pub async fn negotiate(
         }
     };
 
-    let client_exponent = ((buf[1] & 0xF0) >> 4) as u32 + 9;
+    let client_exponent = u32::from((buf[1] & 0xF0) >> 4).saturating_add(9);
     let desired_exponent = endpoint
         .max_rawsocket_size_exponent
         .min(crate::config::CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT);
@@ -255,7 +259,8 @@ pub async fn negotiate(
         ));
     }
 
-    let response_byte = (((response_exponent - 9).min(15)) as u8) << 4 | (buf[1] & 0x0F);
+    let response_byte =
+        ((response_exponent.saturating_sub(9).min(15) as u8) << 4).saturating_add(buf[1] & 0x0F);
     stream
         .write_all(&[RAWSOCKET_MAGIC, response_byte, 0, 0])
         .await?;
@@ -276,14 +281,14 @@ pub async fn negotiate(
                 if read == 0 {
                     return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "early eof"));
                 }
-                filled += read;
+                filled = filled.saturating_add(read);
             }
             Ok(())
         })
         .await
         {
             Ok(Ok(())) if buf[0] == RAWSOCKET_UPGRADE_MAGIC => {
-                let client_upgrade = ((buf[1] & 0x0F) as u32) + 25;
+                let client_upgrade = u32::from(buf[1] & 0x0F).saturating_add(25);
                 let negotiated_upgrade = desired_exponent
                     .min(client_upgrade)
                     .min(crate::config::CONNECTANUM_MAX_RAWSOCKET_SIZE_EXPONENT);
@@ -293,7 +298,7 @@ pub async fn negotiate(
                         "invalid upgrade exponent requested",
                     ));
                 }
-                let upgrade_byte = ((negotiated_upgrade - 25).min(15) as u8) & 0x0F;
+                let upgrade_byte = (negotiated_upgrade.saturating_sub(25).min(15) as u8) & 0x0F;
                 stream
                     .write_all(&[RAWSOCKET_UPGRADE_MAGIC, upgrade_byte])
                     .await?;
@@ -343,7 +348,7 @@ pub async fn connect(
     let base_exponent = requested_exponent.min(24);
     let header = [
         RAWSOCKET_MAGIC,
-        (((base_exponent.saturating_sub(9)).min(15) as u8) << 4) | serializer_id,
+        ((base_exponent.saturating_sub(9).min(15) as u8) << 4).saturating_add(serializer_id),
         0,
         0,
     ];
@@ -378,12 +383,12 @@ pub async fn connect(
         return Err(HandshakeError::Protocol("rawsocket serializer mismatch"));
     }
 
-    let mut final_exponent = ((response[1] & 0xF0) >> 4) as u32 + 9;
+    let mut final_exponent = u32::from((response[1] & 0xF0) >> 4).saturating_add(9);
     let mut upgraded = false;
     if requested_exponent > 24 && final_exponent >= 24 {
         let upgrade = [
             RAWSOCKET_UPGRADE_MAGIC,
-            ((requested_exponent - 25).min(15) as u8) & 0x0F,
+            (requested_exponent.saturating_sub(25).min(15) as u8) & 0x0F,
         ];
         time::timeout(handshake_timeout, stream.write_all(&upgrade))
             .await
@@ -395,7 +400,7 @@ pub async fn connect(
                 "invalid rawsocket upgrade response",
             ));
         }
-        final_exponent = ((upgrade_response[1] & 0x0F) as u32) + 25;
+        final_exponent = u32::from(upgrade_response[1] & 0x0F).saturating_add(25);
         upgraded = true;
     }
 
@@ -462,6 +467,7 @@ mod tests {
         EndpointConfig, EndpointRuntimeConfig, HttpEndpointConfig, TlsMode, TransportProtocol,
     };
     use crate::io_stream::IoStream;
+    use crate::wamp::test_support::{AssertError, AssertSuccess};
     use serde_json::Value as JsonValue;
     use std::collections::HashMap;
     use tokio::{net::TcpListener, net::TcpStream, sync::oneshot};
@@ -498,13 +504,16 @@ mod tests {
         };
         let runtime = EndpointRuntimeConfig::try_from_endpoint(&endpoint);
         assert!(runtime.is_ok());
-        runtime.unwrap()
+        runtime.assert_success()
     }
 
     async fn send_handshake_with_serializer(stream: &mut TcpStream, exponent: u32, serializer: u8) {
         let nibble = (exponent.saturating_sub(9)).min(15) as u8;
         let frame = [RAWSOCKET_MAGIC, (nibble << 4) | serializer, 0, 0];
-        stream.write_all(&frame).await.expect("handshake write");
+        stream
+            .write_all(&frame)
+            .await
+            .assert_expected("handshake write");
     }
 
     async fn send_handshake(stream: &mut TcpStream, exponent: u32) {
@@ -516,14 +525,14 @@ mod tests {
         stream
             .write_all(&[RAWSOCKET_UPGRADE_MAGIC, nibble])
             .await
-            .expect("upgrade write");
+            .assert_expected("upgrade write");
     }
 
     fn successful_handshake(
         result: Result<NegotiatedSession, HandshakeError>,
     ) -> NegotiatedSession {
         assert!(result.is_ok());
-        result.unwrap()
+        result.assert_success()
     }
 
     async fn assert_complete_wire(reader: impl tokio::io::AsyncRead + Unpin, expected: &[u8]) {
@@ -535,9 +544,105 @@ mod tests {
                 .read_to_end(&mut received),
         )
         .await
-        .unwrap()
-        .unwrap();
+        .assert_success()
+        .assert_success();
         assert_eq!(received, expected);
+    }
+
+    #[test]
+    fn sendfile_status_preserves_partial_writes_and_original_errors() {
+        for (status, sent) in [(0, 0), (0, 1), (0, 4096), (-1, 1), (-1, 4096), (7, 2)] {
+            assert_eq!(
+                sendfile_result(status, sent, io::Error::from_raw_os_error(libc::EBADF))
+                    .assert_success(),
+                sent
+            );
+        }
+        for code in [libc::EINTR, libc::EAGAIN, libc::EBADF, libc::EPIPE] {
+            assert_eq!(
+                sendfile_result(-1, 0, io::Error::from_raw_os_error(code))
+                    .assert_error()
+                    .raw_os_error(),
+                Some(code)
+            );
+        }
+    }
+
+    #[test]
+    fn file_segment_progress_requires_forward_motion_without_overflow() {
+        for (offset, remaining, sent, expected) in [
+            (3, 8, 3, (6, 5)),
+            (16, 2, 2, (18, 0)),
+            (u64::MAX - 1, 1, 1, (u64::MAX, 0)),
+        ] {
+            assert_eq!(
+                advance_file_segment(offset, remaining, sent).assert_success(),
+                expected
+            );
+        }
+        for (offset, remaining, sent, kind) in [
+            (0, 8, 0, io::ErrorKind::UnexpectedEof),
+            (0, 0, 0, io::ErrorKind::UnexpectedEof),
+            (u64::MAX, 1, 1, io::ErrorKind::InvalidData),
+            (0, 4, 5, io::ErrorKind::InvalidData),
+            (7, 0, 1, io::ErrorKind::InvalidData),
+        ] {
+            assert_eq!(
+                advance_file_segment(offset, remaining, sent)
+                    .assert_error()
+                    .kind(),
+                kind
+            );
+        }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[tokio::test]
+    async fn file_sender_retries_interrupted_syscalls_and_preserves_permanent_errors() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .assert_success()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "connectanum-sendfile-retry-{}-{nonce}",
+            std::process::id()
+        ));
+        std::fs::write(&path, b"0123456789abcdef").assert_success();
+        let file = Arc::new(File::open(&path).assert_success());
+        std::fs::remove_file(path).assert_success();
+        for interrupted in [true, false] {
+            let (client, peer) = socket_pair().await;
+            let mut stream = IoStream::plain(client);
+            let sender = RawSocketFileSender::from_stream(&stream)
+                .assert_success()
+                .assert_success();
+            let mut attempts = 0;
+            let result = time::timeout(
+                Duration::from_secs(2),
+                sender.send_file_segment_with(&file, 3, 8, |socket, file, offset, count| {
+                    attempts += 1;
+                    if !interrupted {
+                        return Err(io::Error::from_raw_os_error(libc::EBADF));
+                    }
+                    if attempts == 1 {
+                        return Err(io::Error::from_raw_os_error(libc::EINTR));
+                    }
+                    sendfile_once(socket, file, offset, count)
+                }),
+            )
+            .await
+            .assert_success();
+            stream.shutdown().await.assert_success();
+            if interrupted {
+                result.assert_success();
+                assert!(attempts >= 2);
+                assert_complete_wire(peer, b"3456789a").await;
+            } else {
+                assert_eq!(attempts, 1);
+                assert_eq!(result.assert_error().raw_os_error(), Some(libc::EBADF));
+                assert_complete_wire(peer, &[]).await;
+            }
+        }
     }
 
     #[tokio::test]
@@ -584,8 +689,8 @@ mod tests {
         let (socket, mut client) = socket_pair().await;
         let config = runtime_config(Some(Duration::from_millis(500)), 30);
         send_handshake(&mut client, 24).await;
-        client.write_all(&[0x00, 0x05]).await.unwrap();
-        client.shutdown().await.unwrap();
+        client.write_all(&[0x00, 0x05]).await.assert_success();
+        client.shutdown().await.assert_success();
         let mut session = successful_handshake(negotiate(IoStream::plain(socket), &config).await);
         assert_eq!(session.max_message_size_exponent, 24);
         assert!(!session.upgraded);
@@ -614,16 +719,18 @@ mod tests {
 
             assert_eq!(session.max_message_size_exponent, 24);
             assert!(!session.upgraded);
-            peer.write_all(&frame[prefix_length..]).await.unwrap();
-            peer.shutdown().await.unwrap();
+            peer.write_all(&frame[prefix_length..])
+                .await
+                .assert_success();
+            peer.shutdown().await.assert_success();
             let mut received = Vec::new();
             time::timeout(
                 Duration::from_secs(1),
                 session.reader.read_to_end(&mut received),
             )
             .await
-            .unwrap()
-            .unwrap();
+            .assert_success()
+            .assert_success();
             assert_eq!(received, frame, "buffered prefix length {prefix_length}");
             drop(session);
             assert_complete_wire(peer, &[0x7f, 0xf1, 0, 0]).await;
@@ -638,7 +745,7 @@ mod tests {
             let mut buffered = vec![0x7f, 0xf1, 0, 0];
             buffered.extend_from_slice(&prefix);
             stream.buffer_front(&buffered);
-            peer.shutdown().await.unwrap();
+            peer.shutdown().await.assert_success();
             let config = runtime_config(Some(Duration::from_secs(1)), 30);
             let result = negotiate(stream, &config).await;
             assert!(matches!(result, Err(HandshakeError::Io(error))
@@ -653,8 +760,8 @@ mod tests {
         stream.buffer_front(&[0x7f, 0xf1, 0, 0, 0x3f]);
         peer.write_all(&[5, 0, 0, 0, 3, b'[', b'1', b']'])
             .await
-            .unwrap();
-        peer.shutdown().await.unwrap();
+            .assert_success();
+        peer.shutdown().await.assert_success();
         let config = runtime_config(Some(Duration::from_secs(1)), 30);
         let mut session = successful_handshake(negotiate(stream, &config).await);
         assert!(session.upgraded);
@@ -666,16 +773,16 @@ mod tests {
 
     #[tokio::test]
     async fn native_cbor_peer_starts_wamp_without_optional_upgrade() {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-        let addr = listener.local_addr().unwrap();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.assert_success();
+        let addr = listener.local_addr().assert_success();
         let config = runtime_config(Some(Duration::from_millis(500)), 30);
 
         let server = tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.unwrap();
+            let (stream, _) = listener.accept().await.assert_success();
             negotiate(IoStream::plain(stream), &config).await
         });
 
-        let stream = TcpStream::connect(addr).await.unwrap();
+        let stream = TcpStream::connect(addr).await.assert_success();
         let mut client = successful_handshake(
             connect(
                 IoStream::plain(stream),
@@ -685,10 +792,14 @@ mod tests {
             )
             .await,
         );
-        client.writer.write_all(&[0x00, 0x05]).await.unwrap();
-        client.writer.shutdown().await.unwrap();
+        client
+            .writer
+            .write_all(&[0x00, 0x05])
+            .await
+            .assert_success();
+        client.writer.shutdown().await.assert_success();
 
-        let mut server = successful_handshake(server.await.unwrap());
+        let mut server = successful_handshake(server.await.assert_success());
         assert_eq!(client.max_message_size_exponent, 24);
         assert_eq!(server.max_message_size_exponent, 24);
         assert!(!client.upgraded);
@@ -738,7 +849,7 @@ mod tests {
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../../schemas/wamp_flatbuffers/fixtures/call_metadata.bin"),
         )
-        .unwrap();
+        .assert_success();
         let parsed = crate::wamp::parse_message(serializer, bytes::Bytes::from(fixture));
         assert!(
             parsed.is_ok(),
@@ -858,7 +969,7 @@ mod tests {
                 || case.handshake_exponent < 24
                 || case.endpoint_exponent <= 24
             {
-                peer.shutdown().await.unwrap();
+                peer.shutdown().await.assert_success();
             }
 
             match negotiate(IoStream::plain(socket), &config).await {
@@ -866,19 +977,19 @@ mod tests {
                     assert!(case.expect_ok);
                     assert_eq!(
                         session.max_message_size_exponent,
-                        case.expect_exponent.unwrap()
+                        case.expect_exponent.assert_success()
                     );
                     assert_eq!(session.upgraded, case.expect_upgrade);
                     drop(session);
                     let mut response = Vec::new();
                     time::timeout(Duration::from_secs(1), peer.read_to_end(&mut response))
                         .await
-                        .unwrap()
-                        .unwrap();
+                        .assert_success()
+                        .assert_success();
                     let base = case.handshake_exponent.min(case.endpoint_exponent).min(24);
                     let mut expected = vec![0x7f, ((base - 9) as u8) << 4 | 1, 0, 0];
                     if case.expect_upgrade {
-                        expected.extend([0x3f, (case.expect_exponent.unwrap() - 25) as u8]);
+                        expected.extend([0x3f, (case.expect_exponent.assert_success() - 25) as u8]);
                     }
                     assert_eq!(response, expected, "complete handshake response");
                 }
@@ -898,20 +1009,20 @@ mod tests {
                 }
                 let (socket, mut peer) = socket_pair().await;
                 let request = [0x7f, ((requested - 9) as u8) << 4 | 1, 0, 0];
-                peer.write_all(&request).await.unwrap();
-                peer.shutdown().await.unwrap();
+                peer.write_all(&request).await.assert_success();
+                peer.shutdown().await.assert_success();
                 let config = runtime_config(Some(Duration::from_millis(100)), endpoint);
                 let result = negotiate(IoStream::plain(socket), &config).await;
                 assert!(result.is_ok());
-                let session = result.unwrap();
+                let session = result.assert_success();
                 assert!(!session.upgraded);
                 assert_eq!(session.max_message_size_exponent, requested.min(endpoint));
                 drop(session);
                 let mut response = Vec::new();
                 time::timeout(Duration::from_secs(1), peer.read_to_end(&mut response))
                     .await
-                    .unwrap()
-                    .unwrap();
+                    .assert_success()
+                    .assert_success();
                 assert_eq!(
                     response,
                     [0x7f, ((requested.min(endpoint) - 9) as u8) << 4 | 1, 0, 0]
@@ -922,19 +1033,19 @@ mod tests {
 
     #[tokio::test]
     async fn negotiate_times_out_when_client_silent() {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-        let addr = listener.local_addr().unwrap();
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.assert_success();
+        let addr = listener.local_addr().assert_success();
         let config = runtime_config(Some(Duration::from_millis(50)), 16);
         let (tx, rx) = oneshot::channel();
 
         tokio::spawn(async move {
-            let (stream, _) = listener.accept().await.unwrap();
+            let (stream, _) = listener.accept().await.assert_success();
             let result = negotiate(IoStream::plain(stream), &config).await;
             tx.send(result).ok();
         });
 
-        let _client = TcpStream::connect(addr).await.unwrap();
-        let result = rx.await.unwrap();
+        let _client = TcpStream::connect(addr).await.assert_success();
+        let result = rx.await.assert_success();
         assert!(matches!(
             result,
             Err(HandshakeError::Protocol("rawsocket handshake timed out"))
@@ -942,11 +1053,11 @@ mod tests {
     }
 
     async fn socket_pair() -> (TcpStream, TcpStream) {
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
-        let client = TcpStream::connect(listener.local_addr().unwrap())
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.assert_success();
+        let client = TcpStream::connect(listener.local_addr().assert_success())
             .await
-            .unwrap();
-        let (peer, _) = listener.accept().await.unwrap();
+            .assert_success();
+        let (peer, _) = listener.accept().await.assert_success();
         (client, peer)
     }
 
@@ -962,9 +1073,9 @@ mod tests {
             for exponent in 9..=24 {
                 let (client, mut peer) = socket_pair().await;
                 let expected = [0x7f, ((exponent - 9) as u8) << 4 | wire_id, 0, 0];
-                peer.write_all(&expected).await.unwrap();
-                peer.write_all(b"next-frame").await.unwrap();
-                peer.shutdown().await.unwrap();
+                peer.write_all(&expected).await.assert_success();
+                peer.write_all(b"next-frame").await.assert_success();
+                peer.shutdown().await.assert_success();
                 time::timeout(Duration::from_secs(3), async {
                     let mut session = successful_handshake(
                         connect(
@@ -984,14 +1095,14 @@ mod tests {
                             && (wire_id == 2 || wire_id == 3)
                     );
                     assert_complete_wire(&mut session.reader, b"next-frame").await;
-                    session.writer.write_all(b"reply").await.unwrap();
-                    session.writer.shutdown().await.unwrap();
+                    session.writer.write_all(b"reply").await.assert_success();
+                    session.writer.shutdown().await.assert_success();
                     let mut request_and_reply = expected.to_vec();
                     request_and_reply.extend_from_slice(b"reply");
                     assert_complete_wire(peer, &request_and_reply).await;
                 })
                 .await
-                .unwrap();
+                .assert_success();
             }
         }
     }
@@ -1010,7 +1121,7 @@ mod tests {
             ([0x7f, 2, 0, 0], "rawsocket serializer mismatch"),
         ] {
             let (client, mut peer) = socket_pair().await;
-            peer.write_all(&response).await.unwrap();
+            peer.write_all(&response).await.assert_success();
             let result = time::timeout(
                 Duration::from_secs(2),
                 connect(
@@ -1021,7 +1132,7 @@ mod tests {
                 ),
             )
             .await
-            .unwrap();
+            .assert_success();
             assert!(
                 matches!(result, Err(HandshakeError::Protocol(message)) if message == expected)
             );
@@ -1036,15 +1147,15 @@ mod tests {
             ([0x7f, 1, 0, 1], "reserved bits must be zero"),
         ] {
             let (client, mut peer) = socket_pair().await;
-            peer.write_all(&request).await.unwrap();
+            peer.write_all(&request).await.assert_success();
             let config = runtime_config(Some(Duration::from_millis(100)), 16);
             let result = negotiate(IoStream::plain(client), &config).await;
             assert!(matches!(result, Err(HandshakeError::Protocol(actual)) if actual == message));
             let mut response = Vec::new();
             time::timeout(Duration::from_secs(1), peer.read_to_end(&mut response))
                 .await
-                .unwrap()
-                .unwrap();
+                .assert_success()
+                .assert_success();
             assert_eq!(response, [0x7f, 0x30, 0, 0]);
         }
     }
@@ -1057,7 +1168,7 @@ mod tests {
                 assert_complete_wire((&mut peer).take(4), &[0x7f, 0xf2, 0, 0]).await;
                 peer.write_all(&[0x7f, if upgrade { 0xf2 } else { 0x72 }, 0, 0])
                     .await
-                    .unwrap();
+                    .assert_success();
                 if upgrade {
                     assert_complete_wire(
                         (&mut peer).take(2),
@@ -1070,7 +1181,7 @@ mod tests {
                     .await;
                     peer.write_all(&[0x3f, (returned - 25) as u8])
                         .await
-                        .unwrap();
+                        .assert_success();
                 }
             };
             let client = async {
@@ -1090,7 +1201,7 @@ mod tests {
                 tokio::join!(server, client);
             })
             .await
-            .unwrap();
+            .assert_success();
             assert_complete_wire(peer, &[]).await;
         }
     }
@@ -1110,8 +1221,8 @@ mod tests {
             Err(HandshakeError::Protocol("rawsocket handshake timed out"))
         ));
         let (client, mut peer) = socket_pair().await;
-        peer.write_all(&[0x7f, 1]).await.unwrap();
-        peer.shutdown().await.unwrap();
+        peer.write_all(&[0x7f, 1]).await.assert_success();
+        peer.shutdown().await.assert_success();
         let result = connect(
             IoStream::plain(client),
             Serializer::Json,
@@ -1130,10 +1241,10 @@ mod tests {
             let (client, mut peer) = socket_pair().await;
             let server = async {
                 assert_complete_wire((&mut peer).take(4), &[0x7f, 0xf1, 0, 0]).await;
-                peer.write_all(&[0x7f, 0xf1, 0, 0]).await.unwrap();
+                peer.write_all(&[0x7f, 0xf1, 0, 0]).await.assert_success();
                 assert_complete_wire((&mut peer).take(2), &[0x3f, 1]).await;
-                peer.write_all(&response).await.unwrap();
-                peer.shutdown().await.unwrap();
+                peer.write_all(&response).await.assert_success();
+                peer.shutdown().await.assert_success();
             };
             let client = async {
                 let result = connect(
@@ -1160,7 +1271,7 @@ mod tests {
                 tokio::join!(server, client);
             })
             .await
-            .unwrap();
+            .assert_success();
             assert_complete_wire(peer, &[]).await;
         }
     }
@@ -1174,15 +1285,15 @@ mod tests {
 
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .assert_success()
             .as_nanos();
         let path = std::env::temp_dir().join(format!(
             "connectanum-sendfile-{}-{nonce}.bin",
             std::process::id()
         ));
-        std::fs::write(&path, b"0123456789abcdef").unwrap();
-        let file = Arc::new(File::open(&path).unwrap());
-        std::fs::remove_file(path).unwrap();
+        std::fs::write(&path, b"0123456789abcdef").assert_success();
+        let file = Arc::new(File::open(&path).assert_success());
+        std::fs::remove_file(path).assert_success();
 
         for (offset, length, expected, expected_error) in [
             (u64::MAX, 0, b"".as_slice(), None),
@@ -1202,7 +1313,7 @@ mod tests {
             let mut stream = IoStream::plain(client);
             let sender = RawSocketFileSender::from_stream(&stream);
             assert!(matches!(sender, Ok(Some(_))));
-            let sender = sender.unwrap().unwrap();
+            let sender = sender.assert_success().assert_success();
             assert_eq!(format!("{sender:?}"), "RawSocketFileSender { .. }");
             let before = crate::file_segment_metrics_snapshot();
             let result = time::timeout(
@@ -1210,10 +1321,10 @@ mod tests {
                 sender.send_file_segment(&file, offset, length),
             )
             .await
-            .unwrap();
+            .assert_success();
             // shutdown applies to the socket, including the sender's duplicated
             // descriptor. EOF makes a missing payload observable without a hang.
-            stream.shutdown().await.unwrap();
+            stream.shutdown().await.assert_success();
             let mut received = Vec::new();
             time::timeout(
                 Duration::from_secs(2),
@@ -1221,8 +1332,8 @@ mod tests {
                     .read_to_end(&mut received),
             )
             .await
-            .unwrap()
-            .unwrap();
+            .assert_success()
+            .assert_success();
             assert_eq!(
                 result.as_ref().err().map(io::Error::kind),
                 expected_error,
@@ -1245,26 +1356,26 @@ mod tests {
         // Explicit offsets must neither move the shared file cursor nor require
         // switching away from the session's ordinary socket writer.
         let mut cursor = file.as_ref();
-        cursor.seek(SeekFrom::Start(7)).unwrap();
+        cursor.seek(SeekFrom::Start(7)).assert_success();
         let (client, peer) = socket_pair().await;
         let mut stream = IoStream::plain(client);
         let sender = RawSocketFileSender::from_stream(&stream);
         assert!(matches!(sender, Ok(Some(_))));
-        let sender = sender.unwrap().unwrap();
+        let sender = sender.assert_success().assert_success();
         time::timeout(Duration::from_secs(2), async {
-            stream.write_all(b"prefix:").await.unwrap();
+            stream.write_all(b"prefix:").await.assert_success();
             let first = sender.send_file_segment(&file, 3, 4).await;
             assert!(first.is_ok());
-            stream.write_all(b":").await.unwrap();
+            stream.write_all(b":").await.assert_success();
             let second = sender.send_file_segment(&file, 10, 3).await;
             assert!(second.is_ok());
-            stream.write_all(b":suffix").await.unwrap();
-            stream.shutdown().await.unwrap();
+            stream.write_all(b":suffix").await.assert_success();
+            stream.shutdown().await.assert_success();
         })
         .await
-        .unwrap();
+        .assert_success();
         assert_complete_wire(peer, b"prefix:3456:abc:suffix").await;
-        assert_eq!(cursor.stream_position().unwrap(), 7);
+        assert_eq!(cursor.stream_position().assert_success(), 7);
     }
 
     #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -1274,7 +1385,7 @@ mod tests {
         let mut stream = IoStream::plain(client);
         let sender = RawSocketFileSender::from_stream(&stream);
         assert!(matches!(sender, Ok(Some(_))));
-        let sender = sender.unwrap().unwrap();
+        let sender = sender.assert_success().assert_success();
         let small_buffer: libc::c_int = 4096;
         let status = unsafe {
             libc::setsockopt(
@@ -1294,16 +1405,16 @@ mod tests {
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
+                .assert_success()
                 .as_nanos()
         ));
-        std::fs::write(&path, &bytes).unwrap();
-        let file = Arc::new(File::open(&path).unwrap());
-        std::fs::remove_file(path).unwrap();
+        std::fs::write(&path, &bytes).assert_success();
+        let file = Arc::new(File::open(&path).assert_success());
+        std::fs::remove_file(path).assert_success();
         let expected = &bytes[31..bytes.len() - 19];
         let send = async {
             let result = sender.send_file_segment(&file, 31, expected.len()).await;
-            stream.shutdown().await.unwrap();
+            stream.shutdown().await.assert_success();
             result
         };
         let receive = async move {
@@ -1312,14 +1423,14 @@ mod tests {
             peer.take(expected.len() as u64 + 1)
                 .read_to_end(&mut received)
                 .await
-                .unwrap();
+                .assert_success();
             received
         };
         let (sent, received) = time::timeout(Duration::from_secs(5), async {
             tokio::join!(send, receive)
         })
         .await
-        .expect("file segment must complete with a slow reader");
+        .assert_expected("file segment must complete with a slow reader");
         assert!(sent.is_ok());
         assert_eq!(received, expected);
     }

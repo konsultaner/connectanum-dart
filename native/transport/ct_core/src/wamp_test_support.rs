@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub(super) trait AssertSuccess {
+pub(crate) trait AssertSuccess {
     type Output;
 
     fn assert_expected(self, context: &str) -> Self::Output;
@@ -35,7 +35,7 @@ impl<T> AssertSuccess for Option<T> {
     }
 }
 
-pub(super) trait AssertError {
+pub(crate) trait AssertError {
     type Error;
     fn assert_error(self) -> Self::Error;
 }

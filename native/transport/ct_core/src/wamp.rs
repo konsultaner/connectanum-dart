@@ -466,10 +466,7 @@ fn parse_value_parts(
 }
 
 fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError> {
-    let Some(raw) = raw_payload.as_contiguous() else {
-        return parse_value_message(Serializer::Cbor, raw_payload);
-    };
-    let ranges = cbor_top_level_ranges(raw.as_ref())?;
+    let ranges = cbor_top_level_ranges(&raw_payload)?;
     if ranges.is_empty() {
         return Err(ParseError::MissingElement("message code"));
     }
@@ -586,7 +583,7 @@ fn cbor_payload_part(
     if slice.first().map(|byte| byte >> 5) != Some(expected_major) {
         return Err(wrong_type(label));
     }
-    Ok(Some(raw_payload.slice_or_copy(range)?))
+    Ok(Some(slice))
 }
 
 fn replace_message_payload(message: &mut WampMessage, payload: Payload) {
@@ -628,15 +625,56 @@ fn cbor_value(raw_payload: &RawFrame, range: &Range<usize>) -> Result<Value, Par
     Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
 }
 
-fn cbor_top_level_ranges(data: &[u8]) -> Result<Vec<Range<usize>>, ParseError> {
-    let (mut offset, length) = cbor_array_header(data)?;
+fn cbor_top_level_ranges(data: &RawFrame) -> Result<Vec<Range<usize>>, ParseError> {
+    let prefix = data.slice_or_copy(&(0..data.len().min(9)))?;
+    let (header_len, length) = cbor_array_header(prefix.as_ref())?;
+    match data {
+        RawFrame::Contiguous(bytes) => {
+            let body = bytes.get(header_len..).ok_or_else(|| {
+                ParseError::Deserialize("truncated CBOR message array header".into())
+            })?;
+            let mut de = serde_cbor::Deserializer::from_slice(body);
+            cbor_value_ranges(data, header_len, length, || {
+                IgnoredAny::deserialize(&mut de)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                Ok(de.byte_offset())
+            })
+        }
+        RawFrame::Segmented { segments, .. } => {
+            let mut reader = SegmentedFrameReader::new(segments.clone());
+            let mut header = [0u8; 9];
+            let header = header.get_mut(..header_len).ok_or_else(|| {
+                ParseError::Deserialize(
+                    "CBOR message array header exceeds its maximum width".into(),
+                )
+            })?;
+            reader
+                .read_exact(header)
+                .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+            let mut de = serde_cbor::Deserializer::from_reader(reader);
+            cbor_value_ranges(data, header_len, length, || {
+                IgnoredAny::deserialize(&mut de)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                Ok(de.byte_offset())
+            })
+        }
+    }
+}
+
+fn cbor_value_ranges(
+    data: &RawFrame,
+    header_len: usize,
+    length: Option<usize>,
+    mut read_value_end: impl FnMut() -> Result<usize, ParseError>,
+) -> Result<Vec<Range<usize>>, ParseError> {
+    let mut offset = header_len;
     let mut ranges = Vec::with_capacity(length.unwrap_or(8).min(data.len()));
     loop {
         if let Some(length) = length {
             if ranges.len() == length {
                 break;
             }
-        } else if data.get(offset) == Some(&0xff) {
+        } else if data.read_byte(offset).ok() == Some(0xff) {
             break;
         }
         if offset >= data.len() {
@@ -645,17 +683,16 @@ fn cbor_top_level_ranges(data: &[u8]) -> Result<Vec<Range<usize>>, ParseError> {
             ));
         }
         let start = offset;
-        let mut de = serde_cbor::Deserializer::from_slice(&data[offset..]);
-        IgnoredAny::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))?;
-        let consumed = de.byte_offset();
-        if consumed == 0 {
+        let value_end = read_value_end()?;
+        let next_offset = header_len
+            .checked_add(value_end)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value range overflow".into()))?;
+        if next_offset <= offset {
             return Err(ParseError::Deserialize(
                 "CBOR value parser made no progress".into(),
             ));
         }
-        offset = offset
-            .checked_add(consumed)
-            .ok_or_else(|| ParseError::Deserialize("CBOR value range overflow".into()))?;
+        offset = next_offset;
         ranges.push(start..offset);
     }
     let message_end = if length.is_some() {
@@ -2601,7 +2638,7 @@ mod regression_tests;
 
 #[cfg(test)]
 #[path = "wamp_test_support.rs"]
-mod test_support;
+pub(crate) mod test_support;
 
 #[cfg(test)]
 mod tests {
@@ -2959,6 +2996,8 @@ mod tests {
                     .raw
                     .as_contiguous()
                     .assert_expected("contiguous msgpack frame expected");
+                assert_eq!(raw.as_ptr(), bytes.as_ptr());
+                assert_eq!(raw.len(), bytes.len());
                 let args = payload.args.assert_expected("payload args missing");
                 let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 (
@@ -2991,6 +3030,105 @@ mod tests {
                 );
             }
             other => unexpected_message(other),
+        }
+    }
+
+    #[test]
+    fn cbor_segmented_parser_rejects_malformed_frames_at_every_split() {
+        let cases: &[&[u8]] = &[
+            &[],
+            &[0x80],
+            &[0x98],
+            &[0x99, 0],
+            &[0x9a, 0, 0, 0],
+            &[0x9b, 0, 0, 0, 0, 0, 0, 0],
+            &[0x9c],
+            &[0x00],
+            &[0x84, 0x18, 0x30, 1, 0xa0, 0x61],
+            &[0x84, 0x18, 0x30, 1, 0xa0, 0x61, 0xff],
+            &[0x84, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0],
+            &[0x9f, 0x18, 0x30, 1, 0xa0, 0x61, b'p'],
+            &[0x9f, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0xff, 0],
+            &[0x85, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0x81],
+            &[
+                0x85, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0x81, 0x5a, 0xff, 0xff, 0xff, 0xff,
+            ],
+        ];
+        for bytes in cases {
+            let original = Bytes::copy_from_slice(bytes);
+            assert_condition!(parse_message(Serializer::Cbor, original.clone()).is_err());
+            for split in 0..=original.len() {
+                assert_condition!(parse_message_segments(
+                    Serializer::Cbor,
+                    vec![
+                        Bytes::new(),
+                        original.slice(..split),
+                        Bytes::new(),
+                        original.slice(split..),
+                        Bytes::new(),
+                    ]
+                )
+                .is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn cbor_segmented_payload_retains_exact_encoding_and_borrowed_parts() {
+        let fields = [
+            0x18, 0x30, 1, 0xa0, 0x61, b'p', 0x81, 0x18, 0x17, 0xa1, 0x62, b'k', b'w', 0x18, 0x18,
+        ];
+        for header in [
+            vec![0x86],
+            vec![0x98, 6],
+            vec![0x99, 0, 6],
+            vec![0x9a, 0, 0, 0, 6],
+            vec![0x9b, 0, 0, 0, 0, 0, 0, 0, 6],
+            vec![0x9f],
+        ] {
+            let indefinite = header == [0x9f];
+            let args_start = header.len() + 6;
+            let mut encoded = header;
+            encoded.extend_from_slice(&fields);
+            if indefinite {
+                encoded.push(0xff);
+            }
+            let original = Bytes::from(encoded);
+            for split in 0..=original.len() {
+                let parsed = parse_message_segments(
+                    Serializer::Cbor,
+                    vec![
+                        Bytes::new(),
+                        original.slice(..split),
+                        Bytes::new(),
+                        original.slice(split..),
+                        Bytes::new(),
+                    ],
+                )
+                .assert_success();
+                assert_condition!(matches!(parsed.raw, RawFrame::Segmented { .. }));
+                match parsed.message {
+                    WampMessage::Call {
+                        request_id,
+                        procedure,
+                        payload,
+                        ..
+                    } => {
+                        assert_eq!(request_id, 1);
+                        assert_eq!(procedure, "p");
+                        let args = payload.args.assert_expected("missing arguments");
+                        assert_eq!(args.as_ref(), &[0x81, 0x18, 0x17]);
+                        assert_eq!(
+                            payload.kwargs.assert_expected("missing keywords").as_ref(),
+                            &[0xa1, 0x62, b'k', b'w', 0x18, 0x18]
+                        );
+                        if split <= args_start || split >= args_start + args.len() {
+                            assert_eq!(args.as_ptr(), original.slice(args_start..).as_ptr());
+                        }
+                    }
+                    other => unexpected_message(other),
+                }
+            }
         }
     }
 

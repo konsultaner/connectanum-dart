@@ -80,6 +80,27 @@ exact upload checks are repaired; the allocator now lives under WAMP's test
 module, restoring the MQTT source byte for byte. Complete final `bin/verify`
 and all hosted workflow gates remain outstanding.
 
+Current repair evidence: all 426 native Core tests pass. A complete frozen-input
+RawSocket campaign inventories all 92 current mutants and records 87 assertion
+kills / five compile errors, zero survivors/errors/timeouts. WAMP v3 completes
+331 candidates but remains unqualified (12 non-assertion failures and two
+survivors); checked range access, stronger pointer/variant assertions and a
+populated generic-payload regression address the observed cases. The next full
+campaign and hosted proof remain pending.
+
+The diagnostic workflow partitions complete native inventories into four
+RawSocket/eight WAMP batches per host, preserving each original 45-minute job
+and 30-second native test deadline. An independent per-host aggregate regenerates
+the complete inventory, reaudits every raw log and requires zero survivors plus
+clean evidence. All batches share one same-run Cargo dependency lock. Browser
+E2EE regressions detect three formerly surviving mutants; all 169 browser E2EE
+cases pass. The direct native JSON String decoder preserves explicit app decoder
+choices and owned mutable output; 65 browser JSON and three native boundary
+cases pass. Its local matched WebSocket file gain is about eight percent and is
+not hosted throughput qualification. No numeric policy, source/operator scope,
+workload or queue limit is relaxed. Final quiet `bin/verify` and all seven
+hosted workflow families remain required before PR #139 is ready.
+
 ## Release scope
 
 All eight Dart packages and three Rust crates are synchronized at beta.9.

@@ -1757,6 +1757,46 @@ class NativeClientRuntime {
             ownedInput.asTypedList(length).setRange(0, length, input, start);
             return ownedInput;
           })();
+    try {
+      return _decodeCanonicalBase64Pointer(decode, inputPtr, length);
+    } finally {
+      if (ownedInput != ffi.nullptr) {
+        malloc.free(ownedInput);
+      }
+      if (externalInput != null) {
+        identityHashCode(externalInput.owner);
+      }
+    }
+  }
+
+  /// Decodes an ASCII span directly into the native base64 input allocation.
+  /// No intermediate Dart byte buffer is retained or copied into that allocation.
+  Uint8List? decodeCanonicalBase64String(String input, int start, int end) {
+    RangeError.checkValidRange(start, end, input.length);
+    final decode = _bindings.ctBase64DecodeCanonical;
+    if (decode == null) return null;
+    final length = end - start;
+    final inputPtr = length == 0
+        ? ffi.nullptr.cast<ffi.Uint8>()
+        : malloc<ffi.Uint8>(length);
+    try {
+      final bytes = inputPtr.asTypedList(length);
+      for (var index = 0; index < length; index++) {
+        final codeUnit = input.codeUnitAt(start + index);
+        if (codeUnit > 0x7f) return null;
+        bytes[index] = codeUnit;
+      }
+      return _decodeCanonicalBase64Pointer(decode, inputPtr, length);
+    } finally {
+      if (inputPtr != ffi.nullptr) malloc.free(inputPtr);
+    }
+  }
+
+  Uint8List? _decodeCanonicalBase64Pointer(
+    CtBase64DecodeCanonicalDart decode,
+    ffi.Pointer<ffi.Uint8> inputPtr,
+    int length,
+  ) {
     final outputPtr = calloc<CtExternalByteBuffer>();
     try {
       final result = decode(inputPtr, length, outputPtr);
@@ -1786,12 +1826,6 @@ class NativeClientRuntime {
       }
       return _ownExternalBytes(output);
     } finally {
-      if (ownedInput != ffi.nullptr) {
-        malloc.free(ownedInput);
-      }
-      if (externalInput != null) {
-        identityHashCode(externalInput.owner);
-      }
       calloc.free(outputPtr);
     }
   }

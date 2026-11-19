@@ -67,6 +67,62 @@ void main() {
     skip: nativeClientRuntimeSkipReason(),
   );
 
+  test('native String base64 ranges own mutable independent results', () {
+    final runtime = NativeClientRuntime.instance();
+    final source = Uint8List.fromList(
+      List.generate(65537, (i) => (i * 31) & 255),
+    );
+    final encoded = base64.encode(source);
+    const prefix = 'é💡:';
+    final input = '$prefix$encoded:tail☃';
+    final first = runtime.decodeCanonicalBase64String(
+      input,
+      prefix.length,
+      prefix.length + encoded.length,
+    )!;
+    final second = runtime.decodeCanonicalBase64String(
+      input,
+      prefix.length,
+      prefix.length + encoded.length,
+    )!;
+    expect(first, orderedEquals(source));
+    expect(second, orderedEquals(source));
+    first[0] ^= 255;
+    expect(second[0], source[0]);
+    expect(first[0], isNot(second[0]));
+    expect(NativeClientRuntime.releaseOwnedExternalBytes(first), isTrue);
+    expect(second, orderedEquals(source));
+    expect(NativeClientRuntime.releaseOwnedExternalBytes(second), isTrue);
+    expect(runtime.decodeCanonicalBase64String('', 0, 0), isEmpty);
+    expect(
+      () => runtime.decodeCanonicalBase64String(input, -1, 1),
+      throwsRangeError,
+    );
+    expect(
+      () => runtime.decodeCanonicalBase64String(input, 2, 1),
+      throwsRangeError,
+    );
+    expect(
+      () => runtime.decodeCanonicalBase64String(input, 0, input.length + 1),
+      throwsRangeError,
+    );
+    for (final invalid in [
+      'AB==',
+      'AA=',
+      'AA--',
+      'AA__',
+      'AA==extra',
+      'éAAA',
+      'A😀=',
+    ]) {
+      expect(
+        runtime.decodeCanonicalBase64String(invalid, 0, invalid.length),
+        isNull,
+        reason: invalid,
+      );
+    }
+  }, skip: nativeClientRuntimeSkipReason());
+
   test('native canonical JSON codecs ignore binary serializers', () {
     final serializer = msgpack_serializer.Serializer();
     final source = Uint8List.fromList(const [0, 1, 2, 253, 254, 255]);
