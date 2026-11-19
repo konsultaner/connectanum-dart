@@ -142,3 +142,43 @@ MCP baselines, native mutation tooling and 114 mutation-runner/CI execution
 contracts (one existing host-specific skip). Final full bin/verify and hosted
 all-workflow qualification are still outstanding. The first hosted checkpoint
 is an explicit draft, not a claim that all diagnostic targets are green.
+
+### Hosted checkpoint findings
+
+Draft PR #139 at `2fe7337a` retains the complete diagnostic scope. MessagePack
+VM and all eight browser shards pass. WAMP run 44598752416 completes all eight
+scenarios: the PPT crash is gone, but fragmentation (nine findings), buffered
+file transfer (four) and heavy RawSocket lifecycle (one) still miss unchanged
+2,000-Mbps floors. Artifact 14568525535 SHA256:
+`78fd8a8afcda067373345b104bcdd46e6f7d3165973c1b0c4f08c5a2bd75cd88`.
+
+The hosted full MCP baseline exceeds its original 45-second command deadline.
+The full native integration is now scheduled first and independent Dart test
+file isolates overlap at concurrency two. A local matched complete run is
+27.26 seconds serial, 21.86 seconds at concurrency two, and 19.46 seconds with
+the native file first. All files, assertions, mutation inventories, five- and
+20-second per-test timeouts and the total 45-second deadline remain unchanged.
+This timing is exploratory until hosted qualification completes.
+
+Two frozen-input full verification attempts are retained: the first reveals
+four missing serializer helper manifests and obsolete exact workflow-upload
+counts; the second passes those and detects the test-only allocator module
+changing a historically coverage-pinned MQTT source. Move that observer under
+WAMP's test module and restore `ct_core/src/lib.rs` byte for byte. The exact
+historical coverage-hash assertion remains intact. No final green claim yet.
+
+The CLI-native baseline also times out in the checkpoint: its separate HTTP,
+option and native processes consume 11.44, 2.13 and the remaining 31.43 seconds.
+Use the existing single Dart test-command mode for this target, with two
+independent test-file isolates and native first. Preserve all three files and
+20-second per-test / 45-second whole-command limits. The original assertion,
+load/error/timeout classification code is untouched; concurrent test-file
+reporter evidence uses the same fully completed command classifier as full MCP.
+
+Overlapped clean/restored baselines pass locally for full MCP (2,308 selected)
+and CLI-native (1,207 selected), both with unchanged native binary receipts.
+The concurrent real-reporter regression confirms assertion/mixed failures,
+error-only failures, elapsed test deadlines and abrupt process exit retain their
+original strict classifications. The focused local review identifies no verified
+correctness defect: every execution/listing path builds the validated command;
+config bytes and recorded commands already bind independent shard auditing.

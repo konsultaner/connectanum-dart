@@ -454,7 +454,10 @@ def test_command(target, resolved_tests, test_timeout):
     command = [engine, 'test']
     if engine == 'flutter':
         command.append('--no-pub')
-    command.extend(['--reporter=json', '--concurrency=1',
+    concurrency = target.get('testConcurrency', 1)
+    if type(concurrency) is not int or concurrency < 1:
+        raise ValueError('testConcurrency must be a positive integer')
+    command.extend(['--reporter=json', f'--concurrency={concurrency}',
                     f'--timeout={test_timeout}s'])
     test_name = target.get('testName')
     if test_name is not None:

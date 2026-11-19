@@ -63,6 +63,20 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertLess(command.index('--name'), command.index('test/router_runtime_test.dart'))
         self.assertEqual(command[command.index('--name') + 1], r'Router start .*')
 
+    def test_test_file_concurrency_preserves_scope_and_rejects_invalid_values(self):
+        tests = ['test/native_cli_test.dart', 'test/library_test.dart']
+        original = runner.test_command({}, tests, 5)
+        concurrent = runner.test_command({'testConcurrency': 2}, tests, 5)
+        self.assertIn('--concurrency=1', original)
+        self.assertEqual(concurrent, [arg.replace('--concurrency=1', '--concurrency=2')
+                                      for arg in original])
+        self.assertEqual(concurrent[concurrent.index('--timeout=5s') + 1:
+                                    concurrent.index('--platform')], tests)
+        for invalid in (True, False, 0, -1, 1.5, '2', None):
+            with self.subTest(value=invalid):
+                with self.assertRaisesRegex(ValueError, 'testConcurrency'):
+                    runner.test_command({'testConcurrency': invalid}, tests, 5)
+
     def test_http_context_target_covers_complete_source_and_native_integration(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
         self.assertIn('router-http-context-vm', targets)
@@ -451,9 +465,24 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertEqual(set(target['sources']),
                          set(policy['components']['connectanum_mcp_library']['sources']))
         self.assertEqual(set(targets['mcp']['sources']), actual)
+        full = targets['mcp']
+        self.assertEqual(full['tests'], [
+            'packages/connectanum_router/test/router_hosted_cli_integration_test.dart',
+            'packages/connectanum_mcp/test',
+        ])
+        self.assertEqual(full['testConcurrency'], 2)
+        self.assertNotIn('testTimeoutSeconds', full)
+        self.assertTrue(full['requiresNativeLibrary'])
         self.assertEqual(target['tests'], ['packages/connectanum_mcp/test'])
         self.assertIn(cli, targets['mcp-cli-native']['sources'])
         self.assertTrue(targets['mcp-cli-native']['requiresNativeLibrary'])
+        native_cli = targets['mcp-cli-native']
+        self.assertEqual(native_cli['tests'], [
+            full['tests'][0], 'packages/connectanum_mcp/test/cli',
+        ])
+        self.assertFalse(native_cli['isolateTestFiles'])
+        self.assertEqual(native_cli['testConcurrency'], 2)
+        self.assertEqual(native_cli['testTimeoutSeconds'], 20)
 
     def test_pem_pkcs8_targets_share_tests_and_record_key_fixtures(self):
         targets = json.loads((runner.ROOT / 'tool/mutation_targets.json').read_text())
@@ -1088,6 +1117,13 @@ class MutationRunnerTests(unittest.TestCase):
             production = work / source_path
             production.parent.mkdir(parents=True)
             production.write_text(source)
+            independent = work / 'packages/fixture/test/independent_test.dart'
+            independent.parent.mkdir(parents=True, exist_ok=True)
+            independent.write_text(
+                "import 'dart:async';\nimport 'package:test/test.dart';\n"
+                "void main() { test('independent isolate completes', () async {\n"
+                "await Future<void>.delayed(const Duration(milliseconds: 50));\n"
+                "expect(2 + 2, 4); }); }\n")
             for name, body in cases.items():
                 test = work / f'packages/fixture/test/{name}_test.dart'
                 test.parent.mkdir(parents=True, exist_ok=True)
@@ -1110,7 +1146,9 @@ class MutationRunnerTests(unittest.TestCase):
             config = root / 'config.json'
             config.write_text(json.dumps({name: {
                 'sources': [source_path],
-                'tests': [f'packages/fixture/test/{name}_test.dart'],
+                'tests': [f'packages/fixture/test/{name}_test.dart',
+                          'packages/fixture/test/independent_test.dart'],
+                'testConcurrency': 2,
                 'testTimeoutSeconds': 1,
             } for name in cases}))
             equivalents = root / 'equivalents.json'
@@ -1132,7 +1170,9 @@ class MutationRunnerTests(unittest.TestCase):
                     self.assertEqual(target['baselineExitCode'], 0)
                     self.assertEqual(target['restoredBaselineExitCode'], 0)
                     self.assertEqual(target['testHashes'].keys(),
-                                     {f'packages/fixture/test/{name}_test.dart'})
+                                     {f'packages/fixture/test/{name}_test.dart',
+                                      'packages/fixture/test/independent_test.dart'})
+                    self.assertIn('--concurrency=2', target['testCommand'])
                     outcome = target['outcomes'][0]
                     log = (output / outcome['log']).read_text()
                     self.assertEqual(outcome['status'],

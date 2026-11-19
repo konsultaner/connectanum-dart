@@ -463,6 +463,7 @@
       "packages/connectanum_core/test/serializer/json/binary_codec_test.dart",
       "packages/connectanum_core/test/serializer/json/serializer_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/ppt_rejection_test.dart",
@@ -514,6 +515,7 @@
       "packages/connectanum_core/test/serializer/json/binary_codec_test.dart",
       "packages/connectanum_core/test/serializer/json/serializer_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/ppt_rejection_test.dart",
@@ -565,6 +567,7 @@
       "packages/connectanum_core/test/serializer/json/binary_codec_test.dart",
       "packages/connectanum_core/test/serializer/json/serializer_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/ppt_rejection_test.dart",
@@ -619,6 +622,7 @@
       "packages/connectanum_core/test/serializer/json/binary_codec_test.dart",
       "packages/connectanum_core/test/serializer/json/serializer_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_fallback_web_test.dart",
+      "packages/connectanum_core/test/serializer/msgpack/codec_fallback_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test.dart",
       "packages/connectanum_core/test/serializer/msgpack/codec_test_support.dart",
       "packages/connectanum_core/test/serializer/msgpack/ppt_rejection_test.dart",
@@ -1123,9 +1127,10 @@
       "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
     ],
     "tests": [
-      "packages/connectanum_mcp/test",
-      "packages/connectanum_router/test/router_hosted_cli_integration_test.dart"
+      "packages/connectanum_router/test/router_hosted_cli_integration_test.dart",
+      "packages/connectanum_mcp/test"
     ],
+    "testConcurrency": 2,
     "requiresNativeLibrary": true,
     "supportFiles": [
       "packages/connectanum_router/example/router_hosted_mcp.dart",
@@ -1184,8 +1189,8 @@
       "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
     ],
     "tests": [
-      "packages/connectanum_mcp/test/cli",
-      "packages/connectanum_router/test/router_hosted_cli_integration_test.dart"
+      "packages/connectanum_router/test/router_hosted_cli_integration_test.dart",
+      "packages/connectanum_mcp/test/cli"
     ],
     "supportFiles": [
       "packages/connectanum_router/example/router_hosted_mcp.dart",
@@ -1193,7 +1198,8 @@
       "packages/connectanum_router/test/support/native_lib.dart"
     ],
     "requiresNativeLibrary": true,
-    "isolateTestFiles": true,
+    "isolateTestFiles": false,
+    "testConcurrency": 2,
     "testTimeoutSeconds": 20
   },
   "core-msgpack-vm": {

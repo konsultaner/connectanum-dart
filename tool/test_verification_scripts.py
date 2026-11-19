@@ -930,8 +930,17 @@ fi
         ]))
         jobs = workflow.split("\njobs:\n", 1)[1]
         self.assertNotIn("github.event_name", jobs)
-        self.assertEqual(jobs.count("if: always()"), 2)
-        self.assertEqual(jobs.count("if-no-files-found: error"), 2)
+        sections = re.split(r"\n  ([a-z][a-z-]*):\n", "\n" + jobs)
+        job_sections = dict(zip(sections[1::2], sections[2::2]))
+        self.assertEqual(set(job_sections), {
+            "native-build", "dart", "web-shards", "native-dart-shards",
+            "dart-aggregate", "rust",
+        })
+        for name, section in job_sections.items():
+            with self.subTest(job=name):
+                self.assertEqual(section.count("if: always()"),
+                                 0 if name == "native-build" else 1)
+                self.assertEqual(section.count("if-no-files-found: error"), 1)
         self.assertNotIn("continue-on-error:", jobs)
         self.assertNotIn("|| true", jobs)
 

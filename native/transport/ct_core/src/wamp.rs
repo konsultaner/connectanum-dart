@@ -27,6 +27,8 @@ pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
 pub use flatbuffers_encoder::encode_segments as encode_flatbuffers_message_segments;
 #[cfg(test)]
 mod flatbuffers_segmented_tests;
+#[cfg(test)]
+mod test_allocations;
 
 use serde_json::value::RawValue;
 
@@ -2744,7 +2746,7 @@ mod tests {
                 kwargs,
             ]);
             let bytes = Bytes::from(serde_cbor::to_vec(&value).assert_success());
-            let (parsed, largest) = crate::test_allocations::largest_allocation(|| {
+            let (parsed, largest) = super::test_allocations::largest_allocation(|| {
                 parse_message(Serializer::Cbor, bytes.clone())
             });
             let parsed = parsed.assert_success();

@@ -61,9 +61,24 @@ Completed plan: [beta.9 release](exec-plans/2026-11-06-3.0.0-beta.9-release.md).
 GitHub review for the version metadata and release record. Publication used the
 fully qualified commit `72c078f1`; no branch protection was bypassed.
 
-Local diagnostic repair now passes the complete MessagePack VM mutation gate,
-full MCP baselines and focused native/WAMP/file regressions. Final full
-`bin/verify` and hosted diagnostic workflow qualification remain outstanding.
+Diagnostic repair is published as draft [PR #139](https://github.com/konsultaner/connectanum-dart/pull/139).
+Checkpoint `2fe7337a` passes MessagePack VM and all eight MessagePack browser
+shards, package publishing dry runs and five of eight WAMP scenarios. WAMP
+fragmentation, buffered file transfers and one heavy RawSocket lifecycle floor
+remain red. Hosted full MCP baselines exceed the unchanged 45-second command
+deadline; independent test-file isolates are now overlapped, with the native
+integration scheduled first. Local matched full-suite times are 27.26 seconds
+serial versus 19.46 seconds overlapped, with complete test inventory and all
+original timeouts intact. This is exploratory timing, not hosted qualification.
+Full MCP and CLI-native clean/restored baselines pass locally with all
+2,308 / 1,207 mutants inventoried and unchanged native binary receipts.
+
+Frozen-input `bin/verify` exposed four missing serializer helper manifests,
+obsolete workflow-upload counts and a historical MQTT coverage source-hash
+mismatch caused by a test-only allocator module declaration. The manifests and
+exact upload checks are repaired; the allocator now lives under WAMP's test
+module, restoring the MQTT source byte for byte. Complete final `bin/verify`
+and all hosted workflow gates remain outstanding.
 
 ## Release scope
 
