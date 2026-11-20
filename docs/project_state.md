@@ -14,6 +14,14 @@ the broader diagnostic chain is not qualified. No threshold or inventory is
 relaxed. The previous Dart upgrade qualification below remains historical
 source evidence rather than a claim that these additional workflows pass.
 
+Complete WAMP diagnostics at `f25b8de9` pass all eight original scenarios on
+AMD EPYC 9V45, with unchanged floors. Regular WAMP, kTLS, all three ObjectBox
+platforms and package dry runs also pass. Frozen `7d918b38` verification exposes
+one remaining component assignment: the shared validator must also belong to
+`mcp-library`. Both mutation and coverage scopes now include it; all 95
+mutation-runner tests and the remaining tooling suites pass. Main CI, full
+final mutation aggregates and a fresh frozen `bin/verify` are still pending.
+
 Latest frozen verification at `f25b8de9` fails only stale static CLI source
 checks after validator extraction; all 3,185 input hashes remain unchanged.
 The checks now follow the actual module and assert its public import/delegation;

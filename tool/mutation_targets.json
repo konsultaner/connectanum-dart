@@ -1156,7 +1156,8 @@
       "packages/connectanum_mcp/lib/src/tools/tool.dart",
       "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
       "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
-      "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
+      "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart",
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
     ],
     "tests": [
       "packages/connectanum_mcp/test"

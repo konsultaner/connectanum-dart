@@ -111,7 +111,7 @@
     "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart",
     "packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart",
     "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
-      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart",
+    "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart",
     "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
     "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
     "packages/connectanum_mcp/lib/src/protocol/constants.dart",
@@ -215,14 +215,15 @@
         "packages/connectanum_mcp/lib/src/tools/tool.dart",
         "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
         "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
-        "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
+        "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart",
+        "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
       ]
     },
     "connectanum_mcp_cli": {
       "floor": 93.4,
       "sources": [
         "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
-      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
+        "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
       ]
     }
   },

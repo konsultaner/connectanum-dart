@@ -48,6 +48,31 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Complete component manifests and full WAMP pass
+
+The next frozen verification at `7d918b38` keeps all 3,185 inputs unchanged
+and detects a missing component assignment: `mcp-library` intentionally covers
+all MCP library sources except the CLI entrypoint, so it must also contain the
+new shared validator. The module is added to both its mutation source list and
+matching coverage component; existing CLI/full-MCP scopes remain intact.
+No source exclusion, floor, operator or test is removed. The inventory guard
+also retains the newly added router smoke-evidence test in both full suites.
+All 95 mutation-runner tests now pass (one existing host-specific skip), as do
+the remaining six tooling suites. Earlier tooling suites passed in the full
+run; the current complete frozen verification still remains outstanding.
+
+Complete WAMP diagnostics run 44685867822 at `f25b8de9` passes all eight
+original scenarios, including every fragmentation, buffered/heavy file and
+large RawSocket floor. It runs on an AMD EPYC 9V45 host, distinct from both the
+older EPYC 7763 failure and Intel matched study. Its artifact 14607200587 ZIP
+SHA256 is verified as
+`3bbae2a3cb05070abbd84e9a77eb57bdb03b30c4da19cafc29134b70c7e43dbe`.
+The regular WAMP workflow, kTLS, all three ObjectBox platforms and package dry
+runs also pass at that revision. Preserve the older hardware observations;
+main CI, complete final mutation scores and final local verification remain
+pending. The global component-config hash changes, so final mutation receipts
+must be collected again rather than reusing an old aggregate.
+
 ### Frozen verification and heterogeneous-runner findings
 
 The quiet frozen `bin/verify` at `f25b8de9` fails in one package-boundary test

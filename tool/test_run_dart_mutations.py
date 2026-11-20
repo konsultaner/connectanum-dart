@@ -468,6 +468,7 @@ class MutationRunnerTests(unittest.TestCase):
         full = targets['mcp']
         self.assertEqual(full['tests'], [
             'packages/connectanum_router/test/router_hosted_cli_integration_test.dart',
+            'packages/connectanum_router/test/router_example_smoke_evidence_test.dart',
             'packages/connectanum_mcp/test',
         ])
         self.assertEqual(full['testConcurrency'], 2)
@@ -478,7 +479,8 @@ class MutationRunnerTests(unittest.TestCase):
         self.assertTrue(targets['mcp-cli-native']['requiresNativeLibrary'])
         native_cli = targets['mcp-cli-native']
         self.assertEqual(native_cli['tests'], [
-            full['tests'][0], 'packages/connectanum_mcp/test/cli',
+            full['tests'][0], full['tests'][1],
+            'packages/connectanum_mcp/test/cli',
         ])
         self.assertFalse(native_cli['isolateTestFiles'])
         self.assertEqual(native_cli['testConcurrency'], 2)
