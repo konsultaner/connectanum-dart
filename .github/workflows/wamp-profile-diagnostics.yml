@@ -66,9 +66,11 @@ jobs:
       - name: Profile canonical native hot paths (unqualified)
         run: |
           set -euo pipefail
+          mkdir -p out/wamp-profile-diagnostics
+          lscpu > out/wamp-profile-diagnostics/hardware.txt
           sudo apt-get update -qq
           sudo apt-get install -y linux-tools-common linux-tools-generic
-          perf_path=$(rg --files /usr/lib/linux-tools | rg '/perf$' | sort | tail -1)
+          perf_path=$(find -L /usr/lib/linux-tools -type f -name perf | sort | tail -1)
           test -n "$perf_path"
           # Sampling access only; compiler, allocator, GC and workloads stay default.
           sudo sysctl kernel.perf_event_paranoid=2
