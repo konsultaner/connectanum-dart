@@ -69,20 +69,9 @@ jobs:
           mkdir -p out/wamp-profile-diagnostics
           lscpu > out/wamp-profile-diagnostics/hardware.txt
           sudo apt-get update -qq
-          sudo apt-get install -y linux-tools-common linux-tools-generic
-          dpkg-query -S '*/perf' > out/wamp-profile-diagnostics/perf-package-paths.txt
-          perf_path=
-          while IFS= read -r candidate; do
-            if [[ -x "$candidate" ]] && "$candidate" version >/dev/null 2>&1; then
-              perf_path="$candidate"
-              break
-            fi
-          done < <(sed -n 's/.*: \(\/.*\)$/\1/p' out/wamp-profile-diagnostics/perf-package-paths.txt)
-          test -n "$perf_path"
-          "$perf_path" version > out/wamp-profile-diagnostics/perf-version.txt
-          # Sampling access only; compiler, allocator, GC and workloads stay default.
-          sudo sysctl kernel.perf_event_paranoid=2
-          export CONNECTANUM_PERF_EXECUTABLE="$perf_path"
+          sudo apt-get install -y binutils
+          command -v gprofng
+          gprofng --version > out/wamp-profile-diagnostics/gprofng-version.txt
           source bin/common.sh
           build_native_ffi_test_release
           cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
