@@ -44,8 +44,8 @@ class _TransportFrameSlot {
   final slot = _transportFrameSlots[body];
   if (slot == null || slot.used) return null;
   final prefix = fragments[0], suffix = fragments[2];
-  if (prefix.length > slot.start ||
-      suffix.length > slot.bytes.length - slot.end)
+  if (prefix.length != slot.start ||
+      suffix.length != slot.bytes.length - slot.end)
     return null;
   assert(body.offsetInBytes == slot.bytes.offsetInBytes + slot.start);
   assert(body.length == slot.end - slot.start);
@@ -104,13 +104,21 @@ Uint8List? _encodeTransportBase64(Uint8List input, int prefix, int suffix) {
   }
 }
 
-Uint8List? _decodeCanonicalBase64WithNative(Object input, int start, int end) {
+Uint8List? _decodeCanonicalBase64WithNative(
+  Object input,
+  int start,
+  int end,
+) {
   try {
     final runtime = NativeClientRuntime.instance();
     if (input is String) {
       return runtime.decodeCanonicalBase64String(input, start, end);
     }
-    return runtime.decodeCanonicalBase64Bytes(input as Uint8List, start, end);
+    return runtime.decodeCanonicalBase64Bytes(
+      input as Uint8List,
+      start,
+      end,
+    );
   } on NativeTransportException {
     return null;
   } on ArgumentError {

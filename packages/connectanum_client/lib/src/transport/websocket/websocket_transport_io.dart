@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:ffi' as ffi;
+import 'package:ffi/ffi.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -242,11 +244,20 @@ class WebSocketTransport extends AbstractTransport {
       if (nativeFrame != null) {
         serializedMessage = nativeFrame.bytes;
       } else {
-        final builder = BytesBuilder(copy: false);
-        for (final fragment in fragments) {
-          builder.add(fragment);
+        final length = fragments.fold<int>(0, (length, part) => length + part.length);
+        if (fragments.length > 1 && length >= 65536) {
+          final bytes = malloc<ffi.Uint8>(length).asTypedList(length, finalizer: malloc.nativeFree);
+          var offset = 0;
+          for (final part in fragments) {
+            bytes.setRange(offset, offset + part.length, part);
+            offset += part.length;
+          }
+          serializedMessage = bytes;
+        } else {
+          final builder = BytesBuilder(copy: false);
+          for (final fragment in fragments) { builder.add(fragment); }
+          serializedMessage = builder.takeBytes();
         }
-        serializedMessage = builder.takeBytes();
       }
       if (fragments.length > 1 && serializedMessage.isNotEmpty) {
         DartTransportCopyMetrics.recordWebSocketFragmentCoalesceCopy(
