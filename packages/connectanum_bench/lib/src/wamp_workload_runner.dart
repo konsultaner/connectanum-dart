@@ -2049,11 +2049,9 @@ class WampWorkloadRunner {
     if (length <= 0) {
       return '';
     }
-    final buffer = StringBuffer();
-    for (var i = 0; i < length; i++) {
-      buffer.writeCharCode(65 + (i % 26));
-    }
-    return buffer.toString();
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    return (alphabet * ((length + alphabet.length - 1) ~/ alphabet.length))
+        .substring(0, length);
   }
 
   bool _isTypedPptBenchmark(WampScenario scenario) =>

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:connectanum_bench/src/wamp_workload_runner.dart';
@@ -10,6 +11,67 @@ import 'package:test/test.dart';
 
 void main() {
   group('WampWorkloadRunner', () {
+    test(
+      'RPC and pubsub preserve exact alphabet payloads at chunk boundaries',
+      () async {
+        for (final mode in [WampMode.rpc, WampMode.pubsub]) {
+          for (final size in [
+            0,
+            1,
+            25,
+            26,
+            27,
+            51,
+            52,
+            53,
+            4095,
+            4096,
+            4097,
+            65537,
+          ]) {
+            final broker = _FakeWampBroker();
+            final runner = WampWorkloadRunner(
+              sessionFactory: (_) async => _FakeWampSession(broker),
+              logger: Logger.detached('payload_identity_test'),
+              eventTimeout: const Duration(seconds: 1),
+            );
+            final expected = Uint8List(size);
+            var letter = 65;
+            for (var index = 0; index < size; index++) {
+              expected[index] = letter;
+              letter = letter == 90 ? 65 : letter + 1;
+            }
+            final samples = await runner.run(
+              WampScenario(
+                transport: WampTransport.rawsocket,
+                serializer: WampSerializer.json,
+                mode: mode,
+                uri: 'bench.payload.identity',
+                iterations: 2,
+                concurrency: 2,
+                payloadBytes: size,
+              ),
+            );
+            expect(samples, hasLength(4));
+            final payloads = mode == WampMode.rpc
+                ? broker.lazyCallPayloads
+                : broker.lazyPublishPayloads;
+            expect(payloads, hasLength(4));
+            for (final payload in payloads) {
+              final wireArguments =
+                  jsonDecode(utf8.decode(payload.argumentsBytes!)) as List;
+              expect(wireArguments, hasLength(1));
+              expect(
+                ascii.encode(wireArguments.single as String),
+                orderedEquals(expected),
+                reason: 'mode=$mode size=$size',
+              );
+            }
+          }
+        }
+      },
+    );
+
     test('isolates concurrent per-scenario event timeouts', () async {
       final runner = WampWorkloadRunner(
         sessionFactory: (_) async {

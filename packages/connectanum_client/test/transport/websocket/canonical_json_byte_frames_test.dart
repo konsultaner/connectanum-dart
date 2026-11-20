@@ -7,6 +7,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:connectanum_client/src/transport/websocket/canonical_json_byte_frames_io.dart';
 import 'package:connectanum_client/src/transport/websocket/byte_frame_http_client_io.dart';
+import 'package:connectanum_client/src/transport/websocket/native_websocket_frames_io.dart';
+import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart';
 import 'package:test/test.dart';
 import 'package:crypto/crypto.dart';
 
@@ -90,6 +92,137 @@ Future<int> abortedTextCloseCode(bool adapted) async {
 }
 
 void main() {
+  test(
+    'native canonical messages reach the SDK as one complete binary event',
+    () async {
+      final payload = Uint8List.fromList(ascii.encode(canonical()));
+      final wire = Uint8List.fromList([
+        ...frame(payload.sublist(0, 13), fin: false),
+        ...frame(payload.sublist(13), opcode: 0),
+      ]);
+      final kinds = <bool>[];
+      final result = await canonicalJsonByteFrames(
+        coalesceNativeWebSocketFrames(Stream.value(wire)),
+        onMessage: kinds.add,
+      ).toList();
+      expect(result, hasLength(1));
+      final info = nativeWebSocketFrame(result.single)!;
+      expect(result.single[0], 0x82);
+      expect(result.single.sublist(info.headerLength), payload);
+      expect(kinds, [true]);
+    },
+  );
+
+  test(
+    'native roots retain non-ASCII text and original binary provenance',
+    () async {
+      final asciiPayload = ascii.encode(canonical());
+      for (final (opcode, payload) in [
+        (1, [...asciiPayload, 0xff]),
+        (1, utf8.encode('${canonical()}é')),
+        (2, asciiPayload),
+      ]) {
+        final kinds = <bool>[];
+        final result = await canonicalJsonByteFrames(
+          coalesceNativeWebSocketFrames(
+            Stream.value(
+              Uint8List.fromList([
+                ...frame(payload.sublist(0, 13), opcode: opcode, fin: false),
+                ...frame(payload.sublist(13), opcode: 0),
+              ]),
+            ),
+          ),
+          onMessage: kinds.add,
+        ).toList();
+        expect(result, hasLength(1));
+        expect(result.single[0] & 15, opcode);
+        expect(kinds, [opcode == 1]);
+      }
+    },
+  );
+
+  test(
+    'binary SDK streams use native frames without accumulating JSON kinds',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final http = HttpClient();
+      final payload = Uint8List.fromList(List.generate(65537, (i) => i % 251));
+      Socket? peer;
+      server.listen((request) async {
+        request.response.statusCode = HttpStatus.switchingProtocols;
+        request.response.headers.set('Connection', 'Upgrade');
+        request.response.headers.set('Upgrade', 'websocket');
+        request.response.headers.set(
+          'Sec-WebSocket-Accept',
+          base64.encode(
+            sha1
+                .convert(
+                  ascii.encode(
+                    '${request.headers.value('Sec-WebSocket-Key')}258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
+                  ),
+                )
+                .bytes,
+          ),
+        );
+        peer = await request.response.detachSocket();
+        peer!.listen((_) {});
+        // Explicit wire fragmentation exercises coalescing regardless of how
+        // the operating system groups the socket's input events.
+        peer!.add(frame(payload.sublist(0, 13), opcode: 2, fin: false));
+        peer!.add(frame(payload.sublist(13), opcode: 0));
+        peer!.add(frame([], opcode: 2));
+        peer!.add(frame([3, 232], opcode: 8));
+        await peer!.flush();
+      });
+      try {
+        final frames = <Uint8List>[];
+        final kinds = CanonicalJsonFrameKinds(
+          adaptJson: false,
+          onNativeFrame: frames.add,
+        );
+        final client = await WebSocket.connect(
+          'ws://127.0.0.1:${server.port}',
+          customClient: canonicalJsonByteFrameClient(http, kinds: kinds),
+          compression: CompressionOptions.compressionOff,
+        );
+        final messages = await client.toList().timeout(
+          const Duration(seconds: 5),
+        );
+        expect(messages, hasLength(2));
+        expect(messages.first, payload);
+        expect(messages.last, isEmpty);
+        expect(kinds.active, isTrue);
+        expect(kinds.take(), isNull);
+        final received = messages.first as Uint8List;
+        expect(
+          frames,
+          hasLength(1),
+          reason: 'SDK must retain the native backing allocation',
+        );
+        final native = frames.single;
+        final info = nativeWebSocketFrame(native)!;
+        retainNativeExternalBytes(received, native);
+        final rootSlice = nativeExternalByteSlice(native)!;
+        final payloadSlice = nativeExternalByteSlice(received)!;
+        expect(
+          payloadSlice.pointer.address - rootSlice.pointer.address,
+          info.headerLength,
+        );
+        expect(payloadSlice.length, payload.length);
+        received[0] = 0x91;
+        expect(
+          native[info.headerLength],
+          0x91,
+          reason: 'SDK payload must be a view, not a copy',
+        );
+      } finally {
+        peer?.destroy();
+        http.close(force: true);
+        await server.close(force: true);
+      }
+    },
+  );
+
   test(
     'aborted invalid text keeps the SDK close result until message completion',
     () async {

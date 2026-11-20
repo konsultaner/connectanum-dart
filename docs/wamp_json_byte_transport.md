@@ -13,7 +13,7 @@ that production path.
 `WebSocket.connect` still performs HTTP upgrade, redirects, TLS, authentication,
 subprotocol negotiation, compression, masking and control-frame handling. An
 internal delegating HttpClient wraps only the detached, uncompressed Socket.
-Compressed sockets and custom serializers keep the ordinary SDK path. This
+Compressed sockets and custom JSON serializers keep the ordinary SDK path. This
 uses public Dart interfaces; it does not implement a second WebSocket transport.
 
 The input adapter stages at most 4,096 wire bytes of small ASCII WAMP metadata.
@@ -32,6 +32,32 @@ text/binary provenance before message completion; original binary JSON frames
 remain rejected. The serializer decodes adapted text eagerly, preserving the
 String path's public payload shape and avoiding retention of encoded arguments.
 RawSocket byte decoding keeps its existing lazy-payload behavior.
+
+## Bounded receive buffers
+
+The Dart 3.14 SDK's WebSocket accumulator keeps input views until FIN, then
+copies a multi-part binary message into one managed array. Its implementation
+is recorded in the [Dart 3.14 SDK source](https://github.com/dart-lang/sdk/blob/3.14.0/sdk/lib/_http/websocket_impl.dart).
+The detached-socket adapter now supplies a complete eligible message in one
+privately owned external allocation, so the SDK can retain its payload view.
+CBOR and MessagePack use this receive adapter without the JSON provenance FIFO.
+An already contiguous binary payload keeps its original storage.
+
+The adapter retains every original header and payload slice while considering
+coalescing. It bounds payloads at 8 MiB, header bookkeeping at 4,096 bytes and
+retained pieces at 4,096. A smaller SDK compile-time payload limit disables the
+optimization above that limit. Controls flush the original pending message and
+keep its remaining fragments unchanged; malformed headers, incomplete input,
+stream errors and oversized messages also forward their original bytes. The
+SDK retains protocol rejection, UTF-8 validation, close and control behavior.
+The synchronous transformer preserves source pause and cancellation.
+
+Complete canonical ASCII JSON can pass through the existing opcode adaptation
+as a single event. Non-ASCII text stays text for the SDK's UTF-8 validation;
+original binary JSON retains its original provenance and rejection. Native
+storage uses the existing public typed-data finalizer helper. Header and payload
+copies are included in the existing coalesce metric, whose SDK coverage remains
+partial. No hashing dispatch, allocator, GC or compiler default changes.
 
 ## Native buffer ownership
 

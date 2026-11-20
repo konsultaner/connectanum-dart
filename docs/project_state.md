@@ -5,6 +5,34 @@ Current milestone: repair WAMP and mutation diagnostics without relaxing gates.
 Active plan: [WAMP and mutation diagnostic repair](exec-plans/2026-11-19-wamp-mutation-diagnostics.md).
 Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
+Frozen `52b103c0` passes the complete local `bin/verify` from 08:05:25 to
+08:29:55 UTC, including real Chrome/Dart2Wasm; all 3,185 input hashes, HEAD
+and clean status remain unchanged. Regular WAMP, kTLS, three-platform ObjectBox
+and package dry runs pass; all 55 main CI jobs pass. Full mutation aggregates
+remain pending, with no failed jobs at the latest inspection.
+Complete WAMP diagnostics on EPYC 7763 still report 15 findings in three
+scenarios. Those failures are preserved, not replaced by the faster-host runs.
+
+User-space profiles identify WebSocket buffer initialization and large synthetic
+payload construction costs. Bounded safe Tokio `read_buf` now avoids pre-zeroing
+payloads, with exact next-frame, masking, Pending and truncated-read regressions;
+all 435 Core tests pass. The byte-identical alphabet generator passes all 66
+workload-runner tests and independent 4/64/256-MiB identity checks. Fresh native
+Cargo and all 23 Dart FFI coverage groups pass on macOS and Linux. Fresh counts
+cover all 979 original MQTT statements, including the 15 Linux-only statements.
+The proof retains the complete original scope and independently verifies each
+original statement's unchanged source mapping.
+
+The ReadBuf/alphabet candidate's complete diagnostics still fail 11 metrics on
+Xeon 8573C (run 44706039812); that failed evidence is preserved. A bounded Dart
+WebSocket receive adapter now avoids the SDK's final managed-array copy, with
+54 focused tests passing. A frozen alternating macOS comparison shows small
+WebSocket gains; a synchronous-hashing experiment regresses and is rejected.
+Matched Linux measurements and all eight original scenarios are running in
+investigation run 44716920600. This candidate is not yet qualified. No floor,
+workload parameter, timer boundary, allocator/GC/compiler default or inventory
+is relaxed.
+
 PR #138 is merged into `master` at `0a3d96e6`. Its mandatory main CI passes all
 55 jobs and all sixteen performance/memory shards. Additional WAMP diagnostics
 fail fragmentation/file-transfer throughput floors; full mutation diagnostics

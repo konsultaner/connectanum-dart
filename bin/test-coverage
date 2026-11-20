@@ -84,7 +84,8 @@ run_package_coverage \
   connectanum_client \
   connectanum_client_websocket_io \
   test/transport/websocket/websocket_transport_io_test.dart \
-  test/transport/websocket/canonical_json_byte_frames_test.dart
+  test/transport/websocket/canonical_json_byte_frames_test.dart \
+  test/transport/websocket/native_websocket_frames_test.dart
 run_package_coverage \
   connectanum_client \
   connectanum_client_native_binding \

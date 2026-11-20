@@ -253,6 +253,7 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
 
 
     def test_native_mqtt_coverage_proof_matches_current_sources_and_full_union(self):
+        import difflib
         import gzip
         import hashlib
         directory=REPO_ROOT/'docs/benchmarks'
@@ -263,16 +264,49 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         for name,row in proof['files'].items():
             self.assertEqual(row['total'],historical['files'][name]['total'])
             self.assertEqual(row['originalAddedLines'],historical['files'][name]['addedLines'])
-            offset=1 if name=='native/transport/ct_ffi/src/runtime/ffi.rs' else 0
-            self.assertEqual(row['executableAddedLines'],
-                             [line+offset for line in historical['files'][name]['executableAddedLines']])
+            original=historical['files'][name]['executableAddedLines']
+            mapping=proof.get('sourceLineMappings',{}).get(name,{})
+            if 'originalSourceFile' in mapping:
+                archived=(directory/mapping['originalSourceFile']).read_bytes()
+                self.assertEqual(hashlib.sha256(archived).hexdigest(),
+                                 mapping['originalSourceArchiveSha256'])
+                raw=gzip.decompress(archived)
+                self.assertEqual(hashlib.sha256(raw).hexdigest(),
+                                 historical['files'][name]['sourceSha256'])
+                original_lines=raw.splitlines()
+                current_lines=(REPO_ROOT/name).read_bytes().splitlines()
+                lines={int(key):value for key,value in mapping['executableLineMap'].items()}
+                self.assertEqual(set(lines),set(original))
+                unchanged={}
+                for block in difflib.SequenceMatcher(
+                        None,original_lines,current_lines,autojunk=False).get_matching_blocks():
+                    for line in original:
+                        if block.a<line<=block.a+block.size:
+                            unchanged[line]=block.b+line-block.a
+                self.assertEqual(lines,unchanged,
+                                 'MQTT lines must map to unchanged source blocks')
+                mapped=[lines[line] for line in original]
+                self.assertEqual(mapped,sorted(set(mapped)))
+                self.assertEqual(row['executableAddedLines'],mapped)
+                for before,after in zip(original,mapped):
+                    self.assertGreater(before,0)
+                    self.assertLessEqual(before,len(original_lines))
+                    self.assertGreater(after,0)
+                    self.assertLessEqual(after,len(current_lines))
+                    self.assertEqual(original_lines[before-1],current_lines[after-1],
+                                     (name,before,after))
+            else:
+                offset=1 if name=='native/transport/ct_ffi/src/runtime/ffi.rs' else 0
+                self.assertEqual(row['executableAddedLines'],
+                                 [line+offset for line in original])
         self.assertEqual(proof['previousProof']['sha256'],hashlib.sha256(
             (directory/proof['previousProof']['file']).read_bytes()).hexdigest())
         union={}
         channels={'cargo':{},'ffi':{}}
         self.assertEqual(set(proof['reports']),{
             'unchanged-cargo-unit','unchanged-dart-ffi',
-            'current-cargo-unit','current-dart-ffi'})
+            'current-cargo-unit','current-dart-ffi',
+            'current-linux-cargo-unit','current-linux-dart-ffi'})
         for label,report in proof['reports'].items():
             channel=channels['ffi' if label.endswith('dart-ffi') else 'cargo']
             archive=directory/report['file'];data=archive.read_bytes()

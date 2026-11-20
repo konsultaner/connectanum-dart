@@ -48,6 +48,106 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Fresh Linux coverage and bounded SDK receive buffers
+
+All 55 main CI jobs pass at `52b103c0`; its full mutation campaign remains
+incomplete with no failed jobs at the latest inspection. Fresh native coverage
+run [44705776522](https://github.com/konsultaner/connectanum-dart/actions/runs/44705776522)
+passes the original Cargo and all 23 Dart FFI groups against frozen production
+sources. Artifact 14615519326 has verified ZIP SHA256
+`1e4c9fe984a8f6ce078b1d0b2c191147ab4569217ab5ec6b02dc0e9f2abf73c0`.
+Combined actual macOS/Linux counts cover all 979 original MQTT statements.
+Changed Rust sources use exclusively fresh counts. Four wholly byte-identical
+sources retain their historical measured reports. The original 781 Core-lib
+statement keys, original source archive and exact unchanged statement bytes
+remain verified, with an independent unchanged-block mapping check.
+
+The complete ReadBuf/alphabet candidate still fails 11 metrics on Xeon 8573C
+in run 44706039812. Artifact 14615258699 has verified ZIP SHA256
+`61cb4af865cab33a32cbe4aab5b0a90abf58400ace30491f040a03abeae5e33f`.
+All eight workload commands complete; five gates pass. Fragmentation, file and
+heavy file lifecycle/throughput findings remain actual failures.
+
+The [SDK receive path](https://github.com/dart-lang/sdk/blob/3.14.0/sdk/lib/_http/websocket_impl.dart)
+copies multi-part message bytes at FIN. A new synchronous bounded adapter gives
+the SDK one privately owned native frame for eligible complete messages. It
+retains original headers/payload slices and flushes exact originals for controls,
+invalid headers, EOF, errors, oversized inputs and bookkeeping limits. Existing
+SDK validation and original JSON provenance remain authoritative. Already
+contiguous binary messages bypass the allocation. All 54 focused tests pass,
+including real SDK backing-pointer identity, invalid-text close ordering,
+fragment/header splits, pause/cancel, compression and subprotocol behavior.
+
+The focused VM coverage report executes all 135 coalescer source lines. Client
+analysis exits successfully with its existing 15 informational lints; all 29
+package-publishing/proof controls pass. The bounded local review's proposed
+stale-header issue is unreachable: every `flushPending` sets permanent
+passthrough, so parsing never resumes with that state. Original malformed-header
+split and prompt-forwarding tests cover this path. Native finalizer ownership
+belongs to the backing buffer, independently of the metadata Expando.
+
+Frozen alternating local comparisons retain the six exact original 64-MiB Dart
+file profiles. The final candidate's mean WebSocket lifecycle Mbps increases
+4.24% CBOR, 1.63% MessagePack and 1.93% JSON; RawSocket controls vary between
+-3.04% and +1.76%. These small local changes are not hosted qualification.
+An intermediate synchronous-hashing integration regresses and is removed;
+its failed comparison remains available. No hashing dispatch or buffer-retention
+change from that experiment is included.
+
+Investigation run [44716920600](https://github.com/konsultaner/connectanum-dart/actions/runs/44716920600)
+alternates baseline/candidate on the original six file profiles, then executes
+all eight original diagnostic scenarios on the same default hosted runner.
+All workloads, gates, timers and production runtime/compiler defaults remain
+unchanged. This investigation branch is separate from PR #139; final current-ref
+verification and the complete seven-workflow inventory remain required.
+
+### Remaining EPYC findings and measured buffer costs
+
+Frozen `52b103c0` completes `bin/verify` at 08:29:55 UTC with all 3,185
+input hashes, HEAD and clean status unchanged. Its regular WAMP, kTLS,
+three-platform ObjectBox and package dry runs pass. Complete WAMP diagnostics
+44699790883 on EPYC 7763 report 15 findings: twelve fragmentation metrics,
+one JSON file lifecycle metric and two 256-MiB RawSocket lifecycle metrics.
+Artifact 14612946770 has verified ZIP SHA256
+`6d998815262b56e1b1d02ded5b5d166ede3ba39a5b4747966cb963c842a46f53`.
+The failed measurements remain distinct from the earlier passing hosts.
+
+Unqualified user-space profiling run 44702026411 uses original workload
+parameters, separate plain/sampled runs and frozen bundles/sources. Its
+artifact 14613602977 has verified SHA256
+`67f4e7d9a20f96033df1fe44db4ee40508439e0016604a89b04e3e5f288ac25a`.
+On Intel Xeon 8573C, the fragmentation profile includes 1.56 seconds under
+buffer acquisition's initialization; RawSocket payload construction consumes
+4.18 seconds inclusive. These are measured costs, not a matched EPYC speedup
+or qualification result. GNU gprofng uses clock sampling with hardware events
+disabled, following children without compiler or kernel-security changes:
+[primary manual](https://www.sourceware.org/binutils/docs/gprofng.html).
+
+WebSocket payload reads now fill an empty pooled Vec through safe public Tokio
+`take(len).read_buf` APIs, rather than zeroing the entire destination before
+overwriting it. The original frame length, timeout scope, mask/control handling
+and retained ownership remain. A regression fails before and passes after;
+Pending, exact frame boundaries, masked sizes and partial/stale reads are covered.
+All 435 Core tests pass. The alphabet fixture uses native String repetition
+with identical bytes, sizes and timing boundaries; all 66 runner tests pass,
+as do independent exact 4/64/256-MiB comparisons.
+
+Qwen reviews and GLM judgment are advisory. GLM's oversized-buffer overread
+claim is rejected against Tokio 1.54.1's bounded `Take::poll_read` implementation
+and fourteen independent oversized-capacity cases retaining the next frame.
+Its EOF owner-leak concern is covered by the existing Drop implementation and
+the new partial-read recycle test. No unnecessary zeroing is restored.
+
+Fresh complete Cargo and 23-group Dart FFI coverage measurements pass on macOS;
+the instrumented library SHA256 is
+`65b734f367673bda5c727ed51a4d3a34421763987cfd18d567ad4984de8aa37e`.
+Fifteen original Linux-only MQTT statements require a fresh Linux measurement,
+currently pending. The proof retains all 979 original statements; original Core
+statement locations are checked byte-for-byte against a checksum-pinned archived
+source with a monotonic one-to-one map. Changed source files receive only fresh
+counts, and historical records apply solely to wholly byte-identical sources.
+Do not qualify the new implementation until this proof and all workflows pass.
+
 ### Complete local verification and coverage ownership
 
 The quiet frozen `bin/verify` at `840e144c` passes completely from

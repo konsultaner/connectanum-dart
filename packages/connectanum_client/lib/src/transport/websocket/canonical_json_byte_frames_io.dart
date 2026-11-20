@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import '../dart_transport_copy_metrics.dart';
+import 'native_websocket_frames_io.dart';
 
 // Keep HTTP, TLS, control handling and framing in dart:io. Only complete JSON
 // payload messages use its binary accumulator, with the same strict UTF-8
@@ -27,6 +28,33 @@ Stream<Uint8List> canonicalJsonByteFrames(
       copied = 0;
       final first = await reader.take(1);
       if (first == null) break;
+      final native = nativeWebSocketFrame(reader.chunk);
+      if (native != null &&
+          reader.offset == 1 &&
+          !fragmented &&
+          staged.isEmpty &&
+          check == null) {
+        final frame = reader.chunk;
+        if (native.text) {
+          final payload = Uint8List.sublistView(frame, native.headerLength);
+          final prefix = Uint8List.sublistView(
+            payload,
+            0,
+            math.min(payload.length, 4096),
+          );
+          if (payload.length >= 65536 &&
+              _ascii(prefix, 0, prefix.length) &&
+              _canonicalPrefix(prefix) &&
+              _ascii(payload, 0, payload.length)) {
+            frame[0] = (frame[0] & 240) | 2;
+          }
+        }
+        onMessage?.call(native.text);
+        reader.offset = frame.length;
+        // One complete event lets the SDK retain the native payload view.
+        yield frame;
+        continue;
+      }
       header.add(first.single);
       final opcode = header[0] & 15, fin = header[0] & 128 != 0;
       final invalidFirst =
