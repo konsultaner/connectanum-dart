@@ -51,6 +51,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: dart-lang/setup-dart@v1
         with:
@@ -64,6 +66,11 @@ jobs:
       - name: Compare the original file workloads on the same runner
         run: |
           set -euo pipefail
+          python3 - <<'PY_CHECK'
+          import json, subprocess
+          for path in json.load(open('tool/borrowed_base64_trial_files.json')):
+              subprocess.run(['git', 'cat-file', '-e', '5ec2288e416b6fdd98842e841addb9d0bb35c269:' + path], check=True)
+          PY_CHECK
           source bin/common.sh
           build_native_ffi_test_release
           cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
