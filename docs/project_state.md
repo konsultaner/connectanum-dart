@@ -14,6 +14,15 @@ the broader diagnostic chain is not qualified. No threshold or inventory is
 relaxed. The previous Dart upgrade qualification below remains historical
 source evidence rather than a claim that these additional workflows pass.
 
+Latest frozen verification at `f25b8de9` fails only stale static CLI source
+checks after validator extraction; all 3,185 input hashes remain unchanged.
+The checks now follow the actual module and assert its public import/delegation;
+all 24 package-boundary tests pass. Complete WAMP diagnostics on an AMD EPYC
+7763 host still miss native TLS, large native RawSocket and one JSON file floor.
+The earlier matched passing study ran on Intel Xeon 6975P-C. Those are separate
+host measurements; the diagnostic chain remains unqualified and its floors,
+runner labels, workloads and deadlines remain unchanged.
+
 The complete fragmented JSON receive candidate now clears all four original
 Linux file-transfer workload floors in a matched investigation. WebSocket JSON
 lifecycle improves from 1,504.5 to 944.5 ms; each measured sample exceeds the

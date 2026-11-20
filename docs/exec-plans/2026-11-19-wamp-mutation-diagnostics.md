@@ -48,6 +48,32 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Frozen verification and heterogeneous-runner findings
+
+The quiet frozen `bin/verify` at `f25b8de9` fails in one package-boundary test
+with 13 subcase failures. All 3,185 tracked/source/lock hashes and HEAD remain
+unchanged; the rejected receipt is
+`/tmp/connectanum-diag-frozen-verify-f25b8de9-20261120/receipt.json`.
+The static test still searches for validators and messages in their previous
+CLI file. It now preserves each original invariant in its actual source file,
+asserts the module import, definitions and CLI delegation, and retains public
+package-boundary checks for the shared module. All 24 boundary tests pass.
+The token-audited production validators and their mutation scope do not change.
+
+Complete WAMP run 44684683569 at `760bcc9a` remains red: ten native TLS
+fragmentation findings, WebSocket JSON file lifecycle 1,895.396 Mbps, and native
+256-MiB RawSocket JSON/CBOR lifecycle 1,781.405 / 1,706.214 Mbps. Five complete
+scenarios pass, including heavy file transfer. Artifact 14606561889 ZIP SHA256
+is verified as `c3700f179867dc6095a740804fccaf4e01b91acc1c7bdd4e368ae65f68456378`.
+
+This runner is AMD EPYC 7763 (Azure), whereas the passing matched file study is
+Intel Xeon 6975P-C (KVM). The library's production Rust sources match apart from
+test-only changes, and both use the original AOT worker. The earlier matched
+study therefore establishes an optimization on its host, not universal hosted
+qualification. Preserve the AMD failures and investigate their hot paths;
+do not select faster runners, relax floors or change the canonical loads.
+Final verification and all workflow families remain pending.
+
 ### Final receive-order regression
 
 The local architecture audit identifies the abort/Close ordering as worth an
