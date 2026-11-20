@@ -11,6 +11,7 @@ import 'package:test/test.dart';
 
 import '../../connectanum_mcp/test/cli/owned_http_client_test_support.dart';
 
+import '../example/router_hosted_mcp.dart' as router_example;
 import 'support/router_example.dart';
 
 const _task = {'taskId': 'T-cli-regression', 'status': 'open'};
@@ -51,6 +52,103 @@ void main() {
       }
     },
   );
+
+  group('public MCP smoke event polling', () {
+    McpStreamableWampEventBatch batch(String taskId) =>
+        McpStreamableWampEventBatch(
+          handle: 'smoke-subscription',
+          topic: _topic,
+          events: [
+            {
+              'argumentsKeywords': {'taskId': taskId},
+            },
+          ],
+          dropped: 0,
+          remaining: 0,
+          structuredContent: const {},
+        );
+
+    bool hasServiceEvent(McpStreamableWampEventBatch value) => value.events.any(
+      (event) =>
+          (event['argumentsKeywords'] as Map?)?['taskId'] == 'service-event',
+    );
+
+    test('waits for the service event after a publisher-only batch', () async {
+      final published = batch('publisher-event');
+      final service = batch('service-event');
+      final requestIds = <String>[];
+      final result = await router_example.pollMcpSmokeEventBatches(
+        (id) async {
+          requestIds.add(id);
+          return requestIds.length == 1 ? published : service;
+        },
+        label: 'split-publications',
+        accepts: hasServiceEvent,
+      );
+      expect(result, same(service));
+      expect(requestIds, [
+        'split-publications-poll-0',
+        'split-publications-poll-1',
+      ]);
+    });
+
+    test(
+      'unrelated events cannot bypass the original twenty-poll limit',
+      () async {
+        final requestIds = <String>[];
+        await expectLater(
+          router_example.pollMcpSmokeEventBatches(
+            (id) async {
+              requestIds.add(id);
+              return batch('publisher-event');
+            },
+            label: 'missing-service',
+            accepts: hasServiceEvent,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              'Timed out waiting for missing-service MCP pub/sub events.',
+            ),
+          ),
+        );
+        expect(requestIds, [
+          for (var attempt = 0; attempt < 20; attempt++)
+            'missing-service-poll-$attempt',
+        ]);
+      },
+    );
+
+    test('accepts the service event on the twentieth poll', () async {
+      final service = batch('service-event');
+      var polls = 0;
+      final result = await router_example.pollMcpSmokeEventBatches(
+        (_) async => ++polls == 20 ? service : batch('publisher-event'),
+        label: 'last-allowed-poll',
+        accepts: hasServiceEvent,
+      );
+      expect(result, same(service));
+      expect(polls, 20);
+    });
+
+    test('preserves a polling failure', () async {
+      final failure = StateError('poll transport failed');
+      var polls = 0;
+      await expectLater(
+        router_example.pollMcpSmokeEventBatches(
+          (_) async {
+            polls++;
+            throw failure;
+          },
+          label: 'failed-poll',
+          accepts: hasServiceEvent,
+        ),
+        throwsA(same(failure)),
+      );
+      expect(polls, 1);
+    });
+  });
 
   for (final rejectFollowing in [false, true]) {
     test(

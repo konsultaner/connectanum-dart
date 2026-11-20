@@ -48,6 +48,52 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Restored MCP smoke requires its service event, not any nonempty batch
+
+Main CI run 44727893379 at `8a9fbc0c` completes all 55 jobs successfully.
+Both WAMP workflows, strict kTLS, three-platform ObjectBox and package dry runs
+also pass. Complete WAMP diagnostics run 44727980355 passes all eight original
+scenarios / 117 workloads on its first attempt. Full MessagePack VM artifact
+14625411583 has verified ZIP SHA256
+`b31ecf81e2067cc80650fec761ef069f3e2c943270c4e3f1d10cb4e960db7c9a`;
+all 204 outcome log hashes and input pins match the independent frozen campaign.
+Its 183 assertion-only kills, nine compile errors and four separately proven
+functional equivalences produce 95.8115183246% against the unchanged 95% gate.
+
+Complete mutation run 44727972644 exposes one further failure in MCP shard 17,
+job 136260932691: the clean baseline passes and all 71 assigned mutants execute,
+but the restored baseline fails. Its original artifact 14632161670 has ZIP
+SHA256 `96fd9c55baf2d8a3dd1a88c681ed68c1667ba510fd79711b93c5426afa2cf8b3`.
+All 122 failure messages derive from one shared public-router smoke reporting
+that the Streamable pub/sub batch lacks the expected service event.
+
+The helper returns its first nonempty batch, although the four callers require
+a specific service publication after independent MCP and service publishes.
+The publisher batch can arrive first. Extracting the unchanged original loop
+and injecting those two batches deterministically fails the new regression.
+The corrected predicate waits for exactly the task ID already required by each
+caller's unchanged postcondition. The original twenty polls, 25-ms delay,
+request IDs, SDK deadlines, headers and direct/Streamable routing are preserved.
+The overflow caller retains its original nonempty-batch behavior and every
+queue/drop/remaining/newest-event assertion. No mutation-runner retry is added.
+
+Four focused tests cover split batches, exhaustion after exactly twenty polls,
+success on the twentieth poll and preservation of a transport error. All four
+and all 129 real native CLI integration tests pass; focused analysis and diff
+checks are clean. The small callback seam belongs to the example executable,
+with no package-library API or dependency change. MCP/CLI test/support hashes
+change, so a new complete same-commit campaign is required; old shard results
+will not be mixed into its aggregate.
+
+Frozen `580a599a` completes `bin/verify` at 13:25:01 UTC after starting at
+13:02:09, with all 3,192 source/lock hashes and HEAD unchanged and clean status
+before/after, including real Chrome/Dart2Wasm. Its complete `bin/test-fast`
+also passes before the repair is transferred from an isolated checkout.
+The new smoke repair postdates that frozen proof and requires a fresh one.
+Local Qwen debugging/test planning/review resumes once the separate native
+campaign releases its resource lease; advisory findings are verified against
+complete source and actual test outcomes.
+
 ### Codecov patch coverage reproduces an SDK forwarding test gap
 
 All local verification and the five completed current workflow families pass,
@@ -78,12 +124,13 @@ unmodified original CI line inventory adds exactly 188 hits, estimating 936/963
 the fresh hosted upload; no threshold, ignore rule, production source or
 denominator is changed. Existing mutation-selected sources/tests/support and
 native source pins remain unchanged by this additional contract coverage.
-Current complete mutation execution remains required and is not cancelled.
+That coverage-only change preserves the campaign's inputs. The subsequent
+smoke correction above changes MCP/CLI support and requires a new full campaign.
 
-Local summarization and GLM test-planning helpers both refuse inference because
+Local summarization and GLM test-planning initially refuse inference while
 another native mutation campaign holds the resource lease. The lease is
-respected; review proceeds with direct source/SDK inspection and executable
-contracts. The public SDK `ConnectionTask.fromSocket` is used, preserving its
+respected; direct source/SDK inspection and executable contracts provide the
+initial review, with local companion review resumed after the lease ends. The public SDK `ConnectionTask.fromSocket` is used, preserving its
 socket future and cancellation callback without mocking its final type.
 
 ### Public iterable counterexample corrects an equivalence proof

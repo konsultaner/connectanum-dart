@@ -5,6 +5,26 @@ Current milestone: repair WAMP and mutation diagnostics without relaxing gates.
 Active plan: [WAMP and mutation diagnostic repair](exec-plans/2026-11-19-wamp-mutation-diagnostics.md).
 Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
+At `8a9fbc0c`, all 55 main CI jobs, both WAMP workflows, strict kTLS,
+three-platform ObjectBox and package dry runs pass. Complete WAMP diagnostics
+pass all eight original scenarios / 117 workloads on their first attempt.
+The complete MessagePack VM artifact independently confirms 204 candidates,
+183 assertion-only kills and 95.8115% against the unchanged 95% gate.
+Frozen `580a599a` passes `bin/verify` from 13:02:09 to 13:25:01 UTC,
+including real Chrome/Dart2Wasm; all 3,192 tracked/lock inputs and HEAD remain
+unchanged, with clean status before and after. Its `bin/test-fast` also passes.
+
+The complete mutation run exposes another blocker in MCP shard 17: its restored
+baseline receives a publisher-only event batch before the expected service
+event, causing one shared example smoke failure and 122 cascading CLI failures.
+The polling helper now waits for the caller's original expected event within
+exactly the same twenty polls and 25-ms delays. The original queue-overflow
+checks, transport routing and postconditions remain intact. A deterministic
+split-batch regression fails before the predicate correction; four focused
+regressions and all 129 real native CLI integration tests pass afterward, with
+clean analysis. Fresh full mutation, automatic CI, external coverage and final
+frozen verification are required for this follow-up; PR #139 remains draft.
+
 An external Codecov patch check exposes a remaining SDK-boundary test gap:
 748/963 changed executable lines (77.6739%) are covered against the unchanged
 94.20% target. Of 215 misses, 188 belong to the HTTP/Socket forwarding adapter.
@@ -14,9 +34,10 @@ response metadata/redirects/compression and socket options/encoding/lifecycle.
 All 61 WebSocket cases pass, with 225/225 adapter lines hit. The union of this
 actual measurement and the original CI LCOV estimates 936/963 (97.1963%);
 fresh hosted validation is still required. No production source, threshold,
-ignore rule, mutation scope or coverage denominator changes. Local model review
-is blocked by an active native-mutation resource lease; direct source review and
-executable contract tests provide the current evidence.
+ignore rule, mutation scope or coverage denominator changes. Local companions
+initially respect another native campaign's resource lease; after it ends,
+focused debugging, test planning and review resume. Review claims are checked
+against actual source and executable contracts.
 
 An additional MessagePack audit exposes one invalid functional-equivalence
 claim: a public `Iterable.toList` override can observe `growable` and change

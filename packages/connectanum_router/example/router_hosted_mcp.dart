@@ -1251,6 +1251,7 @@ Future<void> _smokeSecureJsonPostMcpEndpoint(
         client,
         subscription.handle,
         label: '$label Streamable',
+        expectedTaskId: 'T-$label-service-event',
       );
       if (!jsonEncode(events.events).contains('T-$label-service-event')) {
         throw StateError('$routeLabel Streamable pub/sub missed event.');
@@ -1612,6 +1613,7 @@ Future<void> _assertJsonPostIndependentPrincipalSession(
       client,
       subscription.handle,
       label: '$label independent',
+      expectedTaskId: taskId,
     );
     if (!jsonEncode(events.events).contains(taskId)) {
       throw StateError(
@@ -2361,6 +2363,7 @@ Future<void> _smokeMcpEndpoint(
       client,
       directSubscription.handle,
       label: '$label direct JSON',
+      expectedTaskId: 'T-$label-direct-service',
       directJson: true,
       headers: <String, String>{'x-consumer-trace': '$label-direct-poll'},
     );
@@ -2566,6 +2569,7 @@ Future<void> _smokeMcpEndpoint(
       client,
       streamableSubscription.handle,
       label: '$label Streamable',
+      expectedTaskId: 'T-$label-streamable-service',
       headers: <String, String>{'x-consumer-trace': '$label-streamable-poll'},
     );
     if (!jsonEncode(
@@ -5187,13 +5191,28 @@ Future<McpStreamableWampEventBatch> _pollMcpEventsUntil(
   required String label,
   bool directJson = false,
   Map<String, String> headers = const <String, String>{},
+  String? expectedTaskId,
+}) => pollMcpSmokeEventBatches(
+  (id) => directJson
+      ? client.pollWampEventsDirect(handle, id: id, headers: headers)
+      : client.pollWampEvents(handle, id: id, headers: headers),
+  label: label,
+  accepts: expectedTaskId == null
+      ? null
+      : (batch) => jsonEncode(batch.events).contains(expectedTaskId),
+);
+
+/// Polls the example event queue within its original smoke-test budget.
+/// [accepts] identifies the publication that the caller is waiting for.
+Future<McpStreamableWampEventBatch> pollMcpSmokeEventBatches(
+  Future<McpStreamableWampEventBatch> Function(String id) poll, {
+  required String label,
+  bool Function(McpStreamableWampEventBatch batch)? accepts,
 }) async {
   for (var attempt = 0; attempt < 20; attempt++) {
     final id = '$label-poll-$attempt';
-    final batch = directJson
-        ? await client.pollWampEventsDirect(handle, id: id, headers: headers)
-        : await client.pollWampEvents(handle, id: id, headers: headers);
-    if (batch.events.isNotEmpty) {
+    final batch = await poll(id);
+    if (batch.events.isNotEmpty && (accepts?.call(batch) ?? true)) {
       return batch;
     }
     await Future<void>.delayed(const Duration(milliseconds: 25));
