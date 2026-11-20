@@ -58,7 +58,10 @@ class WebSocketTransport extends AbstractTransport {
         (_serializer is flatbuffers.Serializer)) {
       throw ArgumentError('FlatBuffers transport requires its matching codec');
     }
-    installNativeCanonicalBase64Codecs(_serializer);
+    installNativeCanonicalBase64Codecs(
+      _serializer,
+      reserveWebSocketEnvelope: true,
+    );
   }
 
   factory WebSocketTransport.withJsonSerializer(
@@ -234,14 +237,20 @@ class WebSocketTransport extends AbstractTransport {
     final fragments = _serializer.serializeFragments(message);
     if (fragments != null && fragments.isNotEmpty) {
       // dart:io accepts only complete WebSocket messages, not frame segments.
-      final builder = BytesBuilder(copy: false);
-      for (final fragment in fragments) {
-        builder.add(fragment);
+      final nativeFrame = takeNativeCanonicalBase64Frame(fragments);
+      final Uint8List serializedMessage;
+      if (nativeFrame != null) {
+        serializedMessage = nativeFrame.bytes;
+      } else {
+        final builder = BytesBuilder(copy: false);
+        for (final fragment in fragments) {
+          builder.add(fragment);
+        }
+        serializedMessage = builder.takeBytes();
       }
-      final serializedMessage = builder.takeBytes();
       if (fragments.length > 1 && serializedMessage.isNotEmpty) {
         DartTransportCopyMetrics.recordWebSocketFragmentCoalesceCopy(
-          serializedMessage.length,
+          nativeFrame?.copiedBytes ?? serializedMessage.length,
         );
       }
       if (serializedMessage.isEmpty) {

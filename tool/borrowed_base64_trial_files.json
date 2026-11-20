@@ -1,0 +1,7 @@
+[
+  "packages/connectanum_core/lib/src/serializer/json/serializer.dart",
+  "packages/connectanum_client/lib/src/transport/native/runtime.dart",
+  "packages/connectanum_client/lib/src/transport/native/ffi_bindings.dart",
+  "packages/connectanum_client/lib/src/transport/native/canonical_base64_io.dart",
+  "packages/connectanum_client/lib/src/transport/websocket/websocket_transport_io.dart"
+]

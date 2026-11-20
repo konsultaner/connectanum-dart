@@ -40,23 +40,35 @@ import '../abstract_serializer.dart';
 import '../limits.dart';
 import 'binary_codec.dart';
 
-typedef CanonicalBase64ByteDecoder =
-    Uint8List? Function(Uint8List input, int start, int end);
+typedef CanonicalBase64ByteDecoder = Uint8List? Function(
+  Uint8List input,
+  int start,
+  int end,
+);
 typedef CanonicalBase64ByteEncoder = Uint8List? Function(Uint8List input);
+
+/// Encodes a payload with space for its exact JSON envelope on either side.
+/// Returning null uses the regular byte encoder.
+typedef CanonicalBase64EnvelopeByteEncoder = Uint8List? Function(
+  Uint8List input,
+  int prefixBytes,
+  int suffixBytes,
+);
 
 /// Decodes one canonical base64 span using UTF-16 offsets and an exclusive end.
 /// Return null to retain normal JSON decoding and its validation.
-typedef CanonicalBase64StringDecoder =
-    Uint8List? Function(String input, int start, int end);
+typedef CanonicalBase64StringDecoder = Uint8List? Function(
+  String input,
+  int start,
+  int end,
+);
 
 @pragma('vm:never-inline')
 Object? _decodeJsonMessage(String source) {
   try {
     return json.decode(source);
   } on FormatException {
-    throw FormatException(
-      'Invalid JSON WAMP message (${source.length} chars)',
-    );
+    throw FormatException('Invalid JSON WAMP message (${source.length} chars)');
   }
 }
 
@@ -133,13 +145,17 @@ class Serializer extends AbstractSerializer {
   CanonicalBase64StringDecoder? _canonicalBase64StringDecoder;
   CanonicalBase64ByteDecoder? _canonicalBase64ByteDecoder;
   CanonicalBase64ByteEncoder? _canonicalBase64ByteEncoder;
+  CanonicalBase64EnvelopeByteEncoder? _canonicalBase64EnvelopeByteEncoder;
 
   /// Installs a transport-provided accelerator without replacing an explicit
   /// encoder supplied by the application.
   void installCanonicalBase64ByteEncoder(
-    CanonicalBase64ByteEncoder encoder,
-  ) {
-    _canonicalBase64ByteEncoder ??= encoder;
+    CanonicalBase64ByteEncoder encoder, {
+    CanonicalBase64EnvelopeByteEncoder? envelopeEncoder,
+  }) {
+    if (_canonicalBase64ByteEncoder != null) return;
+    _canonicalBase64ByteEncoder = encoder;
+    _canonicalBase64EnvelopeByteEncoder = envelopeEncoder;
   }
 
   /// Installs a transport-provided accelerator without replacing an explicit
@@ -233,9 +249,7 @@ class Serializer extends AbstractSerializer {
   }
 
   /// Accelerates the canonical large-binary shape received as a text frame.
-  AbstractMessage? _deserializeSingleBinaryPayloadFromString(
-    String payload,
-  ) {
+  AbstractMessage? _deserializeSingleBinaryPayloadFromString(String payload) {
     final decoder = _canonicalBase64ByteDecoder;
     final stringDecoder = _canonicalBase64StringDecoder;
     if ((decoder == null && stringDecoder == null) ||
@@ -442,10 +456,7 @@ class Serializer extends AbstractSerializer {
       }
       if (messageId == MessageTypes.codeInterrupt) {
         validateWampMessageFieldCount(message.length);
-        final optionsMap = _validateRequiredOptionsMap(
-          message[2],
-          'INTERRUPT',
-        );
+        final optionsMap = _validateRequiredOptionsMap(message[2], 'INTERRUPT');
         return interrupt_msg.Interrupt(
           message[1],
           options: (() {
@@ -516,20 +527,13 @@ class Serializer extends AbstractSerializer {
         validateWampMessageFieldCount(message.length);
         return Unsubscribed(
           message[1],
-          UnsubscribedDetails(
-            message[2]['subscription'],
-            message[2]['reason'],
-          ),
+          UnsubscribedDetails(message[2]['subscription'], message[2]['reason']),
         );
       }
       if (messageId == MessageTypes.codeEvent) {
         final detailsMap = message[3] as Map<dynamic, dynamic>;
         return _addPayload(
-          Event(
-            message[1],
-            message[2],
-            _decodeEventDetails(detailsMap),
-          ),
+          Event(message[1], message[2], _decodeEventDetails(detailsMap)),
           message,
           4,
         );
@@ -862,9 +866,7 @@ class Serializer extends AbstractSerializer {
     );
   }
 
-  InvocationDetails _decodeInvocationDetails(
-    Map<dynamic, dynamic> source,
-  ) {
+  InvocationDetails _decodeInvocationDetails(Map<dynamic, dynamic> source) {
     int? caller;
     String? procedure;
     bool? progress;
@@ -999,10 +1001,7 @@ class Serializer extends AbstractSerializer {
     return rawOptions;
   }
 
-  Object? _normalizeJsonPayloadFragment(
-    Object? value, [
-    int parentDepth = 0,
-  ]) {
+  Object? _normalizeJsonPayloadFragment(Object? value, [int parentDepth = 0]) {
     if (value is String && _isBinaryJsonString(value)) {
       return _convertStringToUint8List(value);
     }
@@ -1015,10 +1014,8 @@ class Serializer extends AbstractSerializer {
     if (value is Map) {
       final depth = enterSerializerContainer(parentDepth);
       return value.map<Object?, Object?>(
-        (key, entry) => MapEntry(
-          key,
-          _normalizeJsonPayloadFragment(entry, depth),
-        ),
+        (key, entry) =>
+            MapEntry(key, _normalizeJsonPayloadFragment(entry, depth)),
       );
     }
     return value;
@@ -1036,10 +1033,7 @@ class Serializer extends AbstractSerializer {
       return decodeBase64Bytes(binaryJsonString, _binaryPrefix.length);
     }
     if (binaryJsonString.startsWith(_escapedBinaryPrefix)) {
-      return decodeBase64Bytes(
-        binaryJsonString,
-        _escapedBinaryPrefix.length,
-      );
+      return decodeBase64Bytes(binaryJsonString, _escapedBinaryPrefix.length);
     }
     throw ArgumentError('Expected binary JSON string prefix');
   }
@@ -1720,7 +1714,13 @@ class Serializer extends AbstractSerializer {
       return <Uint8List>[prefix, suffix];
     }
     final encoded =
-        _canonicalBase64ByteEncoder?.call(binary) ?? encodeBase64Bytes(binary);
+        _canonicalBase64EnvelopeByteEncoder?.call(
+          binary,
+          prefix.length,
+          suffix.length,
+        ) ??
+        _canonicalBase64ByteEncoder?.call(binary) ??
+        encodeBase64Bytes(binary);
     return <Uint8List>[prefix, encoded, suffix];
   }
 

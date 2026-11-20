@@ -12062,3 +12062,6 @@ mod tests {
         );
     }
 }
+
+#[path = "vm_base64_encode.rs"]
+mod vm_base64_encode;

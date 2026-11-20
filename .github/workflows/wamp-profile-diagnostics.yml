@@ -73,7 +73,7 @@ jobs:
           sha256sum /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-sha256.txt
           cp /usr/lib/x86_64-linux-gnu/libc.so.6 out/wamp-profile-diagnostics/libc.so.6
           objdump -d --start-address=0x1a32c0 --stop-address=0x1a3420 /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-hot-code.txt
-          python3 -u tool/wamp_file_coalesce_trial.py | tee out/wamp-profile-diagnostics/comparison.log
+          python3 -u tool/wamp_file_borrowed_base64_trial.py | tee out/wamp-profile-diagnostics/comparison.log
 
       - name: Summarize WAMP profile diagnostics
         if: always()
