@@ -1,6 +1,7 @@
 """Matched original file profiles; advisory, not a substitute for all gates."""
 import hashlib
 import json
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -10,6 +11,9 @@ out = root / "out/native-ws-matched"
 out.mkdir(parents=True, exist_ok=True)
 baseline = root / "out/native-ws-baseline"
 subprocess.run(["git", "worktree", "add", "--detach", str(baseline), "f1d2d6ab"], check=True)
+# Workspace locks are ignored, so the detached checkout needs the exact lock
+# resolved by this run's bootstrap before enforcing dependency equality.
+shutil.copyfile(root / "pubspec.lock", baseline / "pubspec.lock")
 workers = {}
 for name, tree in [("baseline", baseline), ("candidate", root)]:
     subprocess.run(["dart", "pub", "get", "--enforce-lockfile"], cwd=tree, check=True)
@@ -31,6 +35,7 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 inputs = [lib, driver, original, scenario]
+inputs.extend(tree / "pubspec.lock" for tree in [root, baseline])
 inputs.extend(p for worker in workers.values() for p in worker.parent.parent.rglob("*") if p.is_file())
 inputs.extend(p for tree in [root, baseline] for p in tree.glob("packages/*/lib/**/*.dart"))
 inputs.extend(p for p in root.glob("native/transport/*/src/**/*.rs"))
