@@ -433,28 +433,3 @@ mod vm_string_tests {
         assert!(out.ptr.is_null() && out.owner.is_null() && out.len == 0);
     }
 }
-
-/// Synchronous public String API; Latin-1 offsets are also UTF-16 offsets.
-/// Copy through a raw output pointer; no reference to uninitialized bytes is made.
-#[no_mangle]
-pub extern "C" fn ct_base64_decode_canonical_vm_latin1(
-    input: *mut std::ffi::c_void, start:i32, end:i32, utf16_length:i32,
-    to_latin1:Option<unsafe extern "C" fn(*mut std::ffi::c_void,*mut u8,*mut isize)->*mut std::ffi::c_void>,
-    is_latin1:Option<unsafe extern "C" fn(*mut std::ffi::c_void)->bool>,
-    is_error:Option<unsafe extern "C" fn(*mut std::ffi::c_void)->bool>,
-    out:*mut super::ffi::CtExternalByteBuffer,
-)->i32 {
-    use super::constants::{ERR_INVALID_ARGUMENT,ERR_UNSUPPORTED};
-    if out.is_null(){return ERR_INVALID_ARGUMENT;}
-    unsafe { (*out).ptr=std::ptr::null_mut();(*out).len=0;(*out).owner=std::ptr::null_mut(); }
-    if input.is_null() || start<0 || end<start || end>utf16_length {return ERR_INVALID_ARGUMENT;}
-    let (Some(to_latin1),Some(is_latin1),Some(is_error))=(to_latin1,is_latin1,is_error) else {return ERR_UNSUPPORTED;};
-    if !unsafe {is_latin1(input)} {return ERR_UNSUPPORTED;}
-    let mut bytes=Vec::<u8>::with_capacity(utf16_length as usize);
-    let mut length=utf16_length as isize;
-    let result=unsafe {to_latin1(input,bytes.as_mut_ptr(),&mut length)};
-    if unsafe {is_error(result)} || length!=utf16_length as isize {return ERR_UNSUPPORTED;}
-    // The public API initialized precisely the returned number of bytes.
-    unsafe {bytes.set_len(length as usize);}
-    super::ffi::ct_base64_decode_canonical(unsafe {bytes.as_ptr().add(start as usize)},end-start,out)
-}

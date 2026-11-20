@@ -15,6 +15,7 @@ import '../../transport/abstract_transport.dart';
 import '../../transport/native/canonical_base64_io.dart';
 import '../dart_transport_copy_metrics.dart';
 import 'websocket_transport_serialization.dart';
+import 'byte_frame_http_client_io.dart';
 
 /// This transport type is used to connect via web sockets
 /// in a dart vm environment. A known issue is that this
@@ -35,6 +36,7 @@ class WebSocketTransport extends AbstractTransport {
   bool _goodbyeReceived = false;
   WebSocket? _socket;
   HttpClient? _httpClient;
+  CanonicalJsonFrameKinds? _jsonFrameKinds;
   int _openAttempt = 0;
   flatbuffers.FlatBuffersSessionProfile? _flatBuffersProfile;
   Completer? _onConnectionLost;
@@ -183,11 +185,17 @@ class WebSocketTransport extends AbstractTransport {
         client.badCertificateCallback =
             (X509Certificate certificate, String host, int port) => true;
       }
+      final kinds = nativeCanonicalByteFramesAvailable(_serializer)
+          ? CanonicalJsonFrameKinds()
+          : null;
+      _jsonFrameKinds = kinds;
       final socket = await WebSocket.connect(
         _url,
         protocols: [_serializerType],
         headers: _headers,
-        customClient: client,
+        customClient: kinds == null
+            ? client
+            : canonicalJsonByteFrameClient(client, kinds: kinds),
       );
       if (openAttempt != _openAttempt) {
         client.close(force: true);
@@ -244,9 +252,14 @@ class WebSocketTransport extends AbstractTransport {
       if (nativeFrame != null) {
         serializedMessage = nativeFrame.bytes;
       } else {
-        final length = fragments.fold<int>(0, (length, part) => length + part.length);
+        final length = fragments.fold<int>(
+          0,
+          (length, part) => length + part.length,
+        );
         if (fragments.length > 1 && length >= 65536) {
-          final bytes = malloc<ffi.Uint8>(length).asTypedList(length, finalizer: malloc.nativeFree);
+          final bytes = malloc<ffi.Uint8>(
+            length,
+          ).asTypedList(length, finalizer: malloc.nativeFree);
           var offset = 0;
           for (final part in fragments) {
             bytes.setRange(offset, offset + part.length, part);
@@ -255,7 +268,9 @@ class WebSocketTransport extends AbstractTransport {
           serializedMessage = bytes;
         } else {
           final builder = BytesBuilder(copy: false);
-          for (final fragment in fragments) { builder.add(fragment); }
+          for (final fragment in fragments) {
+            builder.add(fragment);
+          }
           serializedMessage = builder.takeBytes();
         }
       }
@@ -297,8 +312,10 @@ class WebSocketTransport extends AbstractTransport {
     final openAttempt = _openAttempt;
     final onDisconnect = _onDisconnect!;
     final onConnectionLost = _onConnectionLost!;
+    final kinds = _jsonFrameKinds;
     socket.done.then(
       (done) {
+        kinds?.clear();
         if ((socket.closeCode == null || socket.closeCode! > 1000) &&
             !_goodbyeSent &&
             !_goodbyeReceived) {
@@ -318,7 +335,7 @@ class WebSocketTransport extends AbstractTransport {
         return null;
       }
       try {
-        final message = _decodeInboundMessage(messageEvent);
+        final message = _decodeInboundMessage(messageEvent, kinds);
         if (_flatBuffersProfile case final profile?) {
           _flatBuffersProfile = profile.acceptIncoming(message);
         }
@@ -335,15 +352,24 @@ class WebSocketTransport extends AbstractTransport {
     });
   }
 
-  AbstractMessage _decodeInboundMessage(Object messageEvent) {
+  AbstractMessage _decodeInboundMessage(
+    Object messageEvent,
+    CanonicalJsonFrameKinds? kinds,
+  ) {
     if (_serializerType == WebSocketSerialization.serializationJson) {
-      final payload = messageEvent as String;
-      final message = (_serializer as serializer_json.Serializer)
-          .deserializeFromString(payload);
+      final wireText = kinds?.active == true ? kinds!.take() : null;
+      final serializer = _serializer as serializer_json.Serializer;
+      final adapted = messageEvent is Uint8List && wireText == true;
+      final message = adapted
+          ? serializer.deserializeFromTextBytes(messageEvent)
+          : serializer.deserializeFromString(messageEvent as String);
+      final payloadLength = messageEvent is String
+          ? messageEvent.length
+          : (messageEvent as Uint8List).length;
       if (message == null) {
         throw FormatException(
           'Could not deserialize inbound WebSocket WAMP message '
-          '(serializer: $_serializerType, payloadLength: ${payload.length})',
+          '(serializer: $_serializerType, payloadLength: $payloadLength)',
         );
       }
       return message;

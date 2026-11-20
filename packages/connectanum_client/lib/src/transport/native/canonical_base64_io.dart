@@ -14,6 +14,11 @@ void installNativeCanonicalBase64Codecs(
   if (serializer is! json_serializer.Serializer) {
     return;
   }
+  final eligible =
+      serializer.runtimeType == json_serializer.Serializer &&
+      !serializer.hasCanonicalBase64Codecs;
+  if (reserveWebSocketEnvelope && eligible)
+    _byteFrameSerializers[serializer] = true;
   serializer.installCanonicalBase64ByteEncoder(
     _encodeCanonicalBase64WithNative,
     envelopeEncoder: reserveWebSocketEnvelope
@@ -24,6 +29,20 @@ void installNativeCanonicalBase64Codecs(
     _decodeCanonicalBase64WithNative,
     stringDecoder: _decodeCanonicalBase64WithNative,
   );
+}
+
+final _byteFrameSerializers = Expando<bool>();
+bool nativeCanonicalByteFramesAvailable(AbstractSerializer serializer) {
+  if (_byteFrameSerializers[serializer] != true) return false;
+  try {
+    return NativeClientRuntime.instance().supportsCanonicalByteFrames;
+  } on NativeTransportException {
+    return false;
+  } on ArgumentError {
+    return false;
+  } on UnsupportedError {
+    return false;
+  }
 }
 
 final _transportFrameSlots = Expando<_TransportFrameSlot>();

@@ -148,3 +148,25 @@ mod tests {
         assert_eq!(ct_base64_encode_canonical_vm_bytes((&mut i as *mut Input).cast(),0,0,None,Some(release),Some(is_error),&mut out),ERR_UNSUPPORTED);assert_eq!(i.releases,0);
     }
 }
+
+/// Borrow one canonical base64 byte span synchronously; never retain VM data.
+#[no_mangle]
+pub extern "C" fn ct_base64_decode_canonical_vm_bytes(
+    input:*mut c_void,start:i32,end:i32,
+    acquire:Option<Acquire>,release:Option<Release>,is_error:Option<IsError>,
+    out:*mut CtExternalByteBuffer,
+)->i32 {
+    if out.is_null() {return ERR_INVALID_ARGUMENT;}
+    unsafe {(*out).ptr=ptr::null_mut();(*out).len=0;(*out).owner=ptr::null_mut();}
+    if input.is_null() || start<0 || end<start {return ERR_INVALID_ARGUMENT;}
+    let (Some(acquire),Some(release),Some(is_error))=(acquire,release,is_error) else{return ERR_UNSUPPORTED;};
+    let mut kind=0;let mut data=ptr::null_mut();let mut length=0isize;
+    let result=unsafe {acquire(input,&mut kind,&mut data,&mut length)};
+    if unsafe {is_error(result)} {return ERR_UNSUPPORTED;}
+    let guard=Acquired{input,release,active:true};
+    if ![2,3].contains(&kind) || length<end as isize || length>i32::MAX as isize || (length>0 && data.is_null()) {return ERR_UNSUPPORTED;}
+    let source=if length==0 {&[]}else{unsafe {slice::from_raw_parts(data,length as usize)}};
+    let bytes=match Base64Engine.decode(&source[start as usize..end as usize]) {Ok(bytes)=>bytes,Err(_)=>return ERR_UNSUPPORTED};
+    let released=guard.finish();if unsafe {is_error(released)} {return ERR_UNSUPPORTED;}
+    write_external_byte_buffer(bytes,out)
+}

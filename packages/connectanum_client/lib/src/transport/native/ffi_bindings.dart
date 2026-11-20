@@ -327,36 +327,6 @@ typedef CtBase64DecodeVmStringDart =
       ffi.Pointer<CtExternalByteBuffer>,
     );
 
-typedef DartApiStringToLatin1Native =
-    ffi.Handle Function(
-      ffi.Handle,
-      ffi.Pointer<ffi.Uint8>,
-      ffi.Pointer<ffi.IntPtr>,
-    );
-typedef DartApiIsLatin1Native = ffi.Bool Function(ffi.Handle);
-typedef CtBase64DecodeVmLatin1Native =
-    ffi.Int32 Function(
-      ffi.Handle,
-      ffi.Int32,
-      ffi.Int32,
-      ffi.Int32,
-      ffi.Pointer<ffi.NativeFunction<DartApiStringToLatin1Native>>,
-      ffi.Pointer<ffi.NativeFunction<DartApiIsLatin1Native>>,
-      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
-      ffi.Pointer<CtExternalByteBuffer>,
-    );
-typedef CtBase64DecodeVmLatin1Dart =
-    int Function(
-      Object?,
-      int,
-      int,
-      int,
-      ffi.Pointer<ffi.NativeFunction<DartApiStringToLatin1Native>>,
-      ffi.Pointer<ffi.NativeFunction<DartApiIsLatin1Native>>,
-      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
-      ffi.Pointer<CtExternalByteBuffer>,
-    );
-
 typedef DartApiTypedDataAcquireNative =
     ffi.Handle Function(
       ffi.Handle,
@@ -365,6 +335,27 @@ typedef DartApiTypedDataAcquireNative =
       ffi.Pointer<ffi.IntPtr>,
     );
 typedef DartApiTypedDataReleaseNative = ffi.Handle Function(ffi.Handle);
+typedef CtBase64DecodeVmBytesNative =
+    ffi.Int32 Function(
+      ffi.Handle,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+typedef CtBase64DecodeVmBytesDart =
+    int Function(
+      Object?,
+      int,
+      int,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+
 typedef CtBase64EncodeVmBytesNative =
     ffi.Int32 Function(
       ffi.Handle,
@@ -1017,12 +1008,12 @@ class CtFfiBindings {
               CtMessageSingleBinaryArgumentLengthDart
             >('ct_message_single_binary_argument_length_wide'),
       ),
-      ctBase64DecodeVmLatin1 = _tryLookup(
+      ctBase64DecodeVmBytes = _tryLookup(
         () =>
             library.lookupFunction<
-              CtBase64DecodeVmLatin1Native,
-              CtBase64DecodeVmLatin1Dart
-            >('ct_base64_decode_canonical_vm_latin1'),
+              CtBase64DecodeVmBytesNative,
+              CtBase64DecodeVmBytesDart
+            >('ct_base64_decode_canonical_vm_bytes'),
       ),
       ctBase64EncodeVmBytes = _tryLookup(
         () =>
@@ -1218,7 +1209,7 @@ class CtFfiBindings {
   ctMessageDecodeSingleBinaryArgument;
   final CtMessageSingleBinaryArgumentLengthDart?
   ctMessageSingleBinaryArgumentLength;
-  final CtBase64DecodeVmLatin1Dart? ctBase64DecodeVmLatin1;
+  final CtBase64DecodeVmBytesDart? ctBase64DecodeVmBytes;
   final CtBase64EncodeVmBytesDart? ctBase64EncodeVmBytes;
   final CtBase64DecodeVmStringDart? ctBase64DecodeVmString;
   final CtBase64DecodeCanonicalDart? ctBase64DecodeCanonical;

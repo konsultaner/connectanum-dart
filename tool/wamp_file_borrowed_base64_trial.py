@@ -22,7 +22,7 @@ def sources(): return {str(p.relative_to(root)): sha(p) for p in root.glob('pack
 initial = sources()
 workers = []
 try:
-    for label, texts in [('baseline', original), ('borrowed', middle), ('latin1', candidate)]:
+    for label, texts in [('baseline', original), ('borrowed', middle), ('streaming', candidate)]:
         for f, text in texts.items(): (root / f).write_bytes(text)
         (out / (label + '-sources.json')).write_text(json.dumps(sources(), indent=2) + '\n')
         build = out / (label + '-worker')
@@ -41,7 +41,7 @@ inputs = {str(p): sha(p) for p in [lib, canonical, scenario, root / 'native/benc
 (out / 'input-hashes.json').write_text(json.dumps(inputs, indent=2) + '\n')
 for iteration in range(4):
     for choice in [[0, 1, 2], [2, 1, 0], [1, 0, 2], [2, 0, 1]][iteration]:
-        label = ['baseline', 'borrowed', 'latin1'][choice]
+        label = ['baseline', 'borrowed', 'streaming'][choice]
         folder = out / f'{iteration}-{label}'
         args = [str(root / 'native/bench/target/release/http_stream'), '--native-lib', str(lib), '--scenario', str(scenario), '--results', str(folder / 'results.jsonl'), '--artifact-dir', str(folder), '--router-worker-counts', '1', '--native-runtime-thread-counts', '1', '--workload-timeout-ms', '300000', '--wamp-worker-executable', str(workers[choice])]
         start = time.monotonic()
@@ -54,7 +54,7 @@ values = {}
 for path in out.glob('*-*/results.jsonl'):
     for line in path.read_text().splitlines():
         row = json.loads(line)
-        entry = values.setdefault(row['workload'], {'baseline': [], 'borrowed': [], 'latin1': []})
+        entry = values.setdefault(row['workload'], {'baseline': [], 'borrowed': [], 'streaming': []})
         label = path.parent.name.split('-', 1)[1]
         entry[label].append({'dataMs': row['data_window_elapsed_ms'], 'lifecycleMs': row['completed_at_ms'] - row['started_at_ms']})
 (out / 'matched-results.json').write_text(json.dumps(values, indent=2) + '\n')
