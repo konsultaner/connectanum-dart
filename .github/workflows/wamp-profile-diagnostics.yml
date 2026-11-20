@@ -71,6 +71,8 @@ jobs:
       - name: Profile original file workloads (unqualified investigation)
         run: |
           set -euo pipefail
+          perf_tool="$(rg --files --hidden --no-ignore --follow /usr/lib/linux-tools | rg '/perf$' | sort | tail -1)"
+          test -x "$perf_tool"
           source bin/common.sh
           build_native_ffi_test_release
           cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
@@ -81,8 +83,6 @@ jobs:
           git rev-parse HEAD > "$profile_root/head.txt"
           sha256sum "$CONNECTANUM_NATIVE_LIB" packages/connectanum_client/lib/src/transport/native/runtime.dart packages/connectanum_bench/lib/src/dart_vm_metrics.dart native/bench/scenarios/wamp_file_transfer_throughput.toml > "$profile_root/inputs.sha256"
           nm -D "$CONNECTANUM_NATIVE_LIB" | rg 'ct_base64_decode' > "$profile_root/base64-exports.txt"
-          perf_tool="$(rg --files --hidden --no-ignore /usr/lib/linux-tools | rg '/perf$' | sort | tail -1)"
-          test -x "$perf_tool"
           for mode in source aot; do
             mkdir -p "$profile_root/$mode"
             profile_args=()
