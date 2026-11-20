@@ -76,6 +76,75 @@ void main() {
     },
   );
 
+  for (final prefix in ['direct', 'streamable-active-direct']) {
+    for (final kind in ['procedure', 'topic']) {
+      for (final method in ['', '-method']) {
+        final id = '$prefix-wamp-$kind-api-list$method-0';
+        final field = kind == 'procedure' ? 'procedures' : 'topics';
+        test('$id rejects a catalog missing the requested URI', () async {
+          await _expectRejected(
+            _Fault(
+              id,
+              ['result', 'structuredContent', field],
+              const <Object?>[],
+              'did not advertise',
+            ),
+          );
+        });
+      }
+    }
+  }
+  for (final prefix in ['direct', 'streamable-active-direct']) {
+    final trace = 'router-hosted-client-$prefix-batch';
+    final row = (_fixture['requests'] as List).cast<Map>().singleWhere(
+      (row) =>
+          (row['headers'] as Map)['x-consumer-trace'] is List &&
+          ((row['headers'] as Map)['x-consumer-trace'] as List).single == trace,
+    );
+    final responses = jsonDecode(row['responseBody'] as String) as List;
+    test(
+      '$prefix batch rejects a missing response before another request',
+      () async {
+        await _expectRejected(
+          _Fault.http(
+            trace,
+            'batch returned ${responses.length - 1} responses for ${responses.length} requests',
+            responseBody: jsonEncode(
+              responses.take(responses.length - 1).toList(),
+            ),
+          ),
+          exception: isA<FormatException>().having(
+            (error) => error.message,
+            'missing batch response',
+            contains('JSON-RPC batch response missing response for id'),
+          ),
+        );
+      },
+    );
+  }
+
+  for (final prefix in ['direct', 'streamable-active-direct']) {
+    for (final kind in ['procedure', 'topic']) {
+      for (final catalog in <Object?>[const <Object?>[], null]) {
+        final id = '$prefix-batch-wamp-$kind-api-list';
+        test('$id rejects invalid catalog $catalog', () async {
+          await _expectRejected(
+            _Fault(
+              id,
+              [
+                'result',
+                'structuredContent',
+                kind == 'procedure' ? 'procedures' : 'topics',
+              ],
+              catalog,
+              catalog == null ? 'returned a non-list' : 'did not advertise',
+            ),
+          );
+        });
+      }
+    }
+  }
+
   final readRow = (_fixture['requests'] as List).cast<Map>().singleWhere(
     (row) =>
         row['body'] is String &&

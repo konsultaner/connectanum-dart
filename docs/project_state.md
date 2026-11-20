@@ -135,6 +135,16 @@ MessagePack browser tests pass, with its formerly surviving counterexample
 assertion-killed. The complete new campaign score, remaining WAMP floors and
 quiet final `bin/verify` are still pending; PR #139 remains draft.
 
+Latest native/protocol checkpoint: all 432 Core tests, fresh-process HTTP/3
+initialization, three serializer integrations, ten focused canonical-base64 FFI
+cases and 65 recorded CLI protocol controls pass. The WAMP false-progress mutant
+is assertion-killed in a selected full-inventory replay. CBOR validation reuses
+one suffix allocation; TLS retains the exact Ring policy with accelerated record
+implementations; the optional public Dart UTF-8 API path preserves Unicode and
+old-library fallbacks. Local matched timing selects these candidates but does
+not qualify hosted floors. Complete final mutation scores, all WAMP scenarios
+and quiet frozen-source `bin/verify` remain pending. PR #139 remains draft.
+
 ## Release scope
 
 All eight Dart packages and three Rust crates are synchronized at beta.9.

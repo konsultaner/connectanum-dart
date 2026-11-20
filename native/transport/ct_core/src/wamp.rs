@@ -466,15 +466,44 @@ fn parse_value_parts(
 }
 
 fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError> {
-    let ranges = cbor_top_level_ranges(&raw_payload)?;
+    let (ranges, cache) = cbor_top_level_ranges(&raw_payload)?;
+    let parsed_payload = match cache {
+        None => raw_payload.clone(),
+        Some((start, suffix)) => {
+            let RawFrame::Segmented { segments, .. } = &raw_payload else {
+                return Err(ParseError::Deserialize(
+                    "CBOR cache requires segmented input".into(),
+                ));
+            };
+            let mut parts = Vec::new();
+            let mut remaining = start;
+            for part in segments {
+                let length = remaining.min(part.len());
+                if length != 0 {
+                    parts.push(part.slice(..length));
+                }
+                remaining -= length;
+                if remaining == 0 {
+                    break;
+                }
+            }
+            if remaining != 0 {
+                return Err(ParseError::Deserialize(
+                    "CBOR cache exceeds input bounds".into(),
+                ));
+            }
+            parts.push(suffix);
+            RawFrame::from_segments(parts)
+        }
+    };
     if ranges.is_empty() {
         return Err(ParseError::MissingElement("message code"));
     }
-    let code_value = cbor_value(&raw_payload, &ranges[0])?;
+    let code_value = cbor_value(&parsed_payload, &ranges[0])?;
     let code = value_as_u64(&code_value, "message code")?;
     let payload_spec = cbor_payload_spec(code);
     let payload = payload_spec
-        .map(|spec| cbor_payload(&raw_payload, &ranges, spec))
+        .map(|spec| cbor_payload(&parsed_payload, &ranges, spec))
         .transpose()?;
 
     let mut rest = Vec::with_capacity(ranges.len().saturating_sub(1));
@@ -494,7 +523,7 @@ fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
                     Value::Unit
                 }
             }
-            _ => cbor_value(&raw_payload, range)?,
+            _ => cbor_value(&parsed_payload, range)?,
         };
         rest.push(value);
     }
@@ -625,7 +654,9 @@ fn cbor_value(raw_payload: &RawFrame, range: &Range<usize>) -> Result<Value, Par
     Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
 }
 
-fn cbor_top_level_ranges(data: &RawFrame) -> Result<Vec<Range<usize>>, ParseError> {
+fn cbor_top_level_ranges(
+    data: &RawFrame,
+) -> Result<(Vec<Range<usize>>, Option<(usize, Bytes)>), ParseError> {
     let prefix = data.slice_or_copy(&(0..data.len().min(9)))?;
     let (header_len, length) = cbor_array_header(prefix.as_ref())?;
     match data {
@@ -639,6 +670,7 @@ fn cbor_top_level_ranges(data: &RawFrame) -> Result<Vec<Range<usize>>, ParseErro
                     .map_err(|err| ParseError::Deserialize(err.to_string()))?;
                 Ok(de.byte_offset())
             })
+            .map(|ranges| (ranges, None))
         }
         RawFrame::Segmented { segments, .. } => {
             let mut reader = SegmentedFrameReader::new(segments.clone());
@@ -652,12 +684,13 @@ fn cbor_top_level_ranges(data: &RawFrame) -> Result<Vec<Range<usize>>, ParseErro
                 .read_exact(header)
                 .map_err(|err| ParseError::Deserialize(err.to_string()))?;
             let body_len = reader.remaining;
-            cbor_value_ranges(data, header_len, length, || {
+            let ranges = cbor_value_ranges(data, header_len, length, || {
                 reader.read_cbor_value()?;
                 body_len.checked_sub(reader.remaining).ok_or_else(|| {
                     ParseError::Deserialize("CBOR reader advanced before its body".into())
                 })
-            })
+            })?;
+            Ok((ranges, reader.coalesced.take()))
         }
     }
 }
@@ -2089,6 +2122,8 @@ fn is_json_null(s: &str) -> bool {
 struct SegmentedFrameReader {
     parts: SegmentedPartsReader,
     remaining: usize,
+    total: usize,
+    coalesced: Option<(usize, Bytes)>,
 }
 
 impl SegmentedFrameReader {
@@ -2112,10 +2147,38 @@ impl SegmentedFrameReader {
         if let Some(consumed) = consumed {
             return self.advance_current_chunk(consumed);
         }
-        let mut de = serde_cbor::Deserializer::from_reader(self);
-        IgnoredAny::deserialize(&mut de)
-            .map(|_| ())
-            .map_err(|err| ParseError::Deserialize(err.to_string()))
+        let mut preview = [0u8; 64];
+        let mut filled = 0;
+        for part in &self.parts.segments {
+            let count = part.len().min(preview.len() - filled);
+            preview[filled..filled + count].copy_from_slice(&part[..count]);
+            filled += count;
+            if filled == preview.len() {
+                break;
+            }
+        }
+        let mut de = serde_cbor::Deserializer::from_slice(&preview[..filled]);
+        if IgnoredAny::deserialize(&mut de).is_ok() {
+            let consumed = de.byte_offset();
+            self.read_exact(&mut preview[..consumed])
+                .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+            return Ok(());
+        }
+        let mut bytes = Vec::with_capacity(self.remaining);
+        for part in &self.parts.segments {
+            bytes.extend_from_slice(part);
+        }
+        let bytes = Bytes::from(bytes);
+        let mut de = serde_cbor::Deserializer::from_slice(&bytes);
+        IgnoredAny::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))?;
+        let consumed = de.byte_offset();
+        let start = self
+            .total
+            .checked_sub(self.remaining)
+            .ok_or_else(|| ParseError::Deserialize("CBOR cache offset underflow".into()))?;
+        self.parts.segments = VecDeque::from([bytes.clone()]);
+        self.coalesced = Some((start, bytes));
+        self.advance_current_chunk(consumed)
     }
 
     fn advance_current_chunk(&mut self, consumed: usize) -> Result<(), ParseError> {
@@ -2142,6 +2205,8 @@ impl SegmentedFrameReader {
     fn new(segments: Vec<Bytes>) -> Self {
         Self {
             remaining: segments.iter().map(Bytes::len).sum(),
+            total: segments.iter().map(Bytes::len).sum(),
+            coalesced: None,
             parts: SegmentedPartsReader {
                 segments: segments.into(),
             },
@@ -2803,6 +2868,62 @@ mod tests {
     }
 
     #[test]
+    fn fragmented_cbor_payload_reuses_its_validation_storage() {
+        use serde_cbor::Value as CborValue;
+        const SIZE: usize = 64 * 1024;
+        for value in [
+            CborValue::Bytes(vec![0x5a; SIZE]),
+            CborValue::Text("t".repeat(SIZE)),
+        ] {
+            let args = CborValue::Array(vec![value]);
+            let kwargs = CborValue::Map(BTreeMap::from([(
+                CborValue::Text("flag".into()),
+                CborValue::Bool(true),
+            )]));
+            let expected_args = serde_cbor::to_vec(&args).assert_success();
+            let expected_kwargs = serde_cbor::to_vec(&kwargs).assert_success();
+            let wire = serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(1),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("com.example.fragmented".into()),
+                args,
+                kwargs,
+            ]))
+            .assert_success();
+            let segments: Vec<Bytes> = wire.chunks(4096).map(Bytes::copy_from_slice).collect();
+            let (parsed, allocated) = super::test_allocations::allocated_bytes(|| {
+                parse_message_segments(Serializer::Cbor, segments.clone())
+            });
+            let parsed = parsed.assert_success();
+            assert_condition!(allocated <= wire.len() + 16 * 1024,
+                "fragmented CBOR validation duplicated payload storage: {allocated} bytes for {} wire bytes", wire.len());
+            let RawFrame::Segmented {
+                segments: retained, ..
+            } = &parsed.raw
+            else {
+                panic!("original fragmented frame was not retained");
+            };
+            assert_eq!(retained.len(), segments.len());
+            for (before, after) in segments.iter().zip(retained) {
+                assert_eq!(before.as_ptr(), after.as_ptr());
+                assert_eq!(before.len(), after.len());
+            }
+            let WampMessage::Publish { payload, .. } = parsed.message else {
+                panic!("expected Publish");
+            };
+            assert_eq!(
+                payload.args.assert_success().as_ref(),
+                expected_args.as_slice()
+            );
+            assert_eq!(
+                payload.kwargs.assert_success().as_ref(),
+                expected_kwargs.as_slice()
+            );
+        }
+    }
+
+    #[test]
     fn cbor_payload_decode_does_not_allocate_binary_storage() {
         use serde_cbor::Value as CborValue;
 
@@ -2890,6 +3011,10 @@ mod tests {
         assert_condition!(reader.advance_current_chunk(4).is_err());
         assert_eq!(reader.remaining, 3);
         assert_condition!(reader.advance_current_chunk(2).is_err());
+        assert_eq!(reader.remaining, 3);
+        // Prove the Read contract before asking the standard library to drain
+        // this reader. A zero-length read cannot report progress or consume data.
+        assert_eq!(reader.read(&mut []).assert_success(), 0);
         assert_eq!(reader.remaining, 3);
         let mut remaining = Vec::new();
         reader.read_to_end(&mut remaining).assert_success();

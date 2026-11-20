@@ -511,3 +511,65 @@ A Sonic parser prototype also shows no macro gain and is not shipped. Its
 [borrowing contract](https://docs.rs/sonic-rs/0.5.11/sonic_rs/struct.LazyValue.html)
 were inspected; no alternate JSON parser, compiler CPU flag or new dependency
 is added to the production change. Original budgets/workloads stay identical.
+
+
+### Current native and protocol repair checkpoint
+
+The `0095bf40` WAMP mutation batches on both hosts expose the same remaining
+non-assertion failure: replacing `Read::read` with `Ok(1)` makes `read_to_end`
+report false progress forever. The regression now asserts the zero-length read
+contract immediately before the original drain, retaining every earlier assertion
+and the original 30-second native deadline. The full 358-candidate inventory is
+retained; the selected counterexample is assertion-killed, with clean/restored
+baselines and frozen source receipts. Linux artifact 14593751223 has SHA256
+`ba080efbca3b7acfc5af8ab916b3cdfa155c8e947ee7318bbbace820c9ed6dc4`;
+macOS artifact 14594276511 has SHA256
+`f3f4ec742d75db13eb05a7846374866b80ea804e2124800606b10a6ac347740c`.
+This is a selected replay, not a full current-source campaign result.
+
+CBOR cross-segment validation now retains one shared suffix allocation, using
+standard serde validation and a 64-byte stack preview for short split metadata.
+Payload slices reuse that validation storage; the public raw frame retains its
+original segments. A fail-first regression observes 131,072 allocated bytes for
+a 65,576-byte wire frame before this repair. The corrected path asserts total
+allocation at most wire size plus 16 KiB, exact payload bytes and original raw
+segment pointers. Existing aligned borrowing/allocation tests remain unchanged.
+
+TLS preserves Ring's exact ordered cipher-suite IDs, key exchange groups,
+signature verifier mappings, RNG and key provider, replacing only each available
+record implementation with AWS-LC for the same suite ID. Rustls explicitly
+supports [mixing provider components](https://docs.rs/rustls/0.23.45/rustls/crypto/struct.CryptoProvider.html).
+No TLS version or negotiated algorithm is added or reordered. The first explicit
+process provider remains authoritative. HTTP/3-only initialization is tested in
+a fresh process; every supported TLS 1.3 suite has bidirectional Ring interop,
+record-boundary, ALPN, application-data and corrupt-tag rejection coverage.
+All 432 Core tests, the new HTTP/3 process regression and three serializer
+integration tests pass. The six pinned MQTT production sources remain unchanged.
+
+The native canonical base64 String path uses public synchronous
+`Dart_StringToUTF8`/`Dart_IsError` callbacks inside the documented
+[Handle FFI scope](https://api.dart.dev/dart-ffi/Handle-class.html).
+The scoped copy is consumed before return; decoded bytes have independent native
+ownership. Only entirely ASCII strings take this path; Unicode contexts and older
+native libraries retain their tested scalar fallback. Actual UTF-8 bounds are
+checked before slicing. All ten focused Rust FFI cases pass, including malformed
+canonical forms, vector boundaries, ownership after input changes/free, missing
+APIs, invalid ranges, empty storage and missing nonempty API storage. Three Dart
+native tests pass with both the new and old native libraries. All 65 recorded CLI
+protocol controls pass, including empty and null catalogs and missing responses.
+
+Matched exploratory four-round comparisons select the native candidates:
+cleartext CBOR 4-KiB fragmentation data median 665 to 594 ms; TLS JSON/CBOR
+medians improve about 10--12 percent. With the same new native library on both
+sides, the public-API String worker reduces WebSocket JSON file data median
+874.35 to 700.34 ms, while RawSocket JSON remains 391 to 392 ms. These are local
+candidate comparisons, not hosted floor qualification. CPU profiling is kept
+outside the product and qualifying runs. Local advisory reviews find no verified
+new correctness defect: pre-existing SNI fallback is outside this change; serde
+rejects incomplete values before advancing, offsets remain original absolute
+positions, TLS 1.2 is disabled by the unchanged feature set, and the Dart mutation
+fixture is always nonempty. No new waiver or relaxed classifier is introduced.
+
+Remaining work: complete current-source hosted mutation campaigns and all WAMP
+floors, finish quiet frozen-source `bin/verify`, then audit every workflow/check
+on one final commit. PR #139 remains draft; no merge or release is authorized.

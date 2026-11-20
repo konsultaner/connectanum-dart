@@ -93,6 +93,18 @@ void main() {
     expect(NativeClientRuntime.releaseOwnedExternalBytes(first), isTrue);
     expect(second, orderedEquals(source));
     expect(NativeClientRuntime.releaseOwnedExternalBytes(second), isTrue);
+    for (final context in ['', 'ascii:', 'é:', '💡:', 'x' * 4097]) {
+      final contextual = '$context$encoded:suffix';
+      final decoded = runtime.decodeCanonicalBase64String(
+        contextual,
+        context.length,
+        context.length + encoded.length,
+      )!;
+      expect(decoded, orderedEquals(source));
+      decoded[0] ^= 255;
+      expect(source[0], 0);
+      expect(NativeClientRuntime.releaseOwnedExternalBytes(decoded), isTrue);
+    }
     expect(runtime.decodeCanonicalBase64String('', 0, 0), isEmpty);
     expect(
       () => runtime.decodeCanonicalBase64String(input, -1, 1),

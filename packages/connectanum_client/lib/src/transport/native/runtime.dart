@@ -16,6 +16,30 @@ import 'ffi_bindings.dart';
 import 'message_binding.dart';
 import 'message_protocol.dart';
 
+// Handle signatures create the VM API scope for this synchronous native call.
+// Older native libraries and runtimes without these public APIs use the
+// existing ASCII-span decoder.
+final _vmUtf8Api = _findVmUtf8Api();
+({
+  ffi.Pointer<ffi.NativeFunction<DartApiStringToUtf8Native>> convert,
+  ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>> isError,
+})?
+_findVmUtf8Api() {
+  try {
+    final vm = ffi.DynamicLibrary.process();
+    return (
+      convert: vm.lookup<ffi.NativeFunction<DartApiStringToUtf8Native>>(
+        'Dart_StringToUTF8',
+      ),
+      isError: vm.lookup<ffi.NativeFunction<DartApiIsErrorNative>>(
+        'Dart_IsError',
+      ),
+    );
+  } on ArgumentError {
+    return null;
+  }
+}
+
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
   if (ptr == ffi.nullptr) {
     return null;
@@ -1776,6 +1800,26 @@ class NativeClientRuntime {
     final decode = _bindings.ctBase64DecodeCanonical;
     if (decode == null) return null;
     final length = end - start;
+    final api = _vmUtf8Api;
+    final decodeVm = _bindings.ctBase64DecodeVmString;
+    if (api != null &&
+        decodeVm != null &&
+        input.length - length <= 4096 &&
+        input.length <= 0x7fffffff) {
+      final result = _decodeCanonicalBase64Output(
+        (output) => decodeVm(
+          input,
+          start,
+          end,
+          input.length,
+          api.convert,
+          api.isError,
+          output,
+        ),
+      );
+      if (result != null) return result;
+    }
+
     final inputPtr = length == 0
         ? ffi.nullptr.cast<ffi.Uint8>()
         : malloc<ffi.Uint8>(length);
@@ -1796,10 +1840,16 @@ class NativeClientRuntime {
     CtBase64DecodeCanonicalDart decode,
     ffi.Pointer<ffi.Uint8> inputPtr,
     int length,
+  ) => _decodeCanonicalBase64Output(
+    (output) => decode(inputPtr, length, output),
+  );
+
+  Uint8List? _decodeCanonicalBase64Output(
+    int Function(ffi.Pointer<CtExternalByteBuffer>) decode,
   ) {
     final outputPtr = calloc<CtExternalByteBuffer>();
     try {
-      final result = decode(inputPtr, length, outputPtr);
+      final result = decode(outputPtr);
       if (result == NativeTransportErrorCode.unsupported) {
         return null;
       }

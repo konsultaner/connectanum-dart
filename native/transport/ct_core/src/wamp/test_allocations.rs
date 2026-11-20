@@ -5,6 +5,7 @@ use std::cell::Cell;
 thread_local! {
     static ACTIVE: Cell<bool> = const { Cell::new(false) };
     static LARGEST: Cell<usize> = const { Cell::new(0) };
+    static TOTAL: Cell<usize> = const { Cell::new(0) };
 }
 
 struct ObservedAllocator;
@@ -13,6 +14,7 @@ fn observe(size: usize) {
     let _ = ACTIVE.try_with(|active| {
         if active.get() {
             let _ = LARGEST.try_with(|largest| largest.set(largest.get().max(size)));
+            let _ = TOTAL.try_with(|total| total.set(total.get().saturating_add(size)));
         }
     });
 }
@@ -49,9 +51,15 @@ pub(crate) fn largest_allocation<T>(operation: impl FnOnce() -> T) -> (T, usize)
         }
     }
     LARGEST.with(|largest| largest.set(0));
+    TOTAL.with(|total| total.set(0));
     ACTIVE.with(|active| assert!(!active.replace(true), "nested allocation observation"));
     let guard = Restore;
     let result = operation();
     drop(guard);
     (result, LARGEST.with(Cell::get))
+}
+
+pub(crate) fn allocated_bytes<T>(operation: impl FnOnce() -> T) -> (T, usize) {
+    let (result, _) = largest_allocation(operation);
+    (result, TOTAL.with(Cell::get))
 }
