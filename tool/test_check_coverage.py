@@ -10,6 +10,22 @@ from check_coverage import GENERATED_FLATBUFFERS_SOURCES, findings, read_lcov, r
 
 
 class CoverageTests(unittest.TestCase):
+    def test_real_mcp_components_have_unique_ownership_and_strict_shared_validation(self):
+        policy = json.loads((Path(__file__).parent / 'coverage_policy.json').read_text())
+        module = 'packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart'
+        library = policy['components']['connectanum_mcp_library']
+        self.assertIn(module, policy['requiredSources'])
+        self.assertIn(module, library['sources'])
+        self.assertGreaterEqual(library['floor'], 98)
+        focused = {key: policy[key] for key in ('target', 'componentPackages', 'components')}
+        focused['requiredSources'] = [source for source in policy['requiredSources']
+                                     if source.startswith('packages/connectanum_mcp/')]
+        # Full coverage is synthetic: this tests real component ownership and
+        # floors independently of a slow VM measurement, using the real checker.
+        sources = {source: {1: 1} for source in focused['requiredSources']}
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(findings(report(sources, Path(directory)), focused), [])
+
     def test_browser_enum_declaration_is_not_an_executable_line(self):
         source = 'packages/connectanum_core/lib/src/mqtt/packet_type.dart'
         with tempfile.TemporaryDirectory() as directory:

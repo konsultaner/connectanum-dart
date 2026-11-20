@@ -14,6 +14,16 @@ the broader diagnostic chain is not qualified. No threshold or inventory is
 relaxed. The previous Dart upgrade qualification below remains historical
 source evidence rather than a claim that these additional workflows pass.
 
+Frozen `840e144c` local `bin/verify` passes completely with all 3,185 input
+hashes, HEAD and clean status unchanged, including real Chrome/Dart2Wasm.
+Both complete WAMP workflows, kTLS, ObjectBox on all three platforms and package
+dry runs pass on that same commit. Main CI exposes one coverage-ownership
+error: the shared validator belongs to two components. It is now assigned only
+to the stricter 98% library component, retaining all required sources and
+mutation scopes and the original CLI floor. Replaying the unchanged CI LCOV
+passes every gate (library 99.354%, CLI 98.692%); a new actual-policy regression
+protects unique ownership. Fresh main CI/full-mutation qualification is pending.
+
 Complete WAMP diagnostics at `f25b8de9` pass all eight original scenarios on
 AMD EPYC 9V45, with unchanged floors. Regular WAMP, kTLS, all three ObjectBox
 platforms and package dry runs also pass. Frozen `7d918b38` verification exposes

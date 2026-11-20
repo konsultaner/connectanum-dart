@@ -48,6 +48,31 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Complete local verification and coverage ownership
+
+The quiet frozen `bin/verify` at `840e144c` passes completely from
+06:40:45 to 07:05:03 UTC: all 3,185 source/lock hashes, HEAD and clean status
+remain unchanged. Real Chrome/Dart2Wasm also passes (Client 2,844 tests and the
+20 existing native-only skips). All five additional workflow families on that
+same commit pass: both WAMP workflows, kTLS, three-platform ObjectBox and package
+dry runs. Main CI and the complete mutation aggregate remain unqualified.
+
+Main CI's VM coverage job 136136750515 fails only component ownership: the
+new shared validator is present in both MCP components, while the existing
+checker requires exactly one owner. Its required-source entry and every
+mutation scope remain. Coverage assigns it solely to the stricter 98% library
+component, keeping the CLI entrypoint at its unchanged 93.4% floor. No floor,
+required source, operator or test is removed; the exact-one-owner checker is
+unchanged. A real-policy regression fails before and passes after the fix.
+
+The checksum-verified CI artifact 14611972292 has ZIP SHA256
+`9b99a99fbd3867516ba57130dd37ad5b20247b62e3259b1b3c7b400b32c73176`.
+Replaying its identical LCOV bytes with the corrected policy passes all gates:
+library 1,692/1,703 = 99.354%; CLI 2,188/2,217 = 98.692%. The production sources
+and measured hit counts are unchanged. All 26 coverage-tool, 95 mutation-runner,
+87 script-contract and 24 package-boundary tests pass (one existing host skip).
+A fresh final CI run is required; the old red job is preserved as evidence.
+
 ### Complete component manifests and full WAMP pass
 
 The next frozen verification at `7d918b38` keeps all 3,185 inputs unchanged
