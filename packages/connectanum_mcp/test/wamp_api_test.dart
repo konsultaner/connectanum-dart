@@ -1326,6 +1326,7 @@ void main() {
           'arguments': {'topic': 'app.events'},
         },
       });
+      expect(subscribeResponse?['result'], isA<Map>());
       final subscription =
           (subscribeResponse?['result']
                   as Map<String, Object?>)['structuredContent']
@@ -1427,6 +1428,7 @@ void main() {
               'arguments': {'topic': topic},
             },
           });
+          expect(response?['result'], isA<Map>());
           final result =
               (response?['result'] as Map<String, Object?>)['structuredContent']
                   as Map<String, Object?>;
@@ -2139,6 +2141,7 @@ void main() {
           'arguments': {'topic': 'app.events'},
         },
       });
+      expect(subscribeResponse?['result'], isA<Map>());
       final subscription =
           (subscribeResponse?['result']
                   as Map<String, Object?>)['structuredContent']
@@ -2250,6 +2253,7 @@ void main() {
           'arguments': {'topic': 'app.events', 'queueLimit': 10},
         },
       });
+      expect(subscribeResponse?['result'], isA<Map>());
       final subscription =
           (subscribeResponse?['result']
                   as Map<String, Object?>)['structuredContent']
@@ -2459,6 +2463,7 @@ Future<void> _initializeAndStart(McpServer server) async {
     'method': 'initialize',
     'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
+  expect(response, isA<Map>());
   expect(response, containsPair('id', 1));
   expect(response, isNot(contains('error')));
   expect(response, containsPair('result', isA<Map>()));

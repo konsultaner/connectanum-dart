@@ -53,6 +53,7 @@ void main() {
         'method': 'initialize',
         'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
       });
+      expect(initialized?['result'], isA<Map>());
       expect(
         (initialized?['result'] as Map)['instructions'],
         'Choose a tool to continue.',
@@ -219,6 +220,7 @@ void main() {
           'method': 'initialize',
           'params': {'protocolVersion': version},
         });
+        expect(response?['error'], isA<Map>());
         expect(
           (response?['error'] as Map)['code'],
           McpErrorCodes.invalidParams,

@@ -10,10 +10,15 @@ import 'native_lib.dart';
 /// A completed Dart process rejected MCP behavior in the public example.
 /// Compiler, native/preflight, signal and deadline failures are not this type.
 class RouterExampleSmokeFailure implements Exception {
-  RouterExampleSmokeFailure(this.diagnostics, {this.declarationError});
+  RouterExampleSmokeFailure(
+    this.diagnostics, {
+    this.declarationError,
+    this.responseError,
+  });
 
   final String diagnostics;
   final Object? declarationError;
+  final Object? responseError;
 
   static bool _completedMcpFailure(int code, String report) =>
       code == 255 &&
@@ -32,10 +37,41 @@ class RouterExampleSmokeFailure implements Exception {
       (report.contains('MCP catalog could not be refreshed') ||
           report.contains('http request cancelled'));
 
+  static bool needsResponseCheck(int code, String report) {
+    if (!_completedMcpFailure(code, report)) return false;
+    final lines = const LineSplitter().convert(report);
+    if (lines.length < 2) return false;
+    final missingResponse =
+        lines[1] == 'FormatException: JSON-RPC response was not returned' &&
+        RegExp(
+          r'^#\d+\s+McpStreamableHttpClient\._validatePostResponseShape '
+          r'\(package:connectanum_client/src/mcp/streamable_http_client\.dart:\d+:\d+\)',
+          multiLine: true,
+        ).hasMatch(report);
+    final missingDeclaredTool =
+        RegExp(
+          r'^McpJsonRpcException\((?:connectanum\.tool\.call|tools/call), '
+          r'id: public-direct-[^)]*\): Unknown MCP tool: '
+          r'connectanum\.(?:pubsub\.(?:publish|subscribe|unsubscribe|poll)|api\.(?:list|describe))$',
+        ).hasMatch(lines[1]) &&
+        RegExp(
+          r'^#\d+\s+_jsonRpcResultFrom '
+          r'\(package:connectanum_client/src/mcp/streamable_http_client\.dart:\d+:\d+\)',
+          multiLine: true,
+        ).hasMatch(report) &&
+        RegExp(
+          r'^#\d+\s+_smoke\w+ .*'
+          r'/packages/connectanum_router/example/router_hosted_mcp\.dart:\d+:\d+\)',
+          multiLine: true,
+        ).hasMatch(report);
+    return missingResponse || missingDeclaredTool;
+  }
+
   static RouterExampleSmokeFailure? fromExit(
     int code,
     String report, {
     Object? declarationError,
+    Object? responseError,
   }) {
     if (!_completedMcpFailure(code, report)) return null;
     final smokeFrame = RegExp(
@@ -115,6 +151,9 @@ class RouterExampleSmokeFailure implements Exception {
                 smokeFrame.hasMatch(report)))) {
       return RouterExampleSmokeFailure(report);
     }
+    if (needsResponseCheck(code, report) && responseError is TestFailure) {
+      return RouterExampleSmokeFailure(report, responseError: responseError);
+    }
     if (needsDeclarationCheck(code, report) &&
         (declarationError is ArgumentError ||
             declarationError is FormatException)) {
@@ -129,7 +168,83 @@ class RouterExampleSmokeFailure implements Exception {
   @override
   String toString() =>
       'Public MCP example smoke failed: $diagnostics'
+      '${responseError == null ? '' : '\nValid MCP response contract failed: $responseError'}'
       '${declarationError == null ? '' : '\nValid MCP declaration rejected: $declarationError'}';
+}
+
+/// Corroborate a missing response using public in-process server behavior.
+/// Runtime errors remain runtime errors; only explicit response assertions count.
+Future<Object?> checkRouterExampleMcpResponses() async {
+  mcp.McpServer? server;
+  try {
+    final tools =
+        mcp.McpWampApi(
+          procedures: [mcp.McpWampProcedure(procedure: 'com.example.echo')],
+          topics: [mcp.McpWampTopic(topic: 'com.example.events')],
+        ).toTools(
+          call: (_) => throw StateError('Catalog callback invoked'),
+          publish: (_) => throw StateError('Catalog callback invoked'),
+          subscribe: (_, _) => throw StateError('Catalog callback invoked'),
+          unsubscribe: (_) => throw StateError('Catalog callback invoked'),
+        );
+    server = mcp.McpServer(
+      tools: tools,
+      serverInfo: const mcp.McpServerInfo(
+        name: 'example-response-probe',
+        version: '1',
+      ),
+    );
+    final response = await server.handleMessage({
+      'jsonrpc': '2.0',
+      'id': 'diagnostic-initialize',
+      'method': 'initialize',
+      'params': {'protocolVersion': mcp.mcpLatestSessionProtocolVersion},
+    });
+    expect(response, isA<Map>());
+    expect(response, containsPair('id', 'diagnostic-initialize'));
+    expect(response, containsPair('result', isA<Map>()));
+    expect(
+      response['result'],
+      containsPair('protocolVersion', mcp.mcpLatestSessionProtocolVersion),
+    );
+    expect(
+      await server.handleMessage({
+        'jsonrpc': '2.0',
+        'method': 'notifications/initialized',
+      }),
+      isNull,
+    );
+    expect(server.state, mcp.McpServerState.initialized);
+    final catalogResponse = await server.handleMessage({
+      'jsonrpc': '2.0',
+      'id': 'diagnostic-tools',
+      'method': 'tools/list',
+    });
+    expect(catalogResponse, isA<Map>());
+    expect(catalogResponse, containsPair('result', isA<Map>()));
+    final catalog = catalogResponse['result']['tools'];
+    expect(catalog, isA<List>());
+    expect(catalog, everyElement(isA<Map>()));
+    for (final name in [
+      'connectanum.api.list',
+      'connectanum.api.describe',
+      'connectanum.pubsub.publish',
+      'connectanum.pubsub.subscribe',
+      'connectanum.pubsub.unsubscribe',
+      'connectanum.pubsub.poll',
+    ]) {
+      expect(
+        catalog,
+        contains(containsPair('name', name)),
+        reason: 'Declared default MCP tool must be listed',
+      );
+    }
+    return null;
+  } catch (error) {
+    return error;
+  } finally {
+    server?.shutdown();
+  }
 }
 
 /// Pure declarations distinguish invalid product validation from an ambiguous
@@ -271,10 +386,15 @@ class RouterExample {
               RouterExampleSmokeFailure.needsDeclarationCheck(code, report)
               ? checkRouterExampleMcpDeclarations()
               : null;
+          final responseError =
+              RouterExampleSmokeFailure.needsResponseCheck(code, report)
+              ? await checkRouterExampleMcpResponses()
+              : null;
           final smoke = RouterExampleSmokeFailure.fromExit(
             code,
             report,
             declarationError: declarationError,
+            responseError: responseError,
           );
           if (smoke != null) throw smoke;
           throw StateError(

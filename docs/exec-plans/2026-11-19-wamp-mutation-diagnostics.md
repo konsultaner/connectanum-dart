@@ -537,7 +537,7 @@ segment pointers. Existing aligned borrowing/allocation tests remain unchanged.
 
 TLS preserves Ring's exact ordered cipher-suite IDs, key exchange groups,
 signature verifier mappings, RNG and key provider, replacing only each available
-record implementation with AWS-LC for the same suite ID. Rustls explicitly
+cipher-suite implementation with AWS-LC for the same suite ID. Rustls explicitly
 supports [mixing provider components](https://docs.rs/rustls/0.23.45/rustls/crypto/struct.CryptoProvider.html).
 No TLS version or negotiated algorithm is added or reordered. The first explicit
 process provider remains authoritative. HTTP/3-only initialization is tested in
@@ -573,3 +573,64 @@ fixture is always nonempty. No new waiver or relaxed classifier is introduced.
 Remaining work: complete current-source hosted mutation campaigns and all WAMP
 floors, finish quiet frozen-source `bin/verify`, then audit every workflow/check
 on one final commit. PR #139 remains draft; no merge or release is authorized.
+
+
+### Frozen verification and remaining hosted failures
+
+Commit `892f19cd` completes local `bin/verify` successfully in a quiet run from
+02:30:14 to 02:53:18 UTC. All 3,178 tracked/untracked input and lock hashes,
+committed head and clean worktree status remain unchanged throughout. Chrome and
+Dart2Wasm run successfully. This qualifies that exact checkpoint; subsequent test
+and kTLS fixture repairs require another final frozen verification.
+
+At the same checkpoint package dry runs, all three ObjectBox hosts and regular
+WAMP profiles pass. WAMP diagnostics run 44661260682 clears all native TLS
+fragmentation floors. Artifact 14596735743 has verified SHA256
+`68afa476dd598d6284ada71dd2e65fa459c73e74a40dd350ee72cee17fe3482f`.
+File lifecycle rates remain RawSocket JSON 1,833.889, WebSocket CBOR 1,771.851
+and MessagePack 1,934.670 Mbps; WebSocket JSON data/lifecycle are
+1,397.605/1,170.929. Heavy 256-MiB native RawSocket JSON RPC lifecycle is
+1,992.100. Every corresponding floor remains 2,000. The new host is an Intel
+Xeon 6973P-C; the previous host was AMD EPYC 9V74. Unmatched hosted rates do not
+establish a candidate gain. A separate branch captures explicitly unqualified
+Linux CPU profiles; it does not alter any qualifying workload or policy.
+The uninitialized coalescing prototype gains only about one percent in matched
+MessagePack file data timing and is not adopted.
+
+Isolated kTLS run 44661270856 exposes the dual-provider ambiguity in its Linux-only
+test fixture before reaching the unchanged strict workload. The server fixture
+now explicitly uses the same Ring provider as its existing client, with the same
+safe default protocol versions and every original assertion. Production provider
+selection and both strict kTLS flags remain unchanged; hosted confirmation is
+required. The HTTP/3-first process regression remains separate.
+
+The full `0095bf40` MCP shards expose two residual non-assertion counterexamples:
+`isNotification: !hasId` losing its negation, and the default `includePubSubTools`
+selection becoming false. Artifacts 14596036000/14596476233 have verified SHA256
+`ffb1a895658d0ce526da13b92e3a3b8d0af9820f43bdbf43dbbe5519695b4688` /
+`623e474c237a5e10aa7cc6fa9b0d6e1ef1cc19afd8b36df83fc249e8a9ff6c5f`.
+Tests now assert response/error/result Map shapes and required collection
+cardinality before their existing casts, matches and selections. Completed child
+missing-response/missing-declared-tool signatures additionally require an
+independent public in-process server initialization and actual tool-catalog
+assertion. Only its explicit TestFailure corroborates the product defect;
+unknown parsers/tools, other exits, missing corroboration and nested infrastructure
+errors remain unclassified setup errors. No runner kill classifier is changed.
+All 1,242 MCP, native CLI and evidence controls pass. Both selected full-inventory
+replays retain 2,308 candidates, assertion-kill their counterexample, pass
+clean/restored baselines and preserve the same native binary. These are selected
+replays rather than final campaign scores.
+
+Four canonical-base64 Dart tests pass with both new and old native libraries.
+The new direct ABI control actually invokes the optional native String entry
+point and public VM callbacks when present, including an embedded NUL context
+and Unicode fallback. The official Dart 3.14.0 Linux SDK's JIT/AOT runtimes both
+export Dart_StringToUTF8/Dart_IsError; this proves symbol availability, not which
+path a particular benchmark worker used. Local reviews are advisory: suggestions
+to loosen exact signatures or widen accepted error types are rejected. The
+returned Object preserves its runtime type, and existing dedicated schema tests
+cover schema behavior beyond this catalog-presence probe.
+
+Current blockers remain final hosted file/heavy floors, complete current-source
+mutation scores, hosted kTLS confirmation and final frozen verification after
+these further repairs. PR #139 remains draft; no merge or release is made.

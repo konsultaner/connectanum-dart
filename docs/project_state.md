@@ -145,6 +145,18 @@ old-library fallbacks. Local matched timing selects these candidates but does
 not qualify hosted floors. Complete final mutation scores, all WAMP scenarios
 and quiet frozen-source `bin/verify` remain pending. PR #139 remains draft.
 
+Quiet frozen `bin/verify` passes at `892f19cd`, including Chrome/Dart2Wasm,
+with all 3,178 inputs, head and clean worktree unchanged. That checkpoint also
+passes package dry runs, three ObjectBox hosts, regular WAMP profiles and native
+TLS fragmentation floors. File/heavy diagnostic floors remain red on the new
+Intel runner. An isolated Linux kTLS fixture needs explicit provider selection;
+the fix retains the existing Ring client/server algorithms and strict workload.
+Two remaining full-MCP non-assertion counterexamples are assertion-killed in
+selected 2,308-inventory replays after explicit response/catalog guards; all
+1,242 focused MCP/native/evidence controls and four new/old-library base64 cases
+pass. Full campaign scores and hosted floor qualification remain pending. The
+additional repairs require another final frozen `bin/verify`; PR #139 stays draft.
+
 ## Release scope
 
 All eight Dart packages and three Rust crates are synchronized at beta.9.

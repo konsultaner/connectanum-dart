@@ -6,6 +6,162 @@ import 'package:test/test.dart';
 import 'support/router_example.dart';
 
 void main() {
+  test(
+    'independent MCP response probe accepts requests and notifications',
+    () async {
+      expect(await checkRouterExampleMcpResponses(), isNull);
+    },
+  );
+  const missingTool =
+      'Unhandled exception:\n'
+      'McpJsonRpcException(connectanum.tool.call, id: public-direct-protocol-publish): Unknown MCP tool: connectanum.pubsub.publish\n'
+      '#0      _jsonRpcResultFrom (package:connectanum_client/src/mcp/streamable_http_client.dart:5415:5)\n'
+      '#4      _smokeTypedDirectProtocolVersionOverrides (file:///workspace/packages/connectanum_router/example/router_hosted_mcp.dart:2199:23)\n';
+  test('missing declared tool requires independent response evidence', () {
+    expect(
+      RouterExampleSmokeFailure.needsResponseCheck(255, missingTool),
+      isTrue,
+    );
+    expect(RouterExampleSmokeFailure.fromExit(255, missingTool), isNull);
+    expect(
+      RouterExampleSmokeFailure.fromExit(
+        255,
+        missingTool,
+        responseError: TestFailure('Expected declared tool in catalog'),
+      ),
+      isA<RouterExampleSmokeFailure>(),
+    );
+    for (final report in [
+      missingTool.replaceAll('connectanum.pubsub.publish', 'app.unknown'),
+      missingTool.replaceAll(
+        'public-direct-protocol-publish',
+        'unrelated-client',
+      ),
+      missingTool.replaceAll('_jsonRpcResultFrom', '_unknownParser'),
+      missingTool.replaceAll(
+        '_smokeTypedDirectProtocolVersionOverrides',
+        'main',
+      ),
+      '$missingTool\nTimeoutException',
+    ]) {
+      expect(
+        RouterExampleSmokeFailure.needsResponseCheck(255, report),
+        isFalse,
+      );
+      expect(
+        RouterExampleSmokeFailure.fromExit(
+          255,
+          report,
+          responseError: TestFailure('Expected tool'),
+        ),
+        isNull,
+      );
+    }
+  });
+  const missingResponse =
+      'Unhandled exception:\n'
+      'FormatException: JSON-RPC response was not returned\n'
+      '#0      McpStreamableHttpClient._validatePostResponseShape '
+      '(package:connectanum_client/src/mcp/streamable_http_client.dart:3987:9)\n';
+  test('missing response requires an independent response assertion', () {
+    expect(
+      RouterExampleSmokeFailure.needsResponseCheck(255, missingResponse),
+      isTrue,
+    );
+    expect(RouterExampleSmokeFailure.fromExit(255, missingResponse), isNull);
+    final assertion = TestFailure('Expected a JSON-RPC response Map');
+    final failure = RouterExampleSmokeFailure.fromExit(
+      255,
+      missingResponse,
+      responseError: assertion,
+    );
+    expect(failure, isA<RouterExampleSmokeFailure>());
+    expect(failure!.responseError, same(assertion));
+    for (final error in [
+      StateError('unknown'),
+      FormatException('unknown'),
+      ArgumentError('unknown'),
+    ]) {
+      expect(
+        RouterExampleSmokeFailure.fromExit(
+          255,
+          missingResponse,
+          responseError: error,
+        ),
+        isNull,
+      );
+    }
+    for (final code in [0, 254, -9]) {
+      expect(
+        RouterExampleSmokeFailure.needsResponseCheck(code, missingResponse),
+        isFalse,
+      );
+      expect(
+        RouterExampleSmokeFailure.fromExit(
+          code,
+          missingResponse,
+          responseError: assertion,
+        ),
+        isNull,
+      );
+    }
+    for (final report in [
+      missingResponse.replaceAll(
+        '_validatePostResponseShape',
+        '_unknownParser',
+      ),
+      missingResponse.replaceAll('connectanum_client', 'other_client'),
+      missingResponse.replaceAll(
+        'JSON-RPC response was not returned',
+        'Unknown response failure',
+      ),
+      missingResponse.replaceFirst('Unhandled exception:', 'Compiler error:'),
+    ]) {
+      expect(
+        RouterExampleSmokeFailure.needsResponseCheck(255, report),
+        isFalse,
+      );
+      expect(
+        RouterExampleSmokeFailure.fromExit(
+          255,
+          report,
+          responseError: assertion,
+        ),
+        isNull,
+      );
+    }
+  });
+  for (final infrastructure in [
+    'TimeoutException',
+    'SocketException',
+    'NativeTransportException',
+    'ProcessException',
+    'FileSystemException',
+    'OutOfMemoryError',
+    'Failed to load dynamic library',
+    'Native library',
+    'Native ABI',
+  ]) {
+    test(
+      'missing response keeps nested infrastructure errors: $infrastructure',
+      () {
+        final report = '$missingResponse$infrastructure';
+        expect(
+          RouterExampleSmokeFailure.needsResponseCheck(255, report),
+          isFalse,
+        );
+        expect(
+          RouterExampleSmokeFailure.fromExit(
+            255,
+            report,
+            responseError: TestFailure('Expected a response'),
+          ),
+          isNull,
+        );
+      },
+    );
+  }
+
   test('the independent MCP declaration check accepts valid catalogs', () {
     expect(checkRouterExampleMcpDeclarations(), isNull);
   });

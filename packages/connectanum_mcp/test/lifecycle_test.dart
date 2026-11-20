@@ -562,6 +562,7 @@ void main() {
         'method': 'tools/list',
       });
 
+      expect(response?['error'], isA<Map>());
       final error = response?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.serverClosed);
     });
@@ -614,6 +615,7 @@ Future<Map<String, Object?>> _initializeResult(
       'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
     },
   });
+  expect(response?['result'], isA<Map>());
   return (response?['result'] as Map).cast<String, Object?>();
 }
 

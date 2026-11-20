@@ -174,6 +174,7 @@ void main() {
         },
       });
 
+      expect(response?['result'], isA<Map>());
       final result = response?['result'] as Map<String, Object?>;
       expect(result['content'], [
         {'type': 'text', 'text': '5'},
@@ -363,12 +364,13 @@ McpServer _server(McpTool tool) => McpServer(
 );
 
 Future<void> _initializeAndStart(McpServer server) async {
-  await server.handleMessage({
+  final initialized = await server.handleMessage({
     'jsonrpc': '2.0',
     'id': 1,
     'method': 'initialize',
     'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
+  expect(initialized?['result'], isA<Map>());
   await server.handleMessage({
     'jsonrpc': '2.0',
     'method': 'notifications/initialized',
