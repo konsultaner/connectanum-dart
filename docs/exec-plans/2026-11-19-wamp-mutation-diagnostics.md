@@ -48,6 +48,44 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Codecov patch coverage reproduces an SDK forwarding test gap
+
+All local verification and the five completed current workflow families pass,
+but external Codecov check 136284507056 reports 77.67% patch coverage against
+the unchanged 94.20% target. This is not a pending partial upload: the workflow
+uploads exactly its Dart VM LCOV; browser/application reports are retained as
+artifacts. The official Codecov report API and the exact merge-base diff
+independently reproduce 748/963 (77.6739356179%). Overall reported coverage is
+94.47%; the patch denominator identifies the narrower issue.
+
+Of 215 changed executable-line misses, 188 are in
+`byte_frame_http_client_io.dart` (37/225 lines hit). The native receive coalescer
+already has 135/135 hits. Original CI artifact 14628007728 has verified ZIP
+SHA256 `9be882f2f608bac09c634b8cd21a36e4f0a03aa30b0360960575f1c3a3b5ec78`.
+
+Seven additional contract tests exercise all fourteen real HTTP verb/URI
+entry points with headers, cookies and bodies, client timeout/connection
+configuration, authentication/proxy/TLS callbacks, actual sink encoding and
+error events, request abort/completion, response metadata and redirect wrapping,
+compression bypass and detached socket options/endpoints/close lifecycle.
+They register through the existing VM WebSocket test entry point, so the
+unchanged explicit fast/full/coverage launchers execute them. All 61 combined
+WebSocket cases pass and focused analysis reports no issues.
+
+The actual new LCOV hits all 225 adapter lines. Merging measured hits into the
+unmodified original CI line inventory adds exactly 188 hits, estimating 936/963
+(97.1962616822%), above the unchanged Codecov target. This is an estimate until
+the fresh hosted upload; no threshold, ignore rule, production source or
+denominator is changed. Existing mutation-selected sources/tests/support and
+native source pins remain unchanged by this additional contract coverage.
+Current complete mutation execution remains required and is not cancelled.
+
+Local summarization and GLM test-planning helpers both refuse inference because
+another native mutation campaign holds the resource lease. The lease is
+respected; review proceeds with direct source/SDK inspection and executable
+contracts. The public SDK `ConnectionTask.fromSocket` is used, preserving its
+socket future and cancellation callback without mocking its final type.
+
 ### Public iterable counterexample corrects an equivalence proof
 
 The additional audit finds a genuine counterexample to the growability waiver.

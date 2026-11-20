@@ -5,6 +5,19 @@ Current milestone: repair WAMP and mutation diagnostics without relaxing gates.
 Active plan: [WAMP and mutation diagnostic repair](exec-plans/2026-11-19-wamp-mutation-diagnostics.md).
 Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
+An external Codecov patch check exposes a remaining SDK-boundary test gap:
+748/963 changed executable lines (77.6739%) are covered against the unchanged
+94.20% target. Of 215 misses, 188 belong to the HTTP/Socket forwarding adapter.
+Seven new contract tests exercise real HTTP verb/URI/body round trips and SDK
+configuration, authentication/proxy/TLS callbacks, request completion/errors,
+response metadata/redirects/compression and socket options/encoding/lifecycle.
+All 61 WebSocket cases pass, with 225/225 adapter lines hit. The union of this
+actual measurement and the original CI LCOV estimates 936/963 (97.1963%);
+fresh hosted validation is still required. No production source, threshold,
+ignore rule, mutation scope or coverage denominator changes. Local model review
+is blocked by an active native-mutation resource lease; direct source review and
+executable contract tests provide the current evidence.
+
 An additional MessagePack audit exposes one invalid functional-equivalence
 claim: a public `Iterable.toList` override can observe `growable` and change
 nested wire values while preserving its returned elements and order. The exact

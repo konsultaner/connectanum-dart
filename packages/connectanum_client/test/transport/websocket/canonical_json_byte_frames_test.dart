@@ -11,6 +11,7 @@ import 'package:connectanum_client/src/transport/websocket/native_websocket_fram
 import 'package:connectanum_client/src/transport/native/external_byte_buffer.dart';
 import 'package:test/test.dart';
 import 'package:crypto/crypto.dart';
+import 'byte_frame_http_client_test_support.dart';
 
 String canonical([int length = 65536]) =>
     r'[50,7,{},["\u0000' + 'A' * length + r'"]]';
@@ -92,6 +93,7 @@ Future<int> abortedTextCloseCode(bool adapted) async {
 }
 
 void main() {
+  registerByteFrameHttpClientContractTests();
   test(
     'native canonical messages reach the SDK as one complete binary event',
     () async {
