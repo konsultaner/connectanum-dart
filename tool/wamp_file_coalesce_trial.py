@@ -55,8 +55,10 @@ try:
 finally:
     source.write_text(original)
 assert sources() == initial
-inputs = {str(p): sha(p) for p in [lib, canonical, scenario, *workers, root / 'native/bench/bench_router.json']}
-assert sha(workers[0]) != sha(workers[1])
+bundles = [{str(p.relative_to(worker.parent.parent)): sha(p) for p in worker.parent.parent.rglob('*') if p.is_file()} for worker in workers]
+assert bundles[0]['lib/libdartaotwamp_client_worker.so'] != bundles[1]['lib/libdartaotwamp_client_worker.so']
+(out / 'bundle-hashes.json').write_text(json.dumps(bundles, indent=2) + '\n')
+inputs = {str(p): sha(p) for p in [lib, canonical, scenario, root / 'native/bench/bench_router.json', *(p for worker in workers for p in worker.parent.parent.rglob('*') if p.is_file())]}
 (out / 'input-hashes.json').write_text(json.dumps(inputs, indent=2) + '\n')
 for iteration in range(4):
     for choice in ([0, 1] if iteration % 2 == 0 else [1, 0]):
