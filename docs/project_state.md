@@ -1,6 +1,6 @@
 # Project State
 
-Last updated: 2026-11-19.
+Last updated: 2026-11-20.
 Current milestone: repair WAMP and mutation diagnostics without relaxing gates.
 Active plan: [WAMP and mutation diagnostic repair](exec-plans/2026-11-19-wamp-mutation-diagnostics.md).
 Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
@@ -100,6 +100,23 @@ cases pass. Its local matched WebSocket file gain is about eight percent and is
 not hosted throughput qualification. No numeric policy, source/operator scope,
 workload or queue limit is relaxed. Final quiet `bin/verify` and all seven
 hosted workflow families remain required before PR #139 is ready.
+
+Latest local progress (20 November): `bin/test-fast` passes before the native
+candidate change; afterward all 429 Core and six canonical-base64 FFI cases pass.
+Segmented CBOR borrows complete encoded values using standard serde, and the
+canonical FFI base64 engine uses runtime SIMD with strict 0.21.7 differential
+controls. Local timing selects these candidates; hosted throughput remains
+unqualified. The b6 WAMP checkpoint passes six of eight scenarios, with the
+remaining file/fragmentation floors unchanged. MCP completed-product smoke oracles
+and four shared metadata-shape captures preserve the full test/candidate inventory
+and deadlines; 146 boundary and 47 recorded-protocol cases pass. Four formerly
+surviving CLI counterexamples are assertion-killed, but complete current-source
+campaigns are still required. A stale PPT test now checks wire bytes and public
+decoded content correctly. The fresh native coverage
+receipt preserves all six source pins and all original 979/979 MQTT statements;
+quiet final `bin/verify` and all seven final-head workflow families remain
+outstanding. See the active plan for
+discarded coverage evidence and exact partial-replay limits. PR #139 remains draft.
 
 ## Release scope
 

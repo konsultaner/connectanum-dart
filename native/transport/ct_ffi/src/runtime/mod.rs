@@ -1,3 +1,4 @@
+mod canonical_base64;
 pub mod constants;
 pub mod ffi;
 mod mapped_bytes;

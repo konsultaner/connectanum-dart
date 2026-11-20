@@ -76,6 +76,101 @@ void main() {
     },
   );
 
+  final readRow = (_fixture['requests'] as List).cast<Map>().singleWhere(
+    (row) =>
+        row['body'] is String &&
+        (row['body'] as String).contains('"id":"streamable-resource-read"'),
+  );
+  final readEnvelope = const LineSplitter()
+      .convert(readRow['responseBody'] as String)
+      .where((line) => line.startsWith('data: {'))
+      .map((line) => jsonDecode(line.substring(6)) as Map)
+      .single;
+  final originalContent = (readEnvelope['result'] as Map)['contents'] as List;
+  for (final (name, refreshed) in [
+    (
+      'appended content',
+      [
+        ...originalContent,
+        {
+          'uri': 'app://example/context/live',
+          'mimeType': 'text/plain',
+          'text': 'Additional context',
+        },
+      ],
+    ),
+    (
+      'added annotations',
+      [
+        {
+          ...originalContent.single as Map,
+          'annotations': {'priority': 0.5},
+        },
+      ],
+    ),
+  ]) {
+    test(
+      'resource reread accepts $name while retaining existing values',
+      () async {
+        final peer = await _RecordedPeer.start(
+          fault: _Fault(
+            'streamable-resource-reread',
+            ['result', 'contents'],
+            refreshed,
+            'valid resource growth',
+          ),
+        );
+        final output = _Output();
+        try {
+          try {
+            await _run(peer, output);
+          } on StateError catch (error) {
+            fail('A valid resource update was rejected: $error');
+          }
+          expect(peer.changed, 1);
+          expect(peer.next, (_fixture['requests'] as List).length);
+          final transcript = <String, dynamic>{
+            for (final line in const LineSplitter().convert(
+              output.text.toString(),
+            ))
+              ...(jsonDecode(line) as Map).cast<String, dynamic>(),
+          };
+          final streamable = transcript['streamable'] as Map;
+          final subscription = streamable['resourceSubscription'] as Map;
+          expect(subscription['refreshedContent'], refreshed);
+        } finally {
+          await peer.close();
+        }
+      },
+    );
+  }
+  test('resource reread rejects structurally unchanged content', () async {
+    await _expectRejected(
+      _Fault(
+        'streamable-resource-reread',
+        ['result', 'contents'],
+        originalContent,
+        'Resource reread did not return updated content',
+      ),
+    );
+  });
+  for (final (field, value) in <(String, Object?)>[
+    ('topic', 'other.topic'),
+    ('acknowledged', false),
+    ('publicationId', null),
+  ]) {
+    test('resource update rejects an invalid publication $field', () async {
+      await _expectRejected(
+        _Fault(
+          'streamable-resource-update-publish',
+          ['result', 'structuredContent', field],
+          value,
+          'Resource update publication was not acknowledged',
+        ),
+      );
+    });
+  }
+
   for (final prefix in [
     'direct-pubsub',
     'streamable-active-direct-pubsub',

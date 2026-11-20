@@ -19,6 +19,39 @@ const _procedure = 'example.task.configured.lookup';
 const _resource = 'app://example/context/live';
 
 void main() {
+  test(
+    'proxy preserves discovery paths and maps only its endpoint prefix',
+    () async {
+      final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      upstream.listen((request) async {
+        request.response.write('${request.uri.path}?${request.uri.query}');
+        await request.response.close();
+      });
+      final proxy = await _ResponseFaultProxy.start(
+        Uri.parse('http://127.0.0.1:${upstream.port}/actual/mcp'),
+        'unused-json-target',
+        null,
+      );
+      final client = HttpClient();
+      try {
+        for (final (path, expected) in [
+          ('/mcp?first=1', '/actual/mcp?first=1'),
+          ('/.well-known/mcp.json?x=1', '/.well-known/mcp.json?x=1'),
+          ('/mcp/discovery?y=2', '/actual/mcp/discovery?y=2'),
+          ('/mcp-other', '/mcp-other?'),
+        ]) {
+          final request = await client.getUrl(proxy.endpoint.resolve(path));
+          final response = await request.close();
+          expect(await utf8.decoder.bind(response).join(), expected);
+        }
+      } finally {
+        client.close(force: true);
+        await proxy.close();
+        await upstream.close(force: true);
+      }
+    },
+  );
+
   group('CLI against the public router example', () {
     late RouterExample router;
     RouterExample? started;
@@ -645,6 +678,75 @@ void main() {
         );
       }
 
+      // Each shape performs the complete native exchange once. All ten named
+      // cases independently inspect their operation in that immutable transcript.
+      // Captures are lazy and sequential: sessions must not share live topics.
+      final shapeTranscripts = <String, Future<Map<String, dynamic>>>{};
+      Future<Map<String, dynamic>> captureShape(String shape) async {
+        final proxy = await _ResponseFaultProxy.start(
+          router.endpoint('/mcp'),
+          'direct-batch-wamp-session-get',
+          null,
+          additionalTargetIds: shape == 'wrapped'
+              ? const {}
+              : const {
+                  'direct-batch-wamp-session-count',
+                  'direct-batch-wamp-session-list',
+                },
+          rewrite: (envelope) {
+            if (shape == 'wrapped') return envelope;
+            final operation = (envelope['id'] as String).split('-').last;
+            final result = envelope['result'] as Map;
+            final content = {...result['structuredContent'] as Map};
+            if (shape == 'without procedure') {
+              content.remove('procedure');
+            } else {
+              content['procedure'] = 'wamp.session.$operation';
+            }
+            return {
+              ...envelope,
+              'result': shape == 'flat'
+                  ? content
+                  : {...result, 'structuredContent': content},
+            };
+          },
+        );
+        final output = _Output();
+        try {
+          try {
+            await IOOverrides.runZoned(
+              () => expectOwnedHttpClientsClosed(
+                () => runRouterHostedClient([
+                  '--endpoint',
+                  proxy.endpoint.toString(),
+                  '--protocol-version',
+                  '2025-06-18',
+                  ..._selectors,
+                ]),
+              ),
+              stdout: () => output,
+              stderr: _Output.new,
+            );
+          } on StateError catch (error) {
+            fail('Valid $shape metadata exchange was rejected: $error');
+          }
+          final transcript = <String, dynamic>{
+            for (final line in const LineSplitter().convert(
+              output.text.toString(),
+            ))
+              ...(jsonDecode(line) as Map).cast<String, dynamic>(),
+          };
+          _expectDirect(transcript);
+          expect(transcript['directBatch'], isA<Map>());
+          expect(transcript['streamable'], isA<Map>());
+          expect(proxy.changedResponses, shape == 'wrapped' ? 1 : 3);
+          expect(proxy.requests.last, ('DELETE', null));
+          return Map.unmodifiable(transcript);
+        } finally {
+          await proxy.close();
+        }
+      }
+
       for (final (operation, shape) in [
         ('get', 'wrapped'),
         for (final operation in ['count', 'list', 'get']) ...[
@@ -656,68 +758,22 @@ void main() {
         routerTest(
           '$shape $operation batch passes the proxy and reaches session cleanup',
           () async {
-            final proxy = await _ResponseFaultProxy.start(
-              router.endpoint('/mcp'),
-              'direct-batch-wamp-session-$operation',
-              null,
-              rewrite: (envelope) {
-                if (shape == 'wrapped') return envelope;
-                final result = envelope['result'] as Map;
-                final content = {
-                  ...result['structuredContent'] as Map,
-                };
-                if (shape == 'without procedure') {
-                  content.remove('procedure');
-                } else {
-                  content['procedure'] = 'wamp.session.$operation';
-                }
-                return {
-                  ...envelope,
-                  'result': shape == 'flat'
-                      ? content
-                      : {...result, 'structuredContent': content},
-                };
-              },
+            final transcript = await shapeTranscripts.putIfAbsent(
+              shape,
+              () => captureShape(shape),
             );
-            final output = _Output();
-            try {
-              await IOOverrides.runZoned(
-                () => runRouterHostedClient([
-                  '--endpoint',
-                  proxy.endpoint.toString(),
-                  '--protocol-version',
-                  '2025-06-18',
-                  ..._selectors,
-                ]),
-                stdout: () => output,
-                stderr: _Output.new,
-              );
-              final transcript = <String, dynamic>{
-                for (final line in const LineSplitter().convert(
-                  output.text.toString(),
-                ))
-                  ...(jsonDecode(line) as Map).cast<String, dynamic>(),
-              };
-              _expectDirect(transcript);
-              expect(transcript['directBatch'], isA<Map>());
-              final metadata =
-                  (transcript['directBatch'] as Map)['wampSessionMetadata']
-                      as Map;
-              final selected =
-                  metadata[operation == 'get' ? 'selectedSession' : operation]
-                      as Map;
-              expect(
-                selected['procedure'],
-                shape == 'without procedure' || shape == 'wrapped'
-                    ? isNull
-                    : 'wamp.session.$operation',
-              );
-              expect(transcript['streamable'], isA<Map>());
-              expect(proxy.changedResponses, 1);
-              expect(proxy.requests.last, ('DELETE', null));
-            } finally {
-              await proxy.close();
-            }
+            final metadata =
+                (transcript['directBatch'] as Map)['wampSessionMetadata']
+                    as Map;
+            final selected =
+                metadata[operation == 'get' ? 'selectedSession' : operation]
+                    as Map;
+            expect(
+              selected['procedure'],
+              shape == 'without procedure' || shape == 'wrapped'
+                  ? isNull
+                  : 'wamp.session.$operation',
+            );
           },
         );
       }
@@ -887,6 +943,7 @@ class _ResponseFaultProxy {
     this.targetTrace,
     this.rewriteHttp,
     this.maximumTraceResponses,
+    this.additionalTargetIds = const {},
   }) {
     server.listen((request) {
       late Future<void> pending;
@@ -898,6 +955,10 @@ class _ResponseFaultProxy {
   final HttpServer server;
   final Uri upstream;
   final String targetId;
+  final Set<String> additionalTargetIds;
+
+  bool _targetsId(Object? id) =>
+      id == targetId || additionalTargetIds.contains(id);
   final String? field;
   final Map<String, Object?> Function(Map<String, Object?>)? rewrite;
   final String? targetTrace;
@@ -907,6 +968,7 @@ class _ResponseFaultProxy {
   final requests = <(String, Object?)>[];
   final cleanedHandles = <String>[];
   final failures = <Object>[];
+  final _deliveredResourceUpdates = <String>{};
   final _pending = <Future<void>>{};
   String? subscriptionHandle;
   int changedResponses = 0;
@@ -923,6 +985,7 @@ class _ResponseFaultProxy {
     String? targetTrace,
     String Function(HttpRequest, HttpClientResponse, String)? rewriteHttp,
     int? maximumTraceResponses,
+    Set<String> additionalTargetIds = const {},
   }) async => _ResponseFaultProxy(
     await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     upstream,
@@ -932,6 +995,7 @@ class _ResponseFaultProxy {
     targetTrace: targetTrace,
     rewriteHttp: rewriteHttp,
     maximumTraceResponses: maximumTraceResponses,
+    additionalTargetIds: additionalTargetIds,
   );
 
   Future<void> close() async {
@@ -953,7 +1017,39 @@ class _ResponseFaultProxy {
         (bytes, chunk) => bytes..addAll(chunk),
       );
       final message = body.isEmpty ? null : jsonDecode(utf8.decode(body));
+      // These proxy cases negotiate the compatibility protocol. A stateless
+      // discovery cannot replace initialization or enter an unrelated SSE wait.
+      expect(
+        message is Map ? message['method'] : null,
+        isNot('server/discover'),
+        reason: 'The compatibility CLI must initialize its negotiated session',
+      );
       final id = message is Map ? message['id'] : null;
+      final session = request.headers.value('MCP-Session-Id') ?? '';
+      final resourcePoll =
+          request.headers.value('x-consumer-trace') ==
+          'router-hosted-client-resource-update-poll';
+      if (message is Map && message['method'] == 'resources/subscribe') {
+        expect(
+          session,
+          isNotEmpty,
+          reason:
+              'The compatibility subscription must use its negotiated session',
+        );
+        _deliveredResourceUpdates.remove(session);
+      }
+      if (resourcePoll) {
+        expect(
+          session,
+          isNotEmpty,
+          reason: 'The compatibility poll must carry its negotiated session',
+        );
+        expect(
+          _deliveredResourceUpdates,
+          isNot(contains(session)),
+          reason: 'The CLI must consume the matching update already delivered',
+        );
+      }
       final requestIndex = requests.length;
       requests.add((request.method, id));
       if (targetTrace != null &&
@@ -970,7 +1066,14 @@ class _ResponseFaultProxy {
       }
       final outgoing = await client.openUrl(
         request.method,
-        upstream.replace(query: request.uri.query),
+        upstream.replace(
+          path: request.uri.path == endpoint.path
+              ? upstream.path
+              : request.uri.path.startsWith('${endpoint.path}/')
+              ? '${upstream.path}${request.uri.path.substring(endpoint.path.length)}'
+              : request.uri.path,
+          query: request.uri.query,
+        ),
       );
       request.headers.forEach((name, values) {
         if (![
@@ -997,7 +1100,7 @@ class _ResponseFaultProxy {
       });
       final targetsBatch =
           message is List &&
-          message.any((item) => item is Map && item['id'] == targetId);
+          message.any((item) => item is Map && _targetsId(item['id']));
       if (targetTrace != null &&
           request.headers.value('x-consumer-trace') == targetTrace) {
         final text = await utf8.decoder.bind(response).join();
@@ -1007,13 +1110,13 @@ class _ResponseFaultProxy {
           expect(changedResponses, lessThanOrEqualTo(maximumTraceResponses!));
         }
         request.response.write(rewriteHttp!(request, response, text));
-      } else if (id == targetId ||
+      } else if (_targetsId(id) ||
           targetsBatch ||
           (id is String && id.endsWith('-pubsub-unsubscribe'))) {
         final text = await utf8.decoder.bind(response).join();
         Map<String, Object?> inspect(Map<String, Object?> envelope) {
           final responseId = envelope['id'];
-          if (responseId == targetId) {
+          if (_targetsId(responseId)) {
             changedResponses++;
             faultRequestIndex = requestIndex;
             if (rewrite != null) return rewrite!(envelope);
@@ -1023,7 +1126,7 @@ class _ResponseFaultProxy {
           }
           final result = envelope['result'] as Map;
           final content = result['structuredContent'] as Map;
-          if (responseId == targetId) {
+          if (_targetsId(responseId)) {
             subscriptionHandle = content['handle'] as String;
             return {
               ...envelope,
@@ -1067,6 +1170,19 @@ class _ResponseFaultProxy {
             ),
           );
         }
+      } else if (resourcePoll) {
+        final text = await utf8.decoder.bind(response).join();
+        for (final event in parseMcpSseEvents(text)) {
+          final data = event.jsonData;
+          final params = data?['params'];
+          if (event.id?.isNotEmpty == true &&
+              data?['method'] == 'notifications/resources/updated' &&
+              params is Map &&
+              params['uri'] == _resource) {
+            _deliveredResourceUpdates.add(session);
+          }
+        }
+        request.response.write(text);
       } else {
         await request.response.addStream(response);
       }
@@ -1228,12 +1344,22 @@ Future<Map<String, dynamic>> _run(
 ) async {
   final output = _Output();
   final errors = _Output();
+  // The compatibility resource flow must consume a delivered update; auth-only
+  // and stateless modern flows keep their original direct endpoint.
+  final proxy =
+      args.contains('--resource-update-topic') && !args.contains('2026-07-28')
+      ? await _ResponseFaultProxy.start(
+          router.endpoint(route),
+          'unused-json-target',
+          null,
+        )
+      : null;
   try {
     await IOOverrides.runZoned(
       () => expectOwnedHttpClientsClosed(
         () => runRouterHostedClient([
           '--endpoint',
-          router.endpoint(route).toString(),
+          (proxy?.endpoint ?? router.endpoint(route)).toString(),
           ...args,
         ]),
       ),
@@ -1241,6 +1367,7 @@ Future<Map<String, dynamic>> _run(
       stderr: () => errors,
     );
   } finally {
+    await proxy?.close();
     final secrets = <String>['mcp-demo-ticket', 'mcp-demo-secret'];
     for (var index = 0; index + 1 < args.length; index++) {
       if ([

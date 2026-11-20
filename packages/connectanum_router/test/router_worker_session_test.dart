@@ -5025,10 +5025,13 @@ void main() {
       expect(event.subscriptionId, equals(subscriptionId));
       expect(event.details.pptScheme, equals('x_custom_scheme'));
       expect(event.details.pptSerializer, equals('msgpack'));
-      final packedForwardPayload =
-          (event.arguments!.single as TransferableTypedData)
-              .materialize()
-              .asUint8List();
+      // The public getter decodes PPT. Inspect the wire view to retain the
+      // packed transport assertion before testing the public decoded payload.
+      final packedForwardPayload = event.wireArguments!.single as Uint8List;
+      expect(packedForwardPayload, orderedEquals(packedBytes));
+      expect(event.arguments, equals(const ['hello']));
+      expect(event.argumentsKeywords, equals(const {'worker': 7}));
+      expect(event.wireArguments!.single, orderedEquals(packedBytes));
       final materializedEvent = event_msg.Event(
         event.subscriptionId,
         event.publicationId,

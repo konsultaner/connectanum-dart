@@ -322,3 +322,101 @@ hosted throughput qualification. Canonical native JSON pub/sub comparisons and
 a separate file-write backpressure experiment remain exploratory. The earlier
 fused JSON encoder prototype was slower and is not shipped. No temporary CPU
 profiling code, pacing timer, allocator setting or GC override is included.
+
+
+### 20 November: completed-product oracles and measured native candidates
+
+The b6 checkpoint's WAMP diagnostic run 44628365501 completes all eight scenarios;
+six pass, including both heavy cases. File-transfer RawSocket JSON lifecycle,
+WebSocket CBOR/MessagePack lifecycle and WebSocket JSON data/lifecycle still miss
+the unchanged 2,000-Mbps floors. TLS JSON fragmented pub/sub lifecycle and TLS
+CBOR contiguous pub/sub data/lifecycle also remain below that floor. Retained
+artifact 14581311683 SHA256:
+`b2fd5b6a00b845dbb69c714555d49846731ea192dc4884640ef69e885dd9bb0f`.
+This is a failed checkpoint, not final qualification.
+
+Hosted MCP shard 26 times out its clean baseline without test failures. Ten
+new positive metadata cases repeated complete native CLI sessions. Preserve all
+ten names and operation assertions, but lazily capture four completed transcripts
+by response shape; each non-wrapped capture rewrites count/list/get together and
+asserts all three responses and final session deletion. Sessions remain sequential,
+with original test concurrency and deadlines. Clean/restored full-MCP baselines
+pass locally with all 2,308 source/operator candidates inventoried. That baseline
+predates the final extra declaration/header controls and must be repeated.
+
+Compatibility proxies preserve discovery/nested paths and assert initialization,
+negotiated subscription/poll session identity and consumption of a delivered
+resource update before forwarding another SSE poll. Completed exit-255 public
+smoke errors have narrow product/frame oracles; nested infrastructure exceptions,
+signals, compiler failures and ambiguous HTTP 500 responses retain setup-error
+classification. An eligible HTTP 500 needs a separate pure, valid catalog/server
+construction to fail with ArgumentError/FormatException. No network callback is
+invoked or operation retried. The runner's strict classifier is untouched.
+All 146 boundary controls pass. Six selected product counterexamples pass
+full-native replay with clean/restored controls and unchanged native artifact
+receipts: empty event-buffer removal, form elicitation rejection, default/explicit
+completion capability validation, generic API pagination and request-state type
+validation. All 2,308 candidates are inventoried per replay; these partial
+replays do not qualify the complete target score.
+
+Recorded real-protocol tests also preserve existing content when a resource adds
+an entry or annotations, reject structurally unchanged rereads and reject invalid
+publication topic/acknowledgement/id fields. All 47 recorded protocol cases pass.
+Four former CLI survivors (`a3c82f7a61103289efa6`, `c7007c2ac721df42cd3f`,
+`ffdfa55db8119f918cb9`, `8315b0addef074d0785e`) now have strict assertion kills
+with clean/restored controls, complete 1,207-candidate inventories and one selected
+counterexample per replay. These are partial replays, not whole-target scores.
+
+The b6 main CI VM coverage job reports a test casting an already decoded public
+PPT Event argument to TransferableTypedData. The regression now inspects owned
+binary wire arguments, retains packed-byte equality before and after public
+access, and checks both decoded positional/keyword values. The focused case
+passes. No production PPT behavior is changed.
+
+`bin/test-fast` completes successfully before the native production change.
+A new segmented CBOR allocation regression fails beforehand with a 131,072-byte
+scratch allocation. Standard serde borrowing from a complete current segment
+removes that allocation; split values retain the standard IO-reader path. Reader
+position, bounds, malformed/all-split and pointer/encoding checks remain in scope.
+All 429 Core tests then pass. No custom CBOR validator or frame flattening is added.
+
+The FFI's canonical base64 engine uses pinned base64 0.23.1 SIMD with runtime CPU
+dispatch and the same padded standard alphabet/strict decoding configuration;
+other architectures retain its scalar standard engine. The official
+[SIMD engine documentation](https://docs.rs/base64/0.23.1/base64/engine/simd/struct.Simd.html)
+was checked. An exact dev-only 0.21.7 reference independently checks every length
+through 1,024, large inputs, vector/tail boundaries, invalid bytes in every lane,
+padding/discarded bits and independent mutable FFI ownership. All six base64-filtered
+FFI tests pass. Earlier four-round canonical local comparisons show RawSocket JSON
+file data median 377.344 to 292.8 ms, WebSocket JSON 830.581 to 751.803 ms;
+borrowed-only TLS CBOR contiguous pub/sub data 1,376.458 to 858.45 ms. These Mac
+observations select candidates; final-source Linux/hosted qualification is pending.
+TLS read-ahead, extra drain barriers and other slower prototypes are rejected.
+
+Local advisory review finds no verified production defect after checking its
+suggestions against the actual split-value tests, outer progress guard and strict
+base64 differential controls. Five of six historically pinned MQTT source files
+remain byte-identical; the FFI import changes the sixth. Fresh actual FFI coverage
+retains all 979 covered MQTT statements. The first collection is invalidated by
+a concurrent MCP test edit and explicitly discarded. A second frozen-input
+Dart FFI collection and the complete instrumented Cargo workspace pass, including
+all 429 Core / 310 FFI unit cases. The changed FFI file's 58 original statements
+are covered exclusively by fresh measurements; source-record extracts for five
+byte-identical files retain the historical Linux evidence. The original proof
+and archives stay immutable. The new current-source inventory and regression
+require exactly the same six files, the exact original statement mapping and
+979/979 coverage, verify byte-for-byte extraction and recompute both measurement
+channel counts. No historical hashes, statements or thresholds are waived.
+
+Before readiness: complete current-source native/MCP/browser diagnostic campaigns,
+run quiet frozen-input `bin/verify`, and
+require every workflow family on the final head to pass. PR #139 remains draft;
+no merge or release is authorized.
+
+All 67 checked-in budget/scenario files are byte-identical to freshly fetched
+`github/master` (`0a3d96e6`), which is contained in this branch. Local current
+coverage-receipt validation passes, with all 29 packaging/tooling tests also
+passing before the final additional scope/channel assertions. The final focused
+receipt audit passes those stricter assertions. Complete hosted qualification
+and quiet `bin/verify` are still pending; publishing this checkpoint is not a
+readiness or all-green claim.

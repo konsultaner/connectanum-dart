@@ -256,19 +256,55 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
         import gzip
         import hashlib
         directory=REPO_ROOT/'docs/benchmarks'
-        proof=json.loads((directory/'mqtt-native-added-line-coverage-ready-yield.json').read_text())
+        proof=json.loads((directory/'mqtt-native-added-line-coverage-diagnostics.json').read_text())
+        historical=json.loads((directory/'mqtt-native-added-line-coverage-ready-yield.json').read_text())
+        self.assertEqual(proof['total'],979)
+        self.assertEqual(set(proof['files']),set(historical['files']))
+        for name,row in proof['files'].items():
+            self.assertEqual(row['total'],historical['files'][name]['total'])
+            self.assertEqual(row['originalAddedLines'],historical['files'][name]['addedLines'])
+            offset=1 if name=='native/transport/ct_ffi/src/runtime/ffi.rs' else 0
+            self.assertEqual(row['executableAddedLines'],
+                             [line+offset for line in historical['files'][name]['executableAddedLines']])
+        self.assertEqual(proof['previousProof']['sha256'],hashlib.sha256(
+            (directory/proof['previousProof']['file']).read_bytes()).hexdigest())
         union={}
-        for report in proof['reports'].values():
+        channels={'cargo':{},'ffi':{}}
+        self.assertEqual(set(proof['reports']),{
+            'unchanged-cargo-unit','unchanged-dart-ffi',
+            'current-cargo-unit','current-dart-ffi'})
+        for label,report in proof['reports'].items():
+            channel=channels['ffi' if label.endswith('dart-ffi') else 'cargo']
             archive=directory/report['file'];data=archive.read_bytes()
             self.assertEqual(hashlib.sha256(data).hexdigest(),report['sha256'])
             raw=gzip.decompress(data)
             self.assertEqual(hashlib.sha256(raw).hexdigest(),report['productionInfoSha256'])
+            if 'sourceFiles' in report:
+                actual={line[3:] for line in raw.decode().splitlines() if line.startswith('SF:')}
+                self.assertEqual(actual,set(report['sourceFiles']))
+                self.assertNotIn('native/transport/ct_ffi/src/runtime/ffi.rs',actual)
+                origin=report['origin']
+                archived=(directory/origin['file']).read_bytes()
+                self.assertEqual(hashlib.sha256(archived).hexdigest(),origin['sha256'])
+                original=gzip.decompress(archived)
+                self.assertEqual(hashlib.sha256(original).hexdigest(),origin['productionInfoSha256'])
+                selected=[]
+                for record in original.decode().split('end_of_record\n'):
+                    if any(line.startswith('SF:') and line[3:] in actual
+                           for line in record.splitlines()):
+                        selected.append(record+'end_of_record\n')
+                self.assertEqual(''.join(selected).encode(),raw)
+                for name in actual:
+                    self.assertEqual(proof['files'][name]['sourceSha256'],
+                                     historical['files'][name]['sourceSha256'])
             current=None
             for line in raw.decode().splitlines():
                 if line.startswith('SF:'):current=line[3:];union.setdefault(current,{})
                 elif line.startswith('DA:'):
                     number,hits=map(int,line[3:].split(',')[:2])
                     union[current][number]=max(union[current].get(number,0),hits)
+                    values=channel.setdefault(current,{})
+                    values[number]=max(values.get(number,0),hits)
         self.assertTrue(proof['files'])
         for name,row in proof['files'].items():
             with self.subTest(source=name):
@@ -280,6 +316,8 @@ class DartPackagePublishDryRunTest(unittest.TestCase):
                 self.assertEqual(row['covered'],row['total'])
                 self.assertEqual(row['uncoveredLines'],[])
                 self.assertTrue(all(union[name].get(line,0)>0 for line in lines))
+                self.assertEqual(row['cargoCovered'],sum(channels['cargo'].get(name,{}).get(line,0)>0 for line in lines))
+                self.assertEqual(row['ffiCovered'],sum(channels['ffi'].get(name,{}).get(line,0)>0 for line in lines))
         self.assertEqual(sum(row['total'] for row in proof['files'].values()),proof['total'])
         self.assertEqual(proof['covered'],proof['total'])
 

@@ -651,11 +651,12 @@ fn cbor_top_level_ranges(data: &RawFrame) -> Result<Vec<Range<usize>>, ParseErro
             reader
                 .read_exact(header)
                 .map_err(|err| ParseError::Deserialize(err.to_string()))?;
-            let mut de = serde_cbor::Deserializer::from_reader(reader);
+            let body_len = reader.remaining;
             cbor_value_ranges(data, header_len, length, || {
-                IgnoredAny::deserialize(&mut de)
-                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
-                Ok(de.byte_offset())
+                reader.read_cbor_value()?;
+                body_len.checked_sub(reader.remaining).ok_or_else(|| {
+                    ParseError::Deserialize("CBOR reader advanced before its body".into())
+                })
             })
         }
     }
@@ -2091,6 +2092,53 @@ struct SegmentedFrameReader {
 }
 
 impl SegmentedFrameReader {
+    fn read_cbor_value(&mut self) -> Result<(), ParseError> {
+        // Native outbound segments often contain a whole encoded argument value.
+        // Let serde borrow that segment instead of copying it into an IO scratch
+        // buffer. A value spanning segments keeps the original reader path.
+        let consumed = {
+            let chunk = self
+                .parts
+                .segments
+                .iter()
+                .find(|part| !part.is_empty())
+                .map(Bytes::as_ref)
+                .unwrap_or(&[]);
+            let mut de = serde_cbor::Deserializer::from_slice(chunk);
+            IgnoredAny::deserialize(&mut de)
+                .ok()
+                .map(|_| de.byte_offset())
+        };
+        if let Some(consumed) = consumed {
+            return self.advance_current_chunk(consumed);
+        }
+        let mut de = serde_cbor::Deserializer::from_reader(self);
+        IgnoredAny::deserialize(&mut de)
+            .map(|_| ())
+            .map_err(|err| ParseError::Deserialize(err.to_string()))
+    }
+
+    fn advance_current_chunk(&mut self, consumed: usize) -> Result<(), ParseError> {
+        let remaining = self
+            .remaining
+            .checked_sub(consumed)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value exceeds remaining frame".into()))?;
+        while self.parts.segments.front().is_some_and(Bytes::is_empty) {
+            self.parts.segments.pop_front();
+        }
+        let chunk = self
+            .parts
+            .segments
+            .front_mut()
+            .ok_or_else(|| ParseError::Deserialize("missing CBOR value segment".into()))?;
+        chunk
+            .get(..consumed)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value exceeds segment bounds".into()))?;
+        chunk.advance(consumed);
+        self.remaining = remaining;
+        Ok(())
+    }
+
     fn new(segments: Vec<Bytes>) -> Self {
         Self {
             remaining: segments.iter().map(Bytes::len).sum(),
@@ -2808,6 +2856,108 @@ mod tests {
                 }
                 other => unexpected_message(other),
             }
+        }
+    }
+
+    #[test]
+    fn cbor_borrowed_and_split_values_preserve_reader_position() {
+        let mut reader = SegmentedFrameReader::new(vec![
+            Bytes::new(),
+            Bytes::from_static(&[0x01, 0x18]),
+            Bytes::new(),
+            Bytes::from_static(&[0x2a, 0x81, 0x02]),
+            Bytes::new(),
+        ]);
+        assert_eq!(reader.remaining, 5);
+        reader.read_cbor_value().assert_success();
+        assert_eq!(reader.remaining, 4);
+        reader.read_cbor_value().assert_success();
+        assert_eq!(reader.remaining, 2);
+        reader.read_cbor_value().assert_success();
+        assert_eq!(reader.remaining, 0);
+        let mut byte = [0];
+        assert_eq!(reader.read(&mut byte).assert_success(), 0);
+        assert_condition!(reader.read_cbor_value().is_err());
+    }
+
+    #[test]
+    fn cbor_segment_advance_rejects_out_of_frame_and_cross_segment_counts() {
+        let mut reader = SegmentedFrameReader::new(vec![
+            Bytes::new(),
+            Bytes::from_static(&[1]),
+            Bytes::from_static(&[2, 3]),
+        ]);
+        assert_condition!(reader.advance_current_chunk(4).is_err());
+        assert_eq!(reader.remaining, 3);
+        assert_condition!(reader.advance_current_chunk(2).is_err());
+        assert_eq!(reader.remaining, 3);
+        let mut remaining = Vec::new();
+        reader.read_to_end(&mut remaining).assert_success();
+        assert_eq!(remaining, [1, 2, 3]);
+        let mut empty = SegmentedFrameReader::new(vec![Bytes::new()]);
+        assert_condition!(empty.advance_current_chunk(0).is_err());
+        assert_eq!(empty.remaining, 0);
+    }
+
+    #[test]
+    fn cbor_segmented_payload_decode_borrows_large_argument_values() {
+        use serde_cbor::Value as CborValue;
+        const SIZE: usize = 64 * 1024;
+        let args = CborValue::Array(vec![CborValue::Bytes(vec![0x5a; SIZE])]);
+        let kwargs = CborValue::Map(BTreeMap::from([(
+            CborValue::Text("text".into()),
+            CborValue::Text("x".repeat(SIZE)),
+        )]));
+        let args_encoded = serde_cbor::to_vec(&args).assert_success();
+        let kwargs_encoded = serde_cbor::to_vec(&kwargs).assert_success();
+        let encoded = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(999),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("topic".into()),
+                args.clone(),
+                kwargs.clone(),
+            ]))
+            .assert_success(),
+        );
+        let args_start = encoded.len() - args_encoded.len() - kwargs_encoded.len();
+        let kwargs_start = encoded.len() - kwargs_encoded.len();
+        let segments = vec![
+            Bytes::new(),
+            encoded.slice(..args_start),
+            Bytes::new(),
+            encoded.slice(args_start..kwargs_start),
+            Bytes::new(),
+            encoded.slice(kwargs_start..),
+            Bytes::new(),
+        ];
+        let (parsed, largest) = super::test_allocations::largest_allocation(|| {
+            parse_message_segments(Serializer::Cbor, segments)
+        });
+        let parsed = parsed.assert_success();
+        assert_condition!(largest < SIZE, "CBOR segment copied: {largest} bytes");
+        match parsed.message {
+            WampMessage::Publish { payload, .. } => {
+                let actual_args = payload.args.assert_success();
+                let actual_kwargs = payload.kwargs.assert_success();
+                assert_eq!(actual_args.as_ref(), args_encoded);
+                assert_eq!(actual_kwargs.as_ref(), kwargs_encoded);
+                assert_eq!(actual_args.as_ptr(), encoded.slice(args_start..).as_ptr());
+                assert_eq!(
+                    actual_kwargs.as_ptr(),
+                    encoded.slice(kwargs_start..).as_ptr()
+                );
+                assert_eq!(
+                    serde_cbor::from_slice::<CborValue>(&actual_args).assert_success(),
+                    args
+                );
+                assert_eq!(
+                    serde_cbor::from_slice::<CborValue>(&actual_kwargs).assert_success(),
+                    kwargs
+                );
+            }
+            other => unexpected_message(other),
         }
     }
 

@@ -119,16 +119,21 @@ remain independent of PR profiler cancellation.
 | MQTT benchmark gate Python, zero exclusions | 268 / 268 |
 | Gateway tooling Python, zero exclusions | 1,084 / 1,084 |
 
-The [native inventory](mqtt-native-added-line-coverage-ready-yield.json) records
-exact line numbers and source hashes for six current production files. The
-[Cargo LCOV](mqtt-native-added-line-coverage-ready-yield-cargo-unit.info.gz) and
-[Dart FFI LCOV](mqtt-native-added-line-coverage-ready-yield-dart-ffi.info.gz)
-allow independent recomputation of their union. Scope uses the Rust production
-filter and patience diff against `73d840c9`; tests, comments and non-executable
-lines are excluded. Collection platform is GNU Linux arm64 with `ffi-test`.
-The proof matches current Rust source SHA-256 `fe3e816e…ba58c2f`; a tooling
-regression verifies all six source hashes and the complete compressed union.
-These are scoped executable-line counts, rather than whole-repository coverage.
+The [current native inventory](mqtt-native-added-line-coverage-diagnostics.json)
+retains the same 979 executable statements and six production-source pins. Its
+[original Linux arm64 proof](mqtt-native-added-line-coverage-ready-yield.json)
+remains unchanged. Historical LCOV records contribute only for five byte-identical
+files; the changed FFI file's 58 statements are covered exclusively by fresh
+[current Cargo](mqtt-native-added-line-coverage-diagnostics-current-cargo-unit.info.gz)
+and [current Dart FFI](mqtt-native-added-line-coverage-diagnostics-current-dart-ffi.info.gz)
+measurements on macOS arm64 with `ffi-test`. The inventory includes both retained
+source-record archives, their original archive hashes and all fresh report hashes.
+The additional FFI import shifts those statement positions by one line without
+changing their text. The regression checks the exact historical source-record
+extraction, all six current source hashes and the complete 979/979 union. Scope
+still uses the Rust production filter and patience diff against `73d840c9`;
+tests, comments and non-executable lines are excluded. These are scoped
+executable-line counts rather than whole-repository coverage.
 
 Native regressions cover runtime transfer, bounded queues, shutdown and listener
 failure, and the pinned WebSocket frame future across readiness polls, yield and
