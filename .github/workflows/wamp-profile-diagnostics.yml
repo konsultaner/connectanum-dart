@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           source bin/common.sh
           build_native_ffi_test_release
-          cargo build --release --locked --manifest-path native/bench/Cargo.toml --bin http_stream
+          cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
           profile_root="$PWD/out/wamp-profile-diagnostics"
           mkdir -p "$profile_root/cpu"
           export CONNECTANUM_PROFILE_OUT="$profile_root/cpu"
