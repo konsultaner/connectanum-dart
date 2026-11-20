@@ -719,6 +719,8 @@ Future<({int code, String out, String err})> _run(List<String> args) async {
       out: output.text.toString(),
       err: errors.text.toString(),
     );
+  } on RangeError catch (error) {
+    fail('CLI option validation indexed outside its arguments: $error');
   } finally {
     exitCode = previousCode;
   }

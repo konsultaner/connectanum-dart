@@ -2904,6 +2904,10 @@ mod tests {
             let parsed = parsed.assert_success();
             assert_condition!(allocated <= wire.len() + 16 * 1024,
                 "fragmented CBOR validation duplicated payload storage: {allocated} bytes for {} wire bytes", wire.len());
+            assert_condition!(
+                matches!(&parsed.raw, RawFrame::Segmented { .. }),
+                "original fragmented frame was not retained"
+            );
             let RawFrame::Segmented {
                 segments: retained, ..
             } = &parsed.raw
@@ -2915,8 +2919,9 @@ mod tests {
                 assert_eq!(before.as_ptr(), after.as_ptr());
                 assert_eq!(before.len(), after.len());
             }
-            let WampMessage::Publish { payload, .. } = parsed.message else {
-                panic!("expected Publish");
+            let payload = match parsed.message {
+                WampMessage::Publish { payload, .. } => payload,
+                other => unexpected_message(other),
             };
             assert_eq!(
                 payload.args.assert_success().as_ref(),
@@ -2975,6 +2980,10 @@ mod tests {
                 "CBOR copied its borrowed prefix: {allocated} bytes for {} kwargs bytes",
                 expected_kwargs.len()
             );
+            assert_condition!(
+                matches!(&parsed.raw, RawFrame::Segmented { .. }),
+                "original segmented frame was not retained"
+            );
             let RawFrame::Segmented {
                 segments: retained, ..
             } = &parsed.raw
@@ -2986,8 +2995,9 @@ mod tests {
                 assert_eq!(before.as_ptr(), after.as_ptr());
                 assert_eq!(before.len(), after.len());
             }
-            let WampMessage::Publish { payload, .. } = parsed.message else {
-                panic!("expected Publish");
+            let payload = match parsed.message {
+                WampMessage::Publish { payload, .. } => payload,
+                other => unexpected_message(other),
             };
             let actual_args = payload.args.assert_success();
             assert_eq!(actual_args.as_ref(), expected_args);

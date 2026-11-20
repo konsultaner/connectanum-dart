@@ -138,6 +138,55 @@ void main() {
     });
     tearDownAll(() => started?.close());
 
+    routerTest(
+      'compatibility template expansion keeps its live session',
+      () async {
+        final transcript = await _runSuccessfully(router, '/mcp', [
+          '--protocol-version',
+          '2025-06-18',
+          '--resource-template',
+          'app://example/tasks/{taskId}',
+          '--resource-template-variables',
+          '{"taskId":"T-cli-template"}',
+        ]);
+        final direct = transcript['directResourceTemplateExpansion'] as Map;
+        final session = transcript['streamable'] as Map;
+        final streamed = session['resourceTemplateExpansion'] as Map;
+        for (final expansion in [direct, streamed]) {
+          expect(expansion['uriTemplate'], 'app://example/tasks/{taskId}');
+          expect(expansion['variableNames'], ['taskId']);
+          expect(expansion['uri'], 'app://example/tasks/T-cli-template');
+          expect(expansion['pagesRead'], greaterThanOrEqualTo(1));
+          expect(expansion['content'], isA<List>());
+          final contents = expansion['content'] as List;
+          expect(contents, hasLength(1));
+          expect(
+            (contents.single as Map)['uri'],
+            'app://example/tasks/T-cli-template',
+          );
+        }
+        expect(streamed['sessionUnchanged'], isTrue);
+      },
+    );
+    routerTest(
+      'compatibility session omits every unrequested WAMP capability',
+      () async {
+        final transcript = await _runSuccessfully(router, '/mcp', [
+          '--protocol-version',
+          '2025-06-18',
+        ]);
+        expect(transcript['directBatch'], {
+          'responseIds': ['direct-batch-standard-tools', 'direct-batch-tools'],
+        });
+        final session = transcript['streamable'] as Map;
+        expect(session, isNot(contains('wampMetadata')));
+        expect(session, isNot(contains('pubsub')));
+        expect(session['batch'], {
+          'responseIds': ['streamable-batch-tools'],
+        });
+      },
+    );
+
     for (final scenario in [
       (version: '2025-03-26', route: '/mcp', ticket: false),
       (version: '2025-06-18', route: '/mcp', ticket: false),
@@ -1404,6 +1453,10 @@ Future<Map<String, dynamic>> _runSuccessfully(
   late Map<String, dynamic> result;
   try {
     result = await _run(router, route, args);
+  } on McpStreamableProtocolException catch (error) {
+    fail('The valid CLI protocol was rejected: $error');
+  } on FormatException catch (error) {
+    fail('The valid CLI response was rejected: $error');
   } on StateError catch (error) {
     fail('The valid CLI exchange was rejected: $error');
   }

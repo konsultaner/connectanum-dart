@@ -48,6 +48,70 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Complete-inventory feedback on 2026-11-20
+
+The old `0095bf40` artifacts are downloaded for all 32 MCP and 16 native CLI
+shards, with every archive checked against its GitHub digest. MCP records
+1,614 kills / 589 compile errors / 102 survivors / three errors; native CLI
+records 800 kills / 327 compile errors / 80 survivors. Six CLI kills have only
+test-error evidence and earn no assertion credit. The original 95% policy
+remains unchanged. Local copies are retained under
+`/tmp/connectanum-diag-0095-mcp-all-artifacts-20261120`.
+
+Shared CLI validators now live in `src/cli/router_hosted_client_validation.dart`.
+An analyzer-token audit verifies ten moved functions differ only in their
+names. Thirteen duplicated state checks call the same invariant, preserving
+their original diagnostics. The original production files remain in every
+source scope and the new module is added to all affected mutation/coverage
+lists. Complete current CLI generation is 1,162, including every operator;
+the reduction from 1,207 comes from those repeated checks. Its full aggregate
+score is not yet claimed. The new module's complete 73-mutant campaign passes:
+50 assertion kills, 23 compile errors, no other outcomes, clean/restored tests.
+Evidence: `/tmp/connectanum-diag-cli-validation-module-complete-mutations-20261120`.
+
+The positive option oracle now asserts that argv boundary violations are CLI
+failures rather than uncaught RangeErrors. Successful real HTTP exchanges
+assert against unexpected MCP protocol/format rejections; transport, process,
+native and deadline errors retain their original behavior. Three previously
+error-only stateless-factory replays now have strict assertion evidence. The
+three argv replays also pass with strict assertion evidence against the full
+1,162 inventory. Each uses clean/restored baselines and an unchanged native
+library. The earlier missing-value replay is retained as a rejected error-only
+result: `completes` propagates its Future error, so the final oracle explicitly
+asserts the public argv-boundary contract instead.
+The standalone declaration/evidence tests are also added to both complete
+MCP/native-CLI inventories. A real compatibility template expansion and an
+unconfigured compatibility session add missing public-path coverage. All
+1,253 focused MCP/CLI/evidence cases pass after correcting the new template
+test to use the public resource-content List shape.
+
+The complete local native WAMP campaign at `5ec2288e` inventories all 350
+mutants: 259 assertion kills, 90 compile errors and one unclean result, with
+zero survivors/timeouts. Deleting Publish dispatch reaches the two allocation
+regressions' generic variant panics. Their exact expected variants now use
+assertion oracles, with storage/pointer/allocation assertions retained. The
+strict selected replay passes and all 433 Core tests pass. Preserve the red
+full receipt at `/tmp/connectanum-diag-cbor-bounded-native-complete-20261120`;
+the corrected replay is `/tmp/connectanum-diag-cbor-publish-variant-native-strict-replay-20261120`.
+A complete final hosted campaign is still required.
+
+Linux studies use a separate unqualified investigation branch, full executable
+bundle fingerprints (including the AOT shared object), unchanged canonical
+4x64-MiB workloads and alternating comparisons on one runner. Run 44675290073
+confirms the borrowed-encoding/private-envelope path reduces JSON coalescing
+from 357,918,020 to 3,908 copied bytes, but gives only about 9% throughput gain.
+Run 44675950598 combines that path with private binary coalescing: CBOR/Msgpack
+lifecycle medians are 1,060/1,028 ms, compared with 1,181.5/1,122 ms controls;
+WebSocket JSON remains 1,441 ms. Run 44676815245 compares both controls with a
+public Latin-1 String decoder; its extra WebSocket gain is only about 1%, so
+that decoder is not adopted. All original final workloads and budgets remain
+unchanged. The remaining JSON receive cost is being investigated in isolation.
+
+`bin/test-fast` completes successfully during this development interval. Its
+inputs were not frozen while the CLI changes were being developed, so it is
+not the final qualification receipt. The final quiet, frozen `bin/verify` and
+all relevant hosted workflows still remain outstanding.
+
 A fresh isolated worktree starts at fetched `github/master`; the user's original
 worktree and unrelated mutation-runner history are unchanged. Initial bootstrap
 and `bin/test-fast` complete successfully (43 passing suite markers, final

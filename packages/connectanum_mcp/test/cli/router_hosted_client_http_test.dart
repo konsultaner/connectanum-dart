@@ -1725,6 +1725,10 @@ Future<({List<Map<String, Object?>> lines, String err})> _runSuccessfully(
   late ({List<Map<String, Object?>> lines, String err}) result;
   try {
     result = await _run(peer, options);
+  } on McpStreamableProtocolException catch (error) {
+    fail('The valid CLI protocol was rejected: $error');
+  } on FormatException catch (error) {
+    fail('The valid CLI response was rejected: $error');
   } on StateError catch (error) {
     fail('The valid HTTP fixture exchange was rejected: $error');
   }

@@ -14,6 +14,28 @@ the broader diagnostic chain is not qualified. No threshold or inventory is
 relaxed. The previous Dart upgrade qualification below remains historical
 source evidence rather than a claim that these additional workflows pass.
 
+Current local repair evidence: all 1,253 MCP/CLI/evidence tests pass. Ten CLI
+validators move without changing their production tokens; thirteen repeated
+session checks use the same tested invariants and retain their diagnostics.
+The internal module remains in all original CLI mutation and coverage scopes.
+Its complete 73-mutant run records 50 assertion kills and 23 compile errors,
+with clean and restored baselines. The full CLI inventory is now 1,162 after
+deduplicating those checks; no source, operator, test or threshold is excluded.
+The full MCP/CLI aggregate scores still require fresh hosted qualification.
+
+The complete 350-mutant native WAMP run has zero survivors/timeouts but one
+non-assertion result: deleting Publish dispatch reaches generic panics in two
+allocation regressions. Those tests now assert the actual message variant;
+the strict selected replay and all 433 Core tests pass. The complete final
+native campaign and all final workflows remain pending.
+
+Matched Linux file studies qualify private coalescing as a useful production
+candidate: CBOR/MessagePack lifecycle medians clear the original 2,000-Mbps
+floors. Borrowed JSON encoding also removes the measured full-frame coalesce
+copy, but WebSocket JSON still misses its floor. A public Latin-1 String API
+variant gives only about 1% further WebSocket improvement and is not adopted.
+These studies remain separate from the unmodified final diagnostic workloads.
+
 [PR #138](https://github.com/konsultaner/connectanum-dart/pull/138) pins standalone
 Dart 3.14.0 across `.tool-versions`, CI/cache keys and all eight publishing jobs.
 Package SDK lower bounds remain 3.10.0.

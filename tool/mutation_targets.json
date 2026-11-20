@@ -1112,6 +1112,7 @@
   "mcp": {
     "sources": [
       "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart",
       "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
       "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
       "packages/connectanum_mcp/lib/src/protocol/constants.dart",
@@ -1128,6 +1129,7 @@
     ],
     "tests": [
       "packages/connectanum_router/test/router_hosted_cli_integration_test.dart",
+      "packages/connectanum_router/test/router_example_smoke_evidence_test.dart",
       "packages/connectanum_mcp/test"
     ],
     "testConcurrency": 2,
@@ -1166,7 +1168,8 @@
   },
   "mcp-cli": {
     "sources": [
-      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
     ],
     "tests": [
       "packages/connectanum_mcp/test/cli"
@@ -1196,10 +1199,12 @@
   },
   "mcp-cli-native": {
     "sources": [
-      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
     ],
     "tests": [
       "packages/connectanum_router/test/router_hosted_cli_integration_test.dart",
+      "packages/connectanum_router/test/router_example_smoke_evidence_test.dart",
       "packages/connectanum_mcp/test/cli"
     ],
     "supportFiles": [

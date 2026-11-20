@@ -109,6 +109,7 @@
     "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart",
     "packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart",
     "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart",
     "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
     "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
     "packages/connectanum_mcp/lib/src/protocol/constants.dart",
@@ -218,7 +219,8 @@
     "connectanum_mcp_cli": {
       "floor": 93.4,
       "sources": [
-        "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart"
+        "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+      "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
       ]
     }
   },
