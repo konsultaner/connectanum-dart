@@ -44,6 +44,7 @@ void main() {
         'method': 'tools/list',
       });
       expect(response, isNot(contains('error')));
+      expect(response?['result'], isA<Map>());
       final result = response!['result'] as Map;
       expect(
         (result['tools'] as List).map((tool) => (tool as Map)['name']),
@@ -370,12 +371,13 @@ Future<McpServer> _server(List<McpTool> tools) async {
     serverInfo: const McpServerInfo(name: 'session-bridge-test', version: '1'),
     tools: tools,
   );
-  await server.handleMessage({
+  final initialized = await server.handleMessage({
     'jsonrpc': '2.0',
     'id': 1,
     'method': 'initialize',
     'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
+  expect(initialized?['result'], isA<Map>());
   await server.handleMessage({
     'jsonrpc': '2.0',
     'method': 'notifications/initialized',
@@ -395,6 +397,7 @@ Future<Map<String, Object?>> _tool(
     'params': {'name': name, 'arguments': arguments},
   });
   expect(response, isNot(contains('error')));
+  expect(response?['result'], isA<Map>());
   return response!['result'] as Map<String, Object?>;
 }
 

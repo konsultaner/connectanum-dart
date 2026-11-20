@@ -482,7 +482,9 @@ fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
                 if length != 0 {
                     parts.push(part.slice(..length));
                 }
-                remaining -= length;
+                remaining = remaining.checked_sub(length).ok_or_else(|| {
+                    ParseError::Deserialize("CBOR cached prefix exceeds its offset".into())
+                })?;
                 if remaining == 0 {
                     break;
                 }
@@ -2148,15 +2150,19 @@ impl SegmentedFrameReader {
             return self.advance_current_chunk(consumed);
         }
         let mut preview = [0u8; 64];
-        let mut filled = 0;
-        for part in &self.parts.segments {
-            let count = part.len().min(preview.len() - filled);
-            preview[filled..filled + count].copy_from_slice(&part[..count]);
-            filled += count;
-            if filled == preview.len() {
-                break;
+        let preview_len = preview.len() as u64;
+        let filled = {
+            let mut writer = Cursor::new(preview.as_mut_slice());
+            for part in &self.parts.segments {
+                std::io::Write::write(&mut writer, part)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                if writer.position() == preview_len {
+                    break;
+                }
             }
-        }
+            usize::try_from(writer.position())
+                .map_err(|_| ParseError::Deserialize("CBOR preview length overflow".into()))?
+        };
         let mut de = serde_cbor::Deserializer::from_slice(&preview[..filled]);
         if IgnoredAny::deserialize(&mut de).is_ok() {
             let consumed = de.byte_offset();
@@ -2920,6 +2926,73 @@ mod tests {
                 payload.kwargs.assert_success().as_ref(),
                 expected_kwargs.as_slice()
             );
+        }
+    }
+
+    #[test]
+    fn fragmented_cbor_kwargs_keep_aligned_arguments_borrowed() {
+        use serde_cbor::Value as CborValue;
+        const SIZE: usize = 64 * 1024;
+        let args = CborValue::Array(vec![CborValue::Bytes(vec![0x5a; SIZE])]);
+        let kwargs = CborValue::Map(BTreeMap::from([(
+            CborValue::Text("text".into()),
+            CborValue::Text("k".repeat(SIZE)),
+        )]));
+        let expected_args = serde_cbor::to_vec(&args).assert_success();
+        let expected_kwargs = serde_cbor::to_vec(&kwargs).assert_success();
+        let wire = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(999),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("topic".into()),
+                args,
+                kwargs,
+            ]))
+            .assert_success(),
+        );
+        let kwargs_start = wire.len() - expected_kwargs.len();
+        let args_start = kwargs_start - expected_args.len();
+        let args_segment = wire.slice(args_start..kwargs_start);
+        let prefix = wire.slice(..args_start);
+        for prefix_chunk_size in [prefix.len(), 1] {
+            let mut segments: Vec<Bytes> = prefix
+                .chunks(prefix_chunk_size)
+                .map(Bytes::copy_from_slice)
+                .collect();
+            segments.push(args_segment.clone());
+            segments.extend(
+                wire[kwargs_start..]
+                    .chunks(4096)
+                    .map(Bytes::copy_from_slice),
+            );
+            let (parsed, allocated) = super::test_allocations::allocated_bytes(|| {
+                parse_message_segments(Serializer::Cbor, segments.clone())
+            });
+            let parsed = parsed.assert_success();
+            assert_condition!(
+                allocated <= expected_kwargs.len() + 16 * 1024,
+                "CBOR copied its borrowed prefix: {allocated} bytes for {} kwargs bytes",
+                expected_kwargs.len()
+            );
+            let RawFrame::Segmented {
+                segments: retained, ..
+            } = &parsed.raw
+            else {
+                panic!("original segmented frame was not retained");
+            };
+            assert_eq!(retained.len(), segments.len());
+            for (before, after) in segments.iter().zip(retained) {
+                assert_eq!(before.as_ptr(), after.as_ptr());
+                assert_eq!(before.len(), after.len());
+            }
+            let WampMessage::Publish { payload, .. } = parsed.message else {
+                panic!("expected Publish");
+            };
+            let actual_args = payload.args.assert_success();
+            assert_eq!(actual_args.as_ref(), expected_args);
+            assert_eq!(actual_args.as_ptr(), args_segment.as_ptr());
+            assert_eq!(payload.kwargs.assert_success().as_ref(), expected_kwargs);
         }
     }
 

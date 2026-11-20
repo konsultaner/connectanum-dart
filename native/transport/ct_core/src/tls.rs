@@ -33,7 +33,7 @@ fn default_provider() -> rustls::crypto::CryptoProvider {
         })
         .collect();
     // Preserve the process's first explicit provider; otherwise keep ring's
-    // exact algorithm selection with accelerated record implementations.
+    // exact algorithm selection with accelerated cipher-suite implementations.
     let _ = provider.clone().install_default();
     provider
 }

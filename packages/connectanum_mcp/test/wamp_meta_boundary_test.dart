@@ -245,6 +245,7 @@ Future<McpServer> _server(
     'method': 'initialize',
     'params': {'protocolVersion': mcpLatestSessionProtocolVersion},
   });
+  expect(initialized, isA<Map>());
   expect(initialized, containsPair('result', isA<Map>()));
   expect(
     await server.handleMessage({

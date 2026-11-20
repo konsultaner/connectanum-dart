@@ -162,6 +162,7 @@ void main() {
           'params': {'cursor': cursor},
         });
 
+        expect(response?['error'], isA<Map>());
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.invalidParams);
         expect(error['message'], contains('cursor must be a non-empty string'));
@@ -254,6 +255,7 @@ void main() {
         'params': {'name': 'task.summary'},
       });
 
+      expect(response?['error'], isA<Map>());
       final error = response?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.invalidParams);
       expect(error['message'], contains('task_id'));
@@ -273,6 +275,7 @@ void main() {
         },
       });
 
+      expect(response?['error'], isA<Map>());
       final error = response?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.invalidParams);
     });
@@ -288,6 +291,7 @@ void main() {
         'params': {'name': 'missing'},
       });
 
+      expect(response?['error'], isA<Map>());
       final error = response?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.invalidParams);
     });
@@ -304,6 +308,7 @@ void main() {
           'params': {'name': name},
         });
 
+        expect(response?['error'], isA<Map>());
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.invalidParams);
         expect(error['message'], contains('prompts/get.params.name'));
@@ -333,6 +338,7 @@ void main() {
 }
 
 Map<String, Object?> _result(dynamic response) {
+  expect(response, isA<Map>());
   expect(response, containsPair('result', isA<Map<String, Object?>>()));
   expect(response, isNot(contains('error')));
   return response['result'] as Map<String, Object?>;

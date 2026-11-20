@@ -2,6 +2,10 @@
 library;
 
 import 'dart:convert';
+import 'dart:ffi' as ffi;
+
+import 'package:ffi/ffi.dart';
+import 'package:connectanum_client/src/transport/native/ffi_bindings.dart';
 import 'dart:typed_data';
 
 import 'package:connectanum_client/src/transport/native/canonical_base64_io.dart';
@@ -14,6 +18,59 @@ import 'package:test/test.dart';
 import '../../test_support/native_runtime_support.dart';
 
 void main() {
+  test('public VM String API decodes synchronously when available', () {
+    final runtime = NativeClientRuntime.instance();
+    final bindings = CtFfiBindings(
+      ffi.DynamicLibrary.open(runtime.libraryPath),
+    );
+    final decode = bindings.ctBase64DecodeVmString;
+    final vm = ffi.DynamicLibrary.process();
+    ffi.Pointer<ffi.NativeFunction<DartApiStringToUtf8Native>>? convert;
+    ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>? isError;
+    try {
+      convert = vm.lookup<ffi.NativeFunction<DartApiStringToUtf8Native>>(
+        'Dart_StringToUTF8',
+      );
+      isError = vm.lookup<ffi.NativeFunction<DartApiIsErrorNative>>(
+        'Dart_IsError',
+      );
+    } on ArgumentError {
+      // Some embedders expose no public String API; the scalar path is required.
+    }
+    if (decode == null || convert == null || isError == null) {
+      final decoded = runtime.decodeCanonicalBase64String('AQID', 0, 4)!;
+      expect(decoded, [1, 2, 3]);
+      expect(NativeClientRuntime.releaseOwnedExternalBytes(decoded), isTrue);
+      return;
+    }
+    for (final (input, start, end, expected) in [
+      ('prefix:AQID:suffix', 7, 11, NativeTransportErrorCode.success),
+      ('\u0000:AQID', 2, 6, NativeTransportErrorCode.success),
+      ('é:AQID', 2, 6, NativeTransportErrorCode.unsupported),
+    ]) {
+      final output = calloc<CtExternalByteBuffer>();
+      try {
+        expect(
+          decode(input, start, end, input.length, convert, isError, output),
+          expected,
+        );
+        if (expected == NativeTransportErrorCode.success) {
+          expect(output.ref.owner, isNot(ffi.nullptr));
+          expect(output.ref.ptr.asTypedList(output.ref.len), [1, 2, 3]);
+        } else {
+          expect(output.ref.owner, ffi.nullptr);
+          expect(output.ref.ptr, ffi.nullptr);
+          expect(output.ref.len, 0);
+        }
+      } finally {
+        if (output.ref.owner != ffi.nullptr) {
+          bindings.ctExternalByteBufferFree(output.ref.owner);
+        }
+        calloc.free(output);
+      }
+    }
+  });
+
   test(
     'native canonical JSON codecs preserve wire bytes and owned output',
     () {
