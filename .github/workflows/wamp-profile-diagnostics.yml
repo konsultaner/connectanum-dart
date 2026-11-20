@@ -63,25 +63,25 @@ jobs:
       - name: Bootstrap workspace
         run: bin/bootstrap
 
-      - name: Compare the original file workloads on the same runner
+      - name: Profile canonical native hot paths (unqualified)
         run: |
           set -euo pipefail
-          python3 - <<'PY_CHECK'
-          import json, subprocess
-          for revision in ['5ec2288e416b6fdd98842e841addb9d0bb35c269', '0e9fbec3']:
-              for path in json.load(open('tool/borrowed_base64_trial_files.json')):
-                  subprocess.run(['git', 'cat-file', '-e', revision + ':' + path], check=True)
-          PY_CHECK
+          sudo apt-get update -qq
+          sudo apt-get install -y linux-tools-common linux-tools-generic
+          perf_path=$(rg --files /usr/lib/linux-tools | rg '/perf$' | sort | tail -1)
+          test -n "$perf_path"
+          # Sampling access only; compiler, allocator, GC and workloads stay default.
+          sudo sysctl kernel.perf_event_paranoid=2
+          export CONNECTANUM_PERF_EXECUTABLE="$perf_path"
           source bin/common.sh
           build_native_ffi_test_release
           cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
           mkdir -p out/wamp-profile-diagnostics
           lscpu > out/wamp-profile-diagnostics/hardware.txt
+          uname -a > out/wamp-profile-diagnostics/kernel.txt
           dpkg-query -W libc6 > out/wamp-profile-diagnostics/libc-version.txt
           sha256sum /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-sha256.txt
-          cp /usr/lib/x86_64-linux-gnu/libc.so.6 out/wamp-profile-diagnostics/libc.so.6
-          objdump -d --start-address=0x1a32c0 --stop-address=0x1a3420 /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-hot-code.txt
-          python3 -u tool/wamp_file_borrowed_base64_trial.py | tee out/wamp-profile-diagnostics/comparison.log
+          python3 -u tool/wamp_native_perf_investigation.py | tee out/wamp-profile-diagnostics/profile-run.log
 
       - name: Summarize WAMP profile diagnostics
         if: always()

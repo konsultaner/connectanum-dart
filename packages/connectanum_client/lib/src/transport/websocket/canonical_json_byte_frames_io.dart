@@ -41,7 +41,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
           staged.clear();
           stagedSize = 0;
         }
-        yield Uint8List.fromList(header);
+        yield _copyHeader(header);
         header = [];
         yield* reader.rest();
         return;
@@ -56,7 +56,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
           staged.clear();
           stagedSize = 0;
         }
-        yield Uint8List.fromList(header);
+        yield _copyHeader(header);
         header = [];
         yield* reader.rest();
         return;
@@ -93,7 +93,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
           staged.clear();
           stagedSize = 0;
         }
-        yield Uint8List.fromList(header);
+        yield _copyHeader(header);
         header = [];
         yield* reader.rest();
         return;
@@ -115,7 +115,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
           copied += part.length;
         }
         if (copied == length && _ascii(prefix, 0, copied)) {
-          staged.add((header: Uint8List.fromList(header), payload: prefix));
+          staged.add((header: _copyHeader(header), payload: prefix));
           stagedSize += header.length + copied;
           header = [];
           prefix = null;
@@ -160,7 +160,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
                 ? _payloadMessagePrefix(prefix)
                 : _canonicalPrefix(prefix));
         if (canonical && !fin && length <= 4096) {
-          staged.add((header: Uint8List.fromList(header), payload: prefix));
+          staged.add((header: _copyHeader(header), payload: prefix));
           stagedSize = header.length + copied;
           header = [];
           prefix = null;
@@ -179,7 +179,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
         check?.add(Uint8List(0), true);
         onMessage?.call(text);
       }
-      yield Uint8List.fromList(header);
+      yield _copyHeader(header);
       header = [];
       if (copied != 0) {
         final part = Uint8List.sublistView(prefix!, 0, copied);
@@ -210,7 +210,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
     if (staged.isNotEmpty) {
       yield* _stagedBytes(staged);
     }
-    if (header.isNotEmpty) yield Uint8List.fromList(header);
+    if (header.isNotEmpty) yield _copyHeader(header);
     if (prefix != null && copied != 0) {
       yield Uint8List.sublistView(prefix, 0, copied);
     }
@@ -221,7 +221,7 @@ Stream<Uint8List> canonicalJsonByteFrames(
       if (staged.isNotEmpty) {
         yield* _stagedBytes(staged);
       }
-      if (header.isNotEmpty) yield Uint8List.fromList(header);
+      if (header.isNotEmpty) yield _copyHeader(header);
       if (prefix != null && copied != 0) {
         yield Uint8List.sublistView(prefix, 0, copied);
       }
@@ -230,6 +230,11 @@ Stream<Uint8List> canonicalJsonByteFrames(
   } finally {
     await reader.cancel();
   }
+}
+
+Uint8List _copyHeader(List<int> header) {
+  DartTransportCopyMetrics.recordWebSocketFragmentCoalesceCopy(header.length);
+  return Uint8List.fromList(header);
 }
 
 Stream<Uint8List> _stagedBytes(
@@ -290,14 +295,28 @@ bool _ascii(Uint8List bytes, int start, int end) {
 
 class _TextCheck {
   ByteConversionSink? sink;
+  FormatException? failure;
+  StackTrace? failureStack;
   void add(Uint8List bytes, bool last) {
-    if (sink == null && !_ascii(bytes, 0, bytes.length)) {
-      sink = utf8.decoder.startChunkedConversion(
-        StringConversionSink.fromStringSink(_DiscardStrings()),
-      );
+    if (failure == null) {
+      try {
+        if (sink == null && !_ascii(bytes, 0, bytes.length)) {
+          sink = utf8.decoder.startChunkedConversion(
+            StringConversionSink.fromStringSink(_DiscardStrings()),
+          );
+        }
+        sink?.add(bytes);
+        if (last) sink?.close();
+      } on FormatException catch (error, stack) {
+        failure = error;
+        failureStack = stack;
+      }
     }
-    sink?.add(bytes);
-    if (last) sink?.close();
+    // The SDK validates text only at message completion. A Close, invalid
+    // header or EOF before FIN must retain its own SDK rejection/close path.
+    if (last && failure != null) {
+      Error.throwWithStackTrace(failure!, failureStack!);
+    }
   }
 }
 

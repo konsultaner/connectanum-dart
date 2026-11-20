@@ -17,8 +17,9 @@ void installNativeCanonicalBase64Codecs(
   final eligible =
       serializer.runtimeType == json_serializer.Serializer &&
       !serializer.hasCanonicalBase64Codecs;
-  if (reserveWebSocketEnvelope && eligible)
+  if (reserveWebSocketEnvelope && eligible) {
     _byteFrameSerializers[serializer] = true;
+  }
   serializer.installCanonicalBase64ByteEncoder(
     _encodeCanonicalBase64WithNative,
     envelopeEncoder: reserveWebSocketEnvelope
@@ -64,8 +65,9 @@ class _TransportFrameSlot {
   if (slot == null || slot.used) return null;
   final prefix = fragments[0], suffix = fragments[2];
   if (prefix.length != slot.start ||
-      suffix.length != slot.bytes.length - slot.end)
+      suffix.length != slot.bytes.length - slot.end) {
     return null;
+  }
   assert(body.offsetInBytes == slot.bytes.offsetInBytes + slot.start);
   assert(body.length == slot.end - slot.start);
   slot.used = true;
