@@ -17,7 +17,7 @@ source evidence rather than a claim that these additional workflows pass.
 The complete fragmented JSON receive candidate now clears all four original
 Linux file-transfer workload floors in a matched investigation. WebSocket JSON
 lifecycle improves from 1,504.5 to 944.5 ms; each measured sample exceeds the
-unchanged 2,000-Mbps floor. All 37 focused WebSocket tests pass, including strict
+unchanged 2,000-Mbps floor. All 39 focused WebSocket tests pass, including strict
 UTF-8, controls, original binary provenance, custom decoders and text ownership.
 Fresh native coverage and quiet final verification are in progress; the final
 complete workflow inventory is still unqualified. Design and evidence:

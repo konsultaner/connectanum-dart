@@ -48,6 +48,24 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Final receive-order regression
+
+The local architecture audit identifies the abort/Close ordering as worth an
+additional SDK comparison. A real raw-server reproduction shows the baseline
+SDK sends 1002 for an incomplete malformed text followed by Close, whereas the
+candidate sends 1007 early. The adapter now remembers the first UTF-8 validation
+failure and raises it only before complete message delivery, at the SDK's
+original text-validation boundary. Close, invalid headers and EOF before FIN
+retain their own SDK handling; complete invalid text still closes with 1007.
+The paired real SDK regression passes, as do all 39 focused WebSocket cases.
+This is a Dart-only change: the freshly measured six Rust coverage source pins
+and all original MQTT statement identities remain unchanged.
+
+Two additional real transport probes pause before receipt / after the first
+message, then close the peer with three large messages pending. Both preserve
+all three eager payloads in order. Their source and output are retained under
+`/tmp/connectanum-diag-json-byte-paused-close-repro-20261120.*`.
+
 ### Complete large-JSON receive path
 
 The actual native WebSocket writer emits two small metadata fragments before

@@ -295,14 +295,28 @@ bool _ascii(Uint8List bytes, int start, int end) {
 
 class _TextCheck {
   ByteConversionSink? sink;
+  FormatException? failure;
+  StackTrace? failureStack;
   void add(Uint8List bytes, bool last) {
-    if (sink == null && !_ascii(bytes, 0, bytes.length)) {
-      sink = utf8.decoder.startChunkedConversion(
-        StringConversionSink.fromStringSink(_DiscardStrings()),
-      );
+    if (failure == null) {
+      try {
+        if (sink == null && !_ascii(bytes, 0, bytes.length)) {
+          sink = utf8.decoder.startChunkedConversion(
+            StringConversionSink.fromStringSink(_DiscardStrings()),
+          );
+        }
+        sink?.add(bytes);
+        if (last) sink?.close();
+      } on FormatException catch (error, stack) {
+        failure = error;
+        failureStack = stack;
+      }
     }
-    sink?.add(bytes);
-    if (last) sink?.close();
+    // The SDK validates text only at message completion. A Close, invalid
+    // header or EOF before FIN must retain its own SDK rejection/close path.
+    if (last && failure != null) {
+      Error.throwWithStackTrace(failure!, failureStack!);
+    }
   }
 }
 

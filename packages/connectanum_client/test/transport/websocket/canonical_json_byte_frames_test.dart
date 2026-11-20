@@ -37,7 +37,67 @@ Future<Uint8List> adapt(Iterable<Uint8List> chunks) async {
   return out.takeBytes();
 }
 
+Future<int> abortedTextCloseCode(bool adapted) async {
+  final s = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  Socket? peer;
+  final received = Completer<int>();
+  s.listen((r) async {
+    r.response.statusCode = 101;
+    r.response.headers.set('Connection', 'Upgrade');
+    r.response.headers.set('Upgrade', 'websocket');
+    r.response.headers.set(
+      'Sec-WebSocket-Accept',
+      base64.encode(
+        sha1
+            .convert(
+              ascii.encode(
+                '${r.headers.value('Sec-WebSocket-Key')}258EAFA5-E914-47DA-95CA-C5AB0DC85B11',
+              ),
+            )
+            .bytes,
+      ),
+    );
+    peer = await r.response.detachSocket();
+    final b = BytesBuilder(copy: false);
+    peer!.listen((p) {
+      b.add(p);
+      final x = b.toBytes();
+      if (x.length >= 8 && !received.isCompleted && (x[0] & 15) == 8) {
+        received.complete(((x[6] ^ x[2]) << 8) | (x[7] ^ x[3]));
+      }
+    });
+    peer!.add(frame(ascii.encode('[50,7,{},'), fin: false));
+    peer!.add(frame([...List.filled(65536, 65), 255], opcode: 0, fin: false));
+    peer!.add(frame([3, 232], opcode: 8));
+    await peer!.flush();
+  });
+  final http = HttpClient();
+  try {
+    final ws = await WebSocket.connect(
+      'ws://127.0.0.1:${s.port}',
+      customClient: adapted ? canonicalJsonByteFrameClient(http) : http,
+      compression: CompressionOptions.compressionOff,
+    );
+    ws.listen((_) {});
+    final code = await received.future.timeout(Duration(seconds: 5));
+    await ws.close().timeout(Duration(seconds: 5));
+    return code;
+  } finally {
+    peer?.destroy();
+    http.close(force: true);
+    await s.close(force: true);
+  }
+}
+
 void main() {
+  test(
+    'aborted invalid text keeps the SDK close result until message completion',
+    () async {
+      final baseline = await abortedTextCloseCode(false);
+      expect(await abortedTextCloseCode(true), baseline);
+    },
+  );
+
   test(
     'each complete empty message has one provenance entry and orphan continuation has none',
     () async {

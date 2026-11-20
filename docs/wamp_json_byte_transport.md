@@ -24,7 +24,9 @@ and the SDK accumulates it as bytes. Other shapes fall back unchanged. Invalid
 headers are forwarded immediately to the SDK for its normal rejection.
 
 A strict standard UTF-8 streaming decoder checks any non-ASCII suffix before
-final data can reach the SDK, including an empty final continuation. The SDK
+final data can reach the SDK, including an empty final continuation. It retains
+the first failure until FIN, matching the SDK's message-completion boundary;
+Close, invalid headers or EOF before FIN keep their original SDK handling. The SDK
 then retains its 1007 close behavior. A per-socket FIFO records original wire
 text/binary provenance before message completion; original binary JSON frames
 remain rejected. The serializer decodes adapted text eagerly, preserving the
