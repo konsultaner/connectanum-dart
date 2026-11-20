@@ -128,6 +128,13 @@ frozen e3 `bin/verify` is deliberately interrupted after new diagnostic evidence
 arrives and is not a pass. Complete final-source verification remains required;
 PR #139 stays draft.
 
+Strict kTLS now passes at `0095bf40` with the original flags/workload. The full
+b6 native mutation gates pass on both hosts; MCP aggregate evidence remains
+unqualified. A missing live-List traversal regression is repaired and all 204
+MessagePack browser tests pass, with its formerly surviving counterexample
+assertion-killed. The complete new campaign score, remaining WAMP floors and
+quiet final `bin/verify` are still pending; PR #139 remains draft.
+
 ## Release scope
 
 All eight Dart packages and three Rust crates are synchronized at beta.9.

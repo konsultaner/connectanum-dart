@@ -475,3 +475,39 @@ Remaining work is WAMP WebSocket file/TLS-fragmentation throughput, complete
 current-source MCP/native/browser campaigns and final quiet `bin/verify`.
 All numeric policy, workload, source/operator inventories and original deadlines
 remain unchanged. No merge or release is made.
+
+
+### Further diagnostic evidence (20 November)
+
+Strict kTLS run [44649902504](https://github.com/konsultaner/connectanum-dart/actions/runs/44649902504)
+passes at `0095bf40` after loading the runner's TLS kernel module. Both strict
+flags, the workload and its gates remain unchanged.
+
+The completed b6 mutation run has 101 jobs: 62 pass and 39 fail. Both native
+complete gates pass on Linux/macOS. MCP/native CLI aggregates reject incomplete
+or incompatible shard evidence and do not establish a full campaign score.
+MessagePack browser aggregation is complete but reports 181 assertion kills,
+15 survivors and nine compiler rejections, with the same five historical
+functional proofs: adjusted assertion score 94.7644%, below the unchanged 95%.
+Artifact 14589479693 SHA256
+`19956d39ebafd775c989b9b31ed0b7d6f64b29de4b2319bd14f1ffe2f22b4acb`
+is retained locally with its checksum verified.
+
+A new public serialization regression covers a nested iterator updating a later
+entry in its enclosing List. The original encoder visits live List entries;
+an unnecessary List snapshot loses that update. Independent expected wire bytes,
+decoded values and one traversal are asserted. All 204 MessagePack browser tests
+pass. Selected browser replay `61e6321a7eaf430d5d53` inventories all 205 original
+mutants, assertion-kills this counterexample and passes clean/restored baselines.
+This is a selected replay; the full new browser score remains pending. Local
+advisory review was checked against the actual assertion/log: its claim that a
+snapshot could pass contradicts the observed `updated`/`before` failure.
+
+Additional exploratory performance candidates are rejected: unmasked vectored
+continuation writes do not improve JSON file throughput and regress cleartext
+fragmented scenarios; copying JSON String input through Utf8Encoder is slower.
+A Sonic parser prototype also shows no macro gain and is not shipped. Its
+[checked APIs and UTF-8 policy](https://github.com/cloudwego/sonic-rs) and
+[borrowing contract](https://docs.rs/sonic-rs/0.5.11/sonic_rs/struct.LazyValue.html)
+were inspected; no alternate JSON parser, compiler CPU flag or new dependency
+is added to the production change. Original budgets/workloads stay identical.

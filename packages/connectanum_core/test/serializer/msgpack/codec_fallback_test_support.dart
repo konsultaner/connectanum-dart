@@ -68,6 +68,22 @@ void registerFallbackTests(
     expect(checked.deserialize(bytes), [0x100000000, true, 'stream']);
   });
 
+  test('visits a List lazily while encoding nested iterables', () {
+    late List<Object?> values;
+    final nested = _OnTraversalIterable(() => values[1] = 'updated');
+    values = [nested, 'before'];
+
+    final wire = checked.serialize(values);
+
+    final expected = [
+      ['nested'],
+      'updated',
+    ];
+    expect(wire, orderedEquals(delegate.serialize(expected)));
+    expect(checked.deserialize(wire), expected);
+    expect(nested.traversals, 1);
+  });
+
   test(
     'preserves delegated scalar and binary values on the fallback boundary',
     () {
@@ -276,5 +292,19 @@ class _SingleUseIterable extends Iterable<Object?> {
     if (_read) throw StateError('Streaming iterable consumed twice');
     _read = true;
     return values.iterator;
+  }
+}
+
+class _OnTraversalIterable extends Iterable<Object?> {
+  _OnTraversalIterable(this.onTraversal);
+
+  final void Function() onTraversal;
+  int traversals = 0;
+
+  @override
+  Iterator<Object?> get iterator {
+    traversals++;
+    onTraversal();
+    return ['nested'].iterator;
   }
 }
