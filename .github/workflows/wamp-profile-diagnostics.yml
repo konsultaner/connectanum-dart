@@ -1,4 +1,4 @@
-name: WAMP Profile Diagnostics
+name: WAMP Linux File Investigation (unqualified)
 
 on:
   push:
@@ -61,18 +61,37 @@ jobs:
       - name: Bootstrap workspace
         run: bin/bootstrap
 
-      - name: Run WAMP profile diagnostics
-        env:
-          INPUT_ROUTER_WORKER_COUNTS: ${{ github.event.inputs.router_worker_counts || '1' }}
-          INPUT_NATIVE_RUNTIME_THREAD_COUNTS: ${{ github.event.inputs.native_runtime_thread_counts || '1' }}
-          INPUT_WORKLOAD_TIMEOUT_MS: ${{ github.event.inputs.workload_timeout_ms || '300000' }}
+      - name: Install Linux sampling tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y linux-tools-generic
+          sudo sysctl -w kernel.perf_event_paranoid=-1
+          sudo sysctl -w kernel.kptr_restrict=0
+
+      - name: Profile original file workloads (unqualified investigation)
         run: |
           set -euo pipefail
-          bin/wamp-profile-diagnostics \
-            --out-dir "${GITHUB_WORKSPACE}/out/wamp-profile-diagnostics" \
-            --router-worker-counts "$INPUT_ROUTER_WORKER_COUNTS" \
-            --native-runtime-thread-counts "$INPUT_NATIVE_RUNTIME_THREAD_COUNTS" \
-            --workload-timeout-ms "$INPUT_WORKLOAD_TIMEOUT_MS"
+          source bin/common.sh
+          build_native_ffi_test_release
+          cargo build --release --locked --manifest-path native/bench/Cargo.toml --bin http_stream
+          profile_root="$PWD/out/wamp-profile-diagnostics"
+          mkdir -p "$profile_root/cpu"
+          export CONNECTANUM_PROFILE_OUT="$profile_root/cpu"
+          lscpu > "$profile_root/hardware.txt"
+          git rev-parse HEAD > "$profile_root/head.txt"
+          sha256sum "$CONNECTANUM_NATIVE_LIB" packages/connectanum_client/lib/src/transport/native/runtime.dart packages/connectanum_bench/lib/src/dart_vm_metrics.dart native/bench/scenarios/wamp_file_transfer_throughput.toml > "$profile_root/inputs.sha256"
+          nm -D "$CONNECTANUM_NATIVE_LIB" | rg 'ct_base64_decode' > "$profile_root/base64-exports.txt"
+          perf_tool="$(rg --files --hidden --no-ignore /usr/lib/linux-tools | rg '/perf$' | sort | tail -1)"
+          test -x "$perf_tool"
+          for mode in source aot; do
+            mkdir -p "$profile_root/$mode"
+            profile_args=()
+            if [[ "$mode" == source ]]; then
+              profile_args+=(--skip-wamp-worker-aot --collect-wamp-vm-metrics)
+            fi
+            "$perf_tool" record -F 199 -g --call-graph dwarf,8192 -o "$profile_root/$mode/perf.data" --               native/bench/target/release/http_stream               --native-lib "$CONNECTANUM_NATIVE_LIB"               --scenario native/bench/scenarios/wamp_file_transfer_throughput.toml               --results "$profile_root/$mode/results.jsonl"               --artifact-dir "$profile_root/$mode"               --router-worker-counts 1 --native-runtime-thread-counts 1               --workload-timeout-ms 300000 "${profile_args[@]}"               > "$profile_root/$mode/console.log" 2>&1
+            "$perf_tool" report --stdio --sort symbol,dso --percent-limit 0.2               -i "$profile_root/$mode/perf.data" > "$profile_root/$mode/perf-report.txt"
+          done
 
       - name: Summarize WAMP profile diagnostics
         if: always()
