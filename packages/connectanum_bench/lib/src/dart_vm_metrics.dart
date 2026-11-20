@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:vm_service/vm_service.dart';
@@ -67,9 +66,6 @@ class DartVmMetricsCollector {
     );
     await _waitForGcEventDrain();
     await _service.clearVMTimeline();
-    for (final isolateId in isolateIds) {
-      await _service.clearCpuSamples(isolateId);
-    }
     final cpuTicks = await _readLinuxCpuTicks(_pid);
     return DartVmMetricsWindow(
       cpuUserTicks: cpuTicks?.user,
@@ -84,12 +80,6 @@ class DartVmMetricsCollector {
   }) async {
     final isolateIds = await _currentIsolateIds();
     requireStableDartVmMetricIsolates(window.isolateIds, isolateIds);
-    for (final isolateId in isolateIds) {
-      final samples = await _service.getCpuSamples(isolateId, 0, 1 << 60);
-      final directory = Platform.environment['CONNECTANUM_PROFILE_OUT']!;
-      await File('$directory/$_pid-${isolateId.replaceAll('/', '-')}-${DateTime.now().microsecondsSinceEpoch}.json')
-          .writeAsString(jsonEncode(samples.json));
-    }
     var allocatedBytes = 0;
     var allocationComplete = true;
     for (final isolateId in isolateIds) {

@@ -7,6 +7,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:connectanum_core/src/message/abstract_message_with_payload.dart';
+import 'package:connectanum_core/src/message/abstract_message.dart';
+import 'package:connectanum_core/json_serializer.dart' as json_serializer;
 import 'package:connectanum_core/src/message/call.dart';
 import 'package:connectanum_core/src/message/details.dart';
 import 'package:connectanum_core/src/message/hello.dart';
@@ -19,7 +21,91 @@ import 'package:connectanum_client/src/transport/websocket/websocket_transport_s
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack_dart;
 import 'package:test/test.dart';
 
+class _ApplicationJsonSerializer extends json_serializer.Serializer {
+  bool sawLargeText = false;
+  @override
+  AbstractMessage? deserializeFromString(String input) {
+    if (input.length >= 65536) sawLargeText = true;
+    return super.deserializeFromString(input);
+  }
+}
+
 void main() {
+  for (final custom in [false, true]) {
+    test(
+      'large text retains eager payload, Unicode order and custom decoder custom=$custom',
+      () async {
+        final binary = Uint8List.fromList(
+          List.generate(65537, (i) => (i * 37) & 255),
+        );
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => server.close(force: true));
+        server.listen((request) async {
+          final ws = await WebSocketTransformer.upgrade(
+            request,
+            compression: CompressionOptions.compressionOff,
+          );
+          ws.listen((_) {});
+          ws.add('[50,41,{},["Unicode 💡"]]');
+          ws.add('[50,42,{},["\\u0000${base64Encode(binary)}"]]');
+          ws.add('[50,43,{},["after"]]');
+        });
+        final application = _ApplicationJsonSerializer();
+        final transport = custom
+            ? WebSocketTransport(
+                'ws://127.0.0.1:${server.port}',
+                application,
+                WebSocketSerialization.serializationJson,
+              )
+            : WebSocketTransport.withJsonSerializer(
+                'ws://127.0.0.1:${server.port}',
+              );
+        addTearDown(transport.close);
+        await transport.open();
+        final messages = await transport
+            .receive()
+            .take(3)
+            .toList()
+            .timeout(Duration(seconds: 2));
+        expect((messages[0] as Result).arguments, ['Unicode 💡']);
+        final large = messages[1] as Result;
+        expect(large.hasLazyArguments, isFalse);
+        expect(large.arguments!.single, binary);
+        expect((messages[2] as Result).arguments, ['after']);
+        if (custom) {
+          expect(application.sawLargeText, isTrue);
+        }
+      },
+    );
+  }
+  test('JSON transport still rejects original binary wire frames', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      final ws = await WebSocketTransformer.upgrade(
+        request,
+        compression: CompressionOptions.compressionOff,
+      );
+      ws.listen((_) {});
+      ws.add(
+        utf8.encode('[50,42,{},["\\u0000${base64Encode(Uint8List(65537))}"]]'),
+      );
+    });
+    final transport = WebSocketTransport.withJsonSerializer(
+      'ws://127.0.0.1:${server.port}',
+    );
+    addTearDown(transport.close);
+    await transport.open();
+    final delivered = <AbstractMessage?>[],
+        subscription = transport.receive().listen(delivered.add);
+    addTearDown(subscription.cancel);
+    final error = await transport.onConnectionLost!.future.timeout(
+      Duration(seconds: 2),
+    );
+    expect(error, isA<TypeError>());
+    expect(delivered, [isNull]);
+  });
+
   group('WebSocket protocol with io communication', () {
     test('client disconnect cancels a pending websocket upgrade', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);

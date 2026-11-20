@@ -1,41 +1,7 @@
-name: WAMP Linux File Investigation (unqualified)
+name: WAMP Linux Native Coverage Investigation (unqualified)
 
 on:
-  push:
-    branches:
-      - add-router
-      - master
-    paths:
-      - .github/workflows/wamp-profile-diagnostics.yml
-      - bin/wamp-profile-diagnostics
-      - bin/check-bench-artifacts
-      - native/bench/scenarios/wamp_client_impl_throughput.toml
-      - native/bench/scenarios/wamp_payload_mode_throughput.toml
-      - native/bench/scenarios/wamp_mixed_serializer_throughput.toml
-      - native/bench/scenarios/wamp_websocket_fragmentation_throughput.toml
-      - native/bench/scenarios/wamp_file_transfer_throughput.toml
-      - native/bench/scenarios/wamp_large_rawsocket_frames_throughput.toml
-      - native/bench/scenarios/wamp_file_transfer_heavy.toml
-      - native/bench/scenarios/wamp_large_rawsocket_frames_heavy.toml
-      - native/bench/artifact_gate/wamp_file_transfer_heavy.json
-      - native/bench/artifact_gate/wamp_large_rawsocket_frames_heavy.json
   workflow_dispatch:
-    inputs:
-      router_worker_counts:
-        description: Router worker counts passed to the bench orchestrator
-        required: false
-        default: "1"
-        type: string
-      native_runtime_thread_counts:
-        description: Tokio runtime thread counts passed to the bench orchestrator
-        required: false
-        default: "1"
-        type: string
-      workload_timeout_ms:
-        description: Per-workload timeout in milliseconds
-        required: false
-        default: "300000"
-        type: string
 
 permissions:
   contents: read
@@ -44,63 +10,55 @@ env:
   CI: true
 
 jobs:
-  linux-wamp-profile-diagnostics:
-    name: Linux WAMP profile diagnostics
+  native-coverage:
+    name: Current native source coverage on Linux
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - uses: dart-lang/setup-dart@v1
+      - uses: ./.github/actions/setup-ci
         with:
-          sdk: 3.14.0
-
-      - uses: dtolnay/rust-toolchain@stable
-
+          rust: 'true'
+          native-tools: 'true'
       - name: Bootstrap workspace
         run: bin/bootstrap
-
-      - name: Profile canonical native hot paths (unqualified)
+      - name: Measure both original native coverage commands
         run: |
           set -euo pipefail
-          mkdir -p out/wamp-profile-diagnostics
-          lscpu > out/wamp-profile-diagnostics/hardware.txt
-          sudo apt-get update -qq
-          sudo apt-get install -y binutils
-          command -v gprofng
-          gprofng --version > out/wamp-profile-diagnostics/gprofng-version.txt
-          source bin/common.sh
-          build_native_ffi_test_release
-          cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
-          mkdir -p out/wamp-profile-diagnostics
-          lscpu > out/wamp-profile-diagnostics/hardware.txt
-          uname -a > out/wamp-profile-diagnostics/kernel.txt
-          dpkg-query -W libc6 > out/wamp-profile-diagnostics/libc-version.txt
-          sha256sum /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-sha256.txt
-          python3 -u tool/wamp_native_perf_investigation.py | tee out/wamp-profile-diagnostics/profile-run.log
-
-      - name: Summarize WAMP profile diagnostics
+          mkdir -p out/readbuf-native-coverage
+          lscpu > out/readbuf-native-coverage/hardware.txt
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          expected=json.loads(pathlib.Path('docs/benchmarks/readbuf-investigation-source-hashes.json').read_text())
+          assert all(hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==sha for name,sha in expected.items())
+          pathlib.Path('out/readbuf-native-coverage/expected-source-hashes.json').write_text(json.dumps(expected,indent=2)+'\n')
+          PY
+          CONNECTANUM_NATIVE_COVERAGE_DIR="$GITHUB_WORKSPACE/out/readbuf-native-coverage/cargo" bin/test-native-coverage > out/readbuf-native-coverage/cargo.console 2>&1
+          CONNECTANUM_NATIVE_FFI_COVERAGE_DIR="$GITHUB_WORKSPACE/out/readbuf-native-coverage/ffi" bin/test-native-ffi-coverage > out/readbuf-native-coverage/ffi.console 2>&1
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          expected=json.loads(pathlib.Path('out/readbuf-native-coverage/expected-source-hashes.json').read_text())
+          assert all(hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==sha for name,sha in expected.items())
+          result=json.loads(pathlib.Path('out/readbuf-native-coverage/ffi/collection.json').read_text())
+          assert result['complete'] and all(step['complete'] and step['exitCode']==0 for step in result['steps'])
+          pathlib.Path('out/readbuf-native-coverage/frozen-inputs.json').write_text(json.dumps({'passed':True,'sourceFiles':len(expected)},indent=2)+'\n')
+          PY
+      - name: Retain measured evidence
         if: always()
         run: |
-          summary=out/wamp-profile-diagnostics/diagnostics-summary.tsv
-          {
-            printf '## WAMP Profile Diagnostics\n\n'
-            if [[ -f "$summary" ]]; then
-              printf '```text\n'
-              cat "$summary"
-              printf '```\n\nFull results and CPU/toolchain details are in the diagnostic artifact.\n'
-            else
-              printf 'Diagnostics did not reach scenario execution. Inspect the setup/build logs.\n'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload WAMP profile diagnostic artifacts
+          python3 - <<'PY'
+          import pathlib,shutil
+          root=pathlib.Path('out/readbuf-native-coverage')
+          for name in ['cargo','ffi']:
+              folder=root/name
+              shutil.rmtree(folder/'target',ignore_errors=True)
+              shutil.rmtree(folder/'profiles',ignore_errors=True)
+          PY
+      - uses: actions/upload-artifact@v7
         if: always()
-        uses: actions/upload-artifact@v7
         with:
-          name: wamp-profile-diagnostic-artifacts
-          path: out/wamp-profile-diagnostics
+          name: readbuf-native-coverage
+          path: out/readbuf-native-coverage
           if-no-files-found: error
