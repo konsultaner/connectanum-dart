@@ -79,6 +79,8 @@ jobs:
           profile_root="$PWD/out/wamp-profile-diagnostics"
           mkdir -p "$profile_root/cpu"
           export CONNECTANUM_PROFILE_OUT="$profile_root/cpu"
+          export DEBUGINFOD_URLS=""
+          python3 -c 'from pathlib import Path; s=Path("native/bench/scenarios/wamp_file_transfer_throughput.toml").read_text().split("[[workloads]]"); names=["rawsocket_file_json_64m_dart_buffered", "websocket_file_json_64m_dart_buffered", "websocket_file_cbor_64m_dart_buffered", "websocket_file_msgpack_64m_dart_buffered"]; blocks=[b for b in s[1:] if any("name = \""+n+"\"" in b for n in names)]; assert len(blocks)==4; Path("out/wamp-profile-diagnostics/file-subset.toml").write_text(s[0]+"[[workloads]]"+"[[workloads]]".join(blocks))'
           lscpu > "$profile_root/hardware.txt"
           git rev-parse HEAD > "$profile_root/head.txt"
           sha256sum "$CONNECTANUM_NATIVE_LIB" packages/connectanum_client/lib/src/transport/native/runtime.dart packages/connectanum_bench/lib/src/dart_vm_metrics.dart native/bench/scenarios/wamp_file_transfer_throughput.toml > "$profile_root/inputs.sha256"
@@ -89,7 +91,7 @@ jobs:
             if [[ "$mode" == source ]]; then
               profile_args+=(--skip-wamp-worker-aot --collect-wamp-vm-metrics)
             fi
-            "$perf_tool" record -F 199 -g --call-graph dwarf,8192 -o "$profile_root/$mode/perf.data" --               native/bench/target/release/http_stream               --native-lib "$CONNECTANUM_NATIVE_LIB"               --scenario native/bench/scenarios/wamp_file_transfer_throughput.toml               --results "$profile_root/$mode/results.jsonl"               --artifact-dir "$profile_root/$mode"               --router-worker-counts 1 --native-runtime-thread-counts 1               --workload-timeout-ms 300000 "${profile_args[@]}"               > "$profile_root/$mode/console.log" 2>&1
+            "$perf_tool" record -F 199 -g --call-graph dwarf,8192 -o "$profile_root/$mode/perf.data" --               native/bench/target/release/http_stream               --native-lib "$CONNECTANUM_NATIVE_LIB"               --scenario "$profile_root/file-subset.toml"               --results "$profile_root/$mode/results.jsonl"               --artifact-dir "$profile_root/$mode"               --router-worker-counts 1 --native-runtime-thread-counts 1               --workload-timeout-ms 300000 "${profile_args[@]}"               > "$profile_root/$mode/console.log" 2>&1
             "$perf_tool" report --stdio --sort symbol,dso --percent-limit 0.2               -i "$profile_root/$mode/perf.data" > "$profile_root/$mode/perf-report.txt"
           done
 
