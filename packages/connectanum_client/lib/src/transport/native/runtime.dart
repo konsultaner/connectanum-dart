@@ -40,6 +40,31 @@ _findVmUtf8Api() {
   }
 }
 
+final _vmTypedDataApi = _findVmTypedDataApi();
+({
+  ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>> acquire,
+  ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>> release,
+  ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>> isError,
+})?
+_findVmTypedDataApi() {
+  try {
+    final vm = ffi.DynamicLibrary.process();
+    return (
+      acquire: vm.lookup<ffi.NativeFunction<DartApiTypedDataAcquireNative>>(
+        'Dart_TypedDataAcquireData',
+      ),
+      release: vm.lookup<ffi.NativeFunction<DartApiTypedDataReleaseNative>>(
+        'Dart_TypedDataReleaseData',
+      ),
+      isError: vm.lookup<ffi.NativeFunction<DartApiIsErrorNative>>(
+        'Dart_IsError',
+      ),
+    );
+  } on ArgumentError {
+    return null;
+  }
+}
+
 String? _readOptionalString(ffi.Pointer<ffi.Uint8> ptr, int len) {
   if (ptr == ffi.nullptr) {
     return null;
@@ -1757,6 +1782,9 @@ class NativeClientRuntime {
     }
   }
 
+  bool get supportsCanonicalByteFrames =>
+      _vmTypedDataApi != null && _bindings.ctBase64DecodeVmBytes != null;
+
   Uint8List? decodeCanonicalBase64Bytes(
     Uint8List input,
     int start,
@@ -1770,6 +1798,25 @@ class NativeClientRuntime {
 
     final length = end - start;
     final externalInput = nativeExternalByteSlice(input, anchor: input);
+    final decodeVm = _bindings.ctBase64DecodeVmBytes;
+    final api = _vmTypedDataApi;
+    if (externalInput == null &&
+        length >= 64 * 1024 &&
+        decodeVm != null &&
+        api != null) {
+      final decoded = _decodeCanonicalBase64Output(
+        (out) => decodeVm(
+          input,
+          start,
+          end,
+          api.acquire,
+          api.release,
+          api.isError,
+          out,
+        ),
+      );
+      if (decoded != null) return decoded;
+    }
     ffi.Pointer<ffi.Uint8> ownedInput = ffi.nullptr;
     final inputPtr = externalInput != null
         ? externalInput.pointer + start
@@ -1878,6 +1925,32 @@ class NativeClientRuntime {
     } finally {
       calloc.free(outputPtr);
     }
+  }
+
+  ({Uint8List bytes, int start, int end})?
+  tryEncodeCanonicalBase64TransportBytes(
+    Uint8List input, {
+    int prefix = 0,
+    int suffix = 0,
+  }) {
+    RangeError.checkValueInInterval(prefix, 0, 4096, 'prefix');
+    RangeError.checkValueInInterval(suffix, 0, 4096, 'suffix');
+    final encode = _bindings.ctBase64EncodeVmBytes;
+    final api = _vmTypedDataApi;
+    if (encode == null || api == null || input.length > 0x7fffffff) return null;
+    final bytes = _decodeCanonicalBase64Output(
+      (output) => encode(
+        input,
+        prefix,
+        suffix,
+        api.acquire,
+        api.release,
+        api.isError,
+        output,
+      ),
+    );
+    if (bytes == null) return null;
+    return (bytes: bytes, start: prefix, end: bytes.length - suffix);
   }
 
   Uint8List? encodeCanonicalBase64Bytes(Uint8List input) {

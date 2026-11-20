@@ -44,6 +44,11 @@ typedef CanonicalBase64ByteDecoder =
     Uint8List? Function(Uint8List input, int start, int end);
 typedef CanonicalBase64ByteEncoder = Uint8List? Function(Uint8List input);
 
+/// Encodes a payload with space for its exact JSON envelope on either side.
+/// Returning null uses the regular byte encoder.
+typedef CanonicalBase64EnvelopeByteEncoder =
+    Uint8List? Function(Uint8List input, int prefixBytes, int suffixBytes);
+
 /// Decodes one canonical base64 span using UTF-16 offsets and an exclusive end.
 /// Return null to retain normal JSON decoding and its validation.
 typedef CanonicalBase64StringDecoder =
@@ -133,13 +138,23 @@ class Serializer extends AbstractSerializer {
   CanonicalBase64StringDecoder? _canonicalBase64StringDecoder;
   CanonicalBase64ByteDecoder? _canonicalBase64ByteDecoder;
   CanonicalBase64ByteEncoder? _canonicalBase64ByteEncoder;
+  CanonicalBase64EnvelopeByteEncoder? _canonicalBase64EnvelopeByteEncoder;
+
+  /// Whether application or transport canonical codecs have already been installed.
+  bool get hasCanonicalBase64Codecs =>
+      _canonicalBase64ByteEncoder != null ||
+      _canonicalBase64ByteDecoder != null ||
+      _canonicalBase64StringDecoder != null;
 
   /// Installs a transport-provided accelerator without replacing an explicit
   /// encoder supplied by the application.
   void installCanonicalBase64ByteEncoder(
-    CanonicalBase64ByteEncoder encoder,
-  ) {
-    _canonicalBase64ByteEncoder ??= encoder;
+    CanonicalBase64ByteEncoder encoder, {
+    CanonicalBase64EnvelopeByteEncoder? envelopeEncoder,
+  }) {
+    if (_canonicalBase64ByteEncoder != null) return;
+    _canonicalBase64ByteEncoder = encoder;
+    _canonicalBase64EnvelopeByteEncoder = envelopeEncoder;
   }
 
   /// Installs a transport-provided accelerator without replacing an explicit
@@ -161,7 +176,15 @@ class Serializer extends AbstractSerializer {
         deserializeFromString(_utf8Decoder.convert(payload));
   }
 
-  AbstractMessage? _deserializeSingleBinaryPayload(Uint8List payload) {
+  /// Decodes validated UTF-8 text bytes with the text path's eager payload ownership.
+  AbstractMessage? deserializeFromTextBytes(Uint8List payload) =>
+      _deserializeSingleBinaryPayload(payload, retainWirePayload: false) ??
+      deserializeFromString(_utf8Decoder.convert(payload));
+
+  AbstractMessage? _deserializeSingleBinaryPayload(
+    Uint8List payload, {
+    bool retainWirePayload = true,
+  }) {
     if (payload.length < _minimumSingleBinaryFastPathBytes ||
         payload[0] != 0x5b ||
         payload[payload.length - 3] != 0x22 ||
@@ -218,6 +241,10 @@ class Serializer extends AbstractSerializer {
         tryDecodeCanonicalBase64Bytes(payload, binaryStart, binaryEnd);
     if (binary == null) {
       return null;
+    }
+    if (!retainWirePayload) {
+      message.arguments = <dynamic>[binary];
+      return message;
     }
     final argumentsBytes = Uint8List.sublistView(
       payload,
@@ -1720,7 +1747,13 @@ class Serializer extends AbstractSerializer {
       return <Uint8List>[prefix, suffix];
     }
     final encoded =
-        _canonicalBase64ByteEncoder?.call(binary) ?? encodeBase64Bytes(binary);
+        _canonicalBase64EnvelopeByteEncoder?.call(
+          binary,
+          prefix.length,
+          suffix.length,
+        ) ??
+        _canonicalBase64ByteEncoder?.call(binary) ??
+        encodeBase64Bytes(binary);
     return <Uint8List>[prefix, encoded, suffix];
   }
 

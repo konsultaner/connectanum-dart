@@ -889,7 +889,7 @@
       "total": 781,
       "uncoveredLines": [],
       "cargoCovered": 762,
-      "ffiCovered": 670,
+      "ffiCovered": 657,
       "originalAddedLines": 2489
     },
     "native/transport/ct_core/src/protocol.rs": {
@@ -985,7 +985,7 @@
       "originalAddedLines": 253
     },
     "native/transport/ct_ffi/src/runtime/ffi.rs": {
-      "sourceSha256": "4dcf16742b5b268089e11a0f7d4300faf07c0da76ff1453e96079a7095ea4af5",
+      "sourceSha256": "115f205a719a6ac8b25cd47b7aa6759e73e6e79164b9671ebd60b9f0f4503103",
       "executableAddedLines": [
         3230,
         3242,
@@ -1095,20 +1095,20 @@
     },
     "current-cargo-unit": {
       "file": "mqtt-native-added-line-coverage-diagnostics-current-cargo-unit.info.gz",
-      "sha256": "9bf89e05854a2ba8f5be37979d21b9588a48438ab8f7ff8ad3a5a2fea7633d4c",
-      "productionInfoSha256": "86d371863ae08f6d74a31637187cc31c8d1b2178ee4c3323e30b3940aca7478f",
-      "sourceScopeSha256": "fe1ee50c969f6e7f1866ca49743bdd97435fd1c662c4417da2dd87caf1f31e2b",
+      "sha256": "4430e96ea6c44185eda64f5dfe6be11bd9aaf7f8ed23e013635526efe5305871",
+      "productionInfoSha256": "21bc6fcdbfda1580e7a0cc134ff70beaeae40a2a30bbb7fff3bacb87d7800900",
+      "sourceScopeSha256": "75bcda9cd2f4cfa1030025fc3f6c8bd648435d3be99af711e66525db38b7c48e",
       "platform": "macOS arm64",
       "measurement": "Complete original Cargo workspace / Dart FFI coverage command, frozen native sources."
     },
     "current-dart-ffi": {
       "file": "mqtt-native-added-line-coverage-diagnostics-current-dart-ffi.info.gz",
-      "sha256": "e7753403bb2f61af31bd7b330fb844b610441e47c9366e391bed1460ec2b09de",
-      "productionInfoSha256": "e189f711dff03a377f4f93bd2920475f9e464af5c4e116a135208958c8597cb9",
-      "sourceScopeSha256": "c959a6d55858ba4658939913600538873444d1e36322be597407b2d0a2fbf9cd",
+      "sha256": "0eb57b52e443504397e6b7d1eb61bb88579a2aa77fd4707203e20f281fb16e2a",
+      "productionInfoSha256": "0778c6e63fdb67854f74c7f2e968c0f74e82cda2ec15417ffe05a22ba2ec501c",
+      "sourceScopeSha256": "ca3876310e989c742d86eeb5033533edebd090d98ea4c4eb3283885fc5d5d824",
       "platform": "macOS arm64",
       "measurement": "Complete original Cargo workspace / Dart FFI coverage command, frozen native sources.",
-      "collectionSha256": "7fc598d65082601a2a72f61109ba13b1a60afa73949f6cbcb09707e4d689297b"
+      "collectionSha256": "2fab8f618f97074e13d2d91fe302bed7093eabf864f18aeef10056fbcdadc2ab"
     }
   },
   "covered": 979,
@@ -1121,7 +1121,7 @@
   "sourceLineMappings": {
     "native/transport/ct_ffi/src/runtime/ffi.rs": {
       "offset": 1,
-      "reason": "One additional non-executable import line; every original MQTT statement is byte-identical at its mapped line."
+      "reason": "One additional non-executable import line and an optional base64 child-module declaration after the existing source; every original MQTT statement is byte-identical at its mapped line."
     }
   }
 }

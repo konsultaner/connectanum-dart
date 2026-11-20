@@ -327,6 +327,56 @@ typedef CtBase64DecodeVmStringDart =
       ffi.Pointer<CtExternalByteBuffer>,
     );
 
+typedef DartApiTypedDataAcquireNative =
+    ffi.Handle Function(
+      ffi.Handle,
+      ffi.Pointer<ffi.Int32>,
+      ffi.Pointer<ffi.Pointer<ffi.Uint8>>,
+      ffi.Pointer<ffi.IntPtr>,
+    );
+typedef DartApiTypedDataReleaseNative = ffi.Handle Function(ffi.Handle);
+typedef CtBase64DecodeVmBytesNative =
+    ffi.Int32 Function(
+      ffi.Handle,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+typedef CtBase64DecodeVmBytesDart =
+    int Function(
+      Object?,
+      int,
+      int,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+
+typedef CtBase64EncodeVmBytesNative =
+    ffi.Int32 Function(
+      ffi.Handle,
+      ffi.Int32,
+      ffi.Int32,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+typedef CtBase64EncodeVmBytesDart =
+    int Function(
+      Object?,
+      int,
+      int,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiTypedDataReleaseNative>>,
+      ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>>,
+      ffi.Pointer<CtExternalByteBuffer>,
+    );
+
 typedef CtBase64EncodeCanonicalNative = CtBase64DecodeCanonicalNative;
 typedef CtBase64EncodeCanonicalDart = CtBase64DecodeCanonicalDart;
 
@@ -958,6 +1008,20 @@ class CtFfiBindings {
               CtMessageSingleBinaryArgumentLengthDart
             >('ct_message_single_binary_argument_length_wide'),
       ),
+      ctBase64DecodeVmBytes = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtBase64DecodeVmBytesNative,
+              CtBase64DecodeVmBytesDart
+            >('ct_base64_decode_canonical_vm_bytes'),
+      ),
+      ctBase64EncodeVmBytes = _tryLookup(
+        () =>
+            library.lookupFunction<
+              CtBase64EncodeVmBytesNative,
+              CtBase64EncodeVmBytesDart
+            >('ct_base64_encode_canonical_vm_bytes'),
+      ),
       ctBase64DecodeVmString = _tryLookup(
         () =>
             library.lookupFunction<
@@ -1145,6 +1209,8 @@ class CtFfiBindings {
   ctMessageDecodeSingleBinaryArgument;
   final CtMessageSingleBinaryArgumentLengthDart?
   ctMessageSingleBinaryArgumentLength;
+  final CtBase64DecodeVmBytesDart? ctBase64DecodeVmBytes;
+  final CtBase64EncodeVmBytesDart? ctBase64EncodeVmBytes;
   final CtBase64DecodeVmStringDart? ctBase64DecodeVmString;
   final CtBase64DecodeCanonicalDart? ctBase64DecodeCanonical;
   final CtBase64EncodeCanonicalDart? ctBase64EncodeCanonical;

@@ -48,6 +48,48 @@ Its diagnostic workflows remain red:
 
 ## Working record
 
+### Complete large-JSON receive path
+
+The actual native WebSocket writer emits two small metadata fragments before
+its large argument continuation. Early prototypes missed that path and are
+retained as rejected/incomplete measurements. The final candidate stages bounded
+metadata, retains the original SDK framing/control/HTTP/compression code, and
+uses its byte accumulator only for eligible uncompressed JSON. Standard strict
+UTF-8 validation retains SDK close 1007; original wire text/binary provenance,
+custom decoder behavior and eager text-payload ownership have regressions.
+See [the ownership/design record](../wamp_json_byte_transport.md).
+
+All 37 focused WebSocket cases and 77 codec/ownership cases pass. The new native
+borrow API has release-on-success/error tests and public SDK ABI tests. The first
+broad client invocation was rejected: native runtime-reset suites require their
+existing per-file isolation. The first development `bin/test-fast` also exposes
+an App-Lab supervision fixture failure during concurrent builds; no final
+verification is claimed from either run. A quiet final `bin/verify` is pending.
+
+Linux investigation run 44682963542 compares three full AOT bundles on one
+runner with the same frozen native library and original four 64-MiB file loads.
+Baseline/borrowed/full-receive WebSocket JSON lifecycle medians are
+1,504.5 / 1,213 / 944.5 ms. All four full-receive samples clear the original
+2,000-Mbps floor (2,263--2,368 Mbps); RawSocket JSON, CBOR and MessagePack also
+clear it in every sample. This is matched investigative evidence, not the final
+complete diagnostic workflow. Artifact 14605223270 has verified ZIP SHA256
+`c2356cd0cffdfb2065a8093f8018f4029acba9e5f5fc378f7ae9b4b14eb7276d`.
+
+Fresh current-source Cargo coverage and all 23 separate real Dart FFI
+test groups plus the build step complete successfully with frozen inputs. The changed FFI
+source's MQTT pin is refreshed from those measurements; all 58 original FFI
+statements and all 979 original MQTT statements remain covered. All 89 native
+transport/profile cases also pass with their required per-file isolation.
+The App-Lab case passes three direct repeats without a deadline change; the
+initial failure remains rejected evidence, and no production fix is inferred. Local Qwen/GLM review proposals are checked against actual SDK contracts:
+acquire errors do not establish a borrow, release is called exactly once,
+encoded lengths use checked arithmetic, and empty complete messages require
+their own provenance entry. Unadapted text stays under SDK UTF-8 validation.
+The proposed double-callback path is precluded by the fragmented-header guard
+and empty payload loop; no unverified finding changes the protocol.
+Final frozen verification and all seven workflow families must
+still qualify one final source revision.
+
 ### Complete-inventory feedback on 2026-11-20
 
 The old `0095bf40` artifacts are downloaded for all 32 MCP and 16 native CLI
