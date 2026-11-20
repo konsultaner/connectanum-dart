@@ -40,6 +40,31 @@ _findVmUtf8Api() {
   }
 }
 
+final _vmLatin1Api = _findVmLatin1Api();
+({
+  ffi.Pointer<ffi.NativeFunction<DartApiStringToLatin1Native>> convert,
+  ffi.Pointer<ffi.NativeFunction<DartApiIsLatin1Native>> isLatin1,
+  ffi.Pointer<ffi.NativeFunction<DartApiIsErrorNative>> isError,
+})?
+_findVmLatin1Api() {
+  try {
+    final vm = ffi.DynamicLibrary.process();
+    return (
+      convert: vm.lookup<ffi.NativeFunction<DartApiStringToLatin1Native>>(
+        'Dart_StringToLatin1',
+      ),
+      isLatin1: vm.lookup<ffi.NativeFunction<DartApiIsLatin1Native>>(
+        'Dart_IsStringLatin1',
+      ),
+      isError: vm.lookup<ffi.NativeFunction<DartApiIsErrorNative>>(
+        'Dart_IsError',
+      ),
+    );
+  } on ArgumentError {
+    return null;
+  }
+}
+
 final _vmTypedDataApi = _findVmTypedDataApi();
 ({
   ffi.Pointer<ffi.NativeFunction<DartApiTypedDataAcquireNative>> acquire,
@@ -1825,6 +1850,26 @@ class NativeClientRuntime {
     final decode = _bindings.ctBase64DecodeCanonical;
     if (decode == null) return null;
     final length = end - start;
+    final latin1 = _vmLatin1Api;
+    final decodeLatin1 = _bindings.ctBase64DecodeVmLatin1;
+    if (latin1 != null &&
+        decodeLatin1 != null &&
+        input.length - length <= 4096 &&
+        input.length <= 0x7fffffff) {
+      final result = _decodeCanonicalBase64Output(
+        (out) => decodeLatin1(
+          input,
+          start,
+          end,
+          input.length,
+          latin1.convert,
+          latin1.isLatin1,
+          latin1.isError,
+          out,
+        ),
+      );
+      if (result != null) return result;
+    }
     final api = _vmUtf8Api;
     final decodeVm = _bindings.ctBase64DecodeVmString;
     if (api != null &&

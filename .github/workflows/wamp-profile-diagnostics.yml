@@ -68,8 +68,9 @@ jobs:
           set -euo pipefail
           python3 - <<'PY_CHECK'
           import json, subprocess
-          for path in json.load(open('tool/borrowed_base64_trial_files.json')):
-              subprocess.run(['git', 'cat-file', '-e', '5ec2288e416b6fdd98842e841addb9d0bb35c269:' + path], check=True)
+          for revision in ['5ec2288e416b6fdd98842e841addb9d0bb35c269', '0e9fbec3']:
+              for path in json.load(open('tool/borrowed_base64_trial_files.json')):
+                  subprocess.run(['git', 'cat-file', '-e', revision + ':' + path], check=True)
           PY_CHECK
           source bin/common.sh
           build_native_ffi_test_release
