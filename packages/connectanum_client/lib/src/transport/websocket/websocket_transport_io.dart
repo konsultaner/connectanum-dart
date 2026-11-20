@@ -185,8 +185,12 @@ class WebSocketTransport extends AbstractTransport {
         client.badCertificateCallback =
             (X509Certificate certificate, String host, int port) => true;
       }
-      final kinds = nativeCanonicalByteFramesAvailable(_serializer)
-          ? CanonicalJsonFrameKinds()
+      final binaryCoalescing =
+          _serializerType == WebSocketSerialization.serializationCbor ||
+          _serializerType == WebSocketSerialization.serializationMsgpack;
+      final kinds =
+          binaryCoalescing || nativeCanonicalByteFramesAvailable(_serializer)
+          ? CanonicalJsonFrameKinds(adaptJson: !binaryCoalescing)
           : null;
       _jsonFrameKinds = kinds;
       final socket = await WebSocket.connect(

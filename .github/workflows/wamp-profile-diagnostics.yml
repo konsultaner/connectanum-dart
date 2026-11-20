@@ -1,4 +1,4 @@
-name: WAMP Linux Native Coverage Investigation (unqualified)
+name: WAMP Native WebSocket Matched Investigation (unqualified)
 
 on:
   workflow_dispatch:
@@ -10,55 +10,37 @@ env:
   CI: true
 
 jobs:
-  native-coverage:
-    name: Current native source coverage on Linux
+  matched-websocket:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup-ci
+      - uses: dart-lang/setup-dart@v1
         with:
-          rust: 'true'
-          native-tools: 'true'
+          sdk: 3.14.0
+      - uses: dtolnay/rust-toolchain@stable
       - name: Bootstrap workspace
         run: bin/bootstrap
-      - name: Measure both original native coverage commands
+      - name: Build original native executables
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p out/readbuf-native-coverage
-          lscpu > out/readbuf-native-coverage/hardware.txt
-          python3 - <<'PY'
-          import hashlib,json,pathlib
-          expected=json.loads(pathlib.Path('docs/benchmarks/readbuf-investigation-source-hashes.json').read_text())
-          assert all(hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==sha for name,sha in expected.items())
-          pathlib.Path('out/readbuf-native-coverage/expected-source-hashes.json').write_text(json.dumps(expected,indent=2)+'\n')
-          PY
-          CONNECTANUM_NATIVE_COVERAGE_DIR="$GITHUB_WORKSPACE/out/readbuf-native-coverage/cargo" bin/test-native-coverage > out/readbuf-native-coverage/cargo.console 2>&1
-          CONNECTANUM_NATIVE_FFI_COVERAGE_DIR="$GITHUB_WORKSPACE/out/readbuf-native-coverage/ffi" bin/test-native-ffi-coverage > out/readbuf-native-coverage/ffi.console 2>&1
-          python3 - <<'PY'
-          import hashlib,json,pathlib
-          expected=json.loads(pathlib.Path('out/readbuf-native-coverage/expected-source-hashes.json').read_text())
-          assert all(hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==sha for name,sha in expected.items())
-          result=json.loads(pathlib.Path('out/readbuf-native-coverage/ffi/collection.json').read_text())
-          assert result['complete'] and all(step['complete'] and step['exitCode']==0 for step in result['steps'])
-          pathlib.Path('out/readbuf-native-coverage/frozen-inputs.json').write_text(json.dumps({'passed':True,'sourceFiles':len(expected)},indent=2)+'\n')
-          PY
-      - name: Retain measured evidence
-        if: always()
-        run: |
-          python3 - <<'PY'
-          import pathlib,shutil
-          root=pathlib.Path('out/readbuf-native-coverage')
-          for name in ['cargo','ffi']:
-              folder=root/name
-              shutil.rmtree(folder/'target',ignore_errors=True)
-              shutil.rmtree(folder/'profiles',ignore_errors=True)
-          PY
+          source bin/common.sh
+          build_native_ffi_test_release
+          cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
+          mkdir -p out/native-ws-matched
+          lscpu > out/native-ws-matched/hardware.txt
+      - name: Alternate baseline and candidate on six unchanged file profiles
+        run: python3 tool/wamp_native_ws_matched_investigation.py
+      - name: Run all eight original diagnostic scenarios and gates
+        run: bin/wamp-profile-diagnostics --out-dir out/wamp-profile-diagnostics
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: readbuf-native-coverage
-          path: out/readbuf-native-coverage
+          name: native-ws-matched-and-diagnostics
+          path: |
+            out/native-ws-matched
+            out/wamp-profile-diagnostics
           if-no-files-found: error

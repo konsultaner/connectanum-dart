@@ -4,8 +4,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'canonical_json_byte_frames_io.dart';
+import 'native_websocket_frames_io.dart';
 
 class CanonicalJsonFrameKinds {
+  CanonicalJsonFrameKinds({this.adaptJson = true, this.onNativeFrame});
+  final bool adaptJson;
+  final void Function(Uint8List frame)? onNativeFrame;
   bool active = false;
   final _kinds = Queue<bool>();
   void add(bool text) => _kinds.addLast(text);
@@ -290,7 +294,20 @@ class _Socket extends StreamView<Uint8List> implements Socket {
   final Socket delegate;
   final CanonicalJsonFrameKinds kinds;
   _Socket(this.delegate, this.kinds)
-    : super(canonicalJsonByteFrames(delegate, onMessage: kinds.add));
+    : super(
+        kinds.adaptJson
+            ? canonicalJsonByteFrames(
+                coalesceNativeWebSocketFrames(
+                  delegate,
+                  onNativeFrame: kinds.onNativeFrame,
+                ),
+                onMessage: kinds.add,
+              )
+            : coalesceNativeWebSocketFrames(
+                delegate,
+                onNativeFrame: kinds.onNativeFrame,
+              ),
+      );
   @override
   void destroy() => delegate.destroy();
   @override
