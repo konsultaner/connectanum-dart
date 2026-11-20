@@ -157,6 +157,16 @@ selected 2,308-inventory replays after explicit response/catalog guards; all
 pass. Full campaign scores and hosted floor qualification remain pending. The
 additional repairs require another final frozen `bin/verify`; PR #139 stays draft.
 
+Strict kTLS passes at `1cc12182`. A third missing-response MCP counterexample is
+assertion-killed in a selected full-inventory replay. The CBOR preview now uses
+bounded standard Cursor IO after reproducing an arithmetic mutation panic;
+a new split-metadata/aligned-argument/fragmented-kwargs regression preserves
+borrowing and allocation limits. All 433 Core tests plus integrations pass;
+three strict selected native replays retain the complete 350-mutant inventory
+and clean/restored baselines. Complete campaign scores, remaining file/heavy
+floors and final-source frozen verification are still pending. The completed
+focused Linux source/AOT profiles are investigative evidence, not gate passes.
+
 ## Release scope
 
 All eight Dart packages and three Rust crates are synchronized at beta.9.

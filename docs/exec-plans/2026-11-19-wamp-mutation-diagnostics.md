@@ -634,3 +634,53 @@ cover schema behavior beyond this catalog-presence probe.
 Current blockers remain final hosted file/heavy floors, complete current-source
 mutation scores, hosted kTLS confirmation and final frozen verification after
 these further repairs. PR #139 remains draft; no merge or release is made.
+
+
+### Bounded CBOR preview and strict counterexample evidence
+
+Strict kTLS passes again at `1cc12182` in run
+[44665881303](https://github.com/konsultaner/connectanum-dart/actions/runs/44665881303).
+The original kernel-module preparation, both strict flags, workload and gates
+remain unchanged. A third full-MCP counterexample, `cb5614cb5c1a0e66c710`
+(`request.isNotification` becoming true), has the same missing-response failure
+as the earlier negation mutant. The existing new guards assertion-kill it in a
+selected 2,308-candidate replay, with clean/restored baselines and the same native
+binary. Full campaign scores remain pending.
+
+The CBOR cache's manual preview progress introduced an arithmetic mutation
+failure: baseline passes, while `filled += count` becoming `-=` panics with
+subtraction overflow. A direct isolated regression reproduces that failure before
+repair. The preview now writes into a bounded standard Cursor over its 64-byte
+stack buffer; prefix subtraction uses checked arithmetic. Partial writes are
+intentional when that concrete slice-backed Cursor reaches capacity; write_all
+would incorrectly reject a large input segment. No alternate validator is added.
+
+A new public parse regression uses both complete and byte-split metadata prefixes,
+an aligned 64-KiB argument block and 4-KiB-fragmented 64-KiB keyword arguments.
+It retains exact raw pointers/bytes and requires the aligned argument pointer to
+remain borrowed, with total allocation no greater than kwargs wire size plus
+16 KiB. Existing allocation/pointer tests remain unchanged. Both changed early
+exit conditions fail this regression through assertions, without arithmetic
+panics. All 433 Core tests, fresh-process HTTP/3 and three serializer integration
+cases pass in the candidate worktree and the main worktree.
+
+The complete current native WAMP inventory contains 350 mutants after replacing
+manual operators with standard bounded IO and checked subtraction. All current
+operators/source locations remain inventoried; no filter, waiver, timeout or
+threshold changes. Three strict selected campaigns (preview break 17/350, prefix
+break 182/350 and false progress 1/350) are assertion-killed with clean/restored
+baselines, complete raw/filtered inventories and frozen source receipts. They
+are partial counterexample proofs, not a complete native score. Local review's
+partial-write concern was checked against the concrete bounded Cursor and the
+passing split-prefix/pointer regressions; no hypothetical generic writer is used.
+
+The broad Linux profile is explicitly interrupted after collecting its original
+source-mode data; artifact 14599495462 has verified SHA256
+`117d9ddcfd2e819c2fe4eb1830d5202d2e03dd1fcf5aeba95123ead19668d3f8`.
+A subsequent focused, unqualified profile retains four exact canonical Dart
+file workloads, with every original byte count, repetition, concurrency and
+chunk size unchanged. Both source and AOT profiling complete in run 44667850793;
+artifact 14598164101 has SHA256
+`950d510cb95c3fbdbed983e9d24395e8df4d32f2d12e2d6e84f1883ebda1fdea`.
+These profiles do not qualify throughput gates; investigation and final full
+workflow verification remain outstanding.
