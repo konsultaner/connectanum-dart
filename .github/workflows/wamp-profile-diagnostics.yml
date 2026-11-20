@@ -61,39 +61,19 @@ jobs:
       - name: Bootstrap workspace
         run: bin/bootstrap
 
-      - name: Install Linux sampling tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y linux-tools-generic ripgrep
-          sudo sysctl -w kernel.perf_event_paranoid=-1
-          sudo sysctl -w kernel.kptr_restrict=0
-
-      - name: Profile original file workloads (unqualified investigation)
+      - name: Compare the original file workloads on the same runner
         run: |
           set -euo pipefail
-          perf_tool="$(command -v perf)"
-          "$perf_tool" --version
           source bin/common.sh
           build_native_ffi_test_release
           cargo build --release --manifest-path native/bench/Cargo.toml --bin http_stream
-          profile_root="$PWD/out/wamp-profile-diagnostics"
-          mkdir -p "$profile_root/cpu"
-          export CONNECTANUM_PROFILE_OUT="$profile_root/cpu"
-          export DEBUGINFOD_URLS=""
-          python3 -c 'from pathlib import Path; s=Path("native/bench/scenarios/wamp_file_transfer_throughput.toml").read_text().split("[[workloads]]"); names=["rawsocket_file_json_64m_dart_buffered", "websocket_file_json_64m_dart_buffered", "websocket_file_cbor_64m_dart_buffered", "websocket_file_msgpack_64m_dart_buffered"]; blocks=[b for b in s[1:] if any("name = \""+n+"\"" in b for n in names)]; assert len(blocks)==4; Path("out/wamp-profile-diagnostics/file-subset.toml").write_text(s[0]+"[[workloads]]"+"[[workloads]]".join(blocks))'
-          lscpu > "$profile_root/hardware.txt"
-          git rev-parse HEAD > "$profile_root/head.txt"
-          sha256sum "$CONNECTANUM_NATIVE_LIB" packages/connectanum_client/lib/src/transport/native/runtime.dart packages/connectanum_bench/lib/src/dart_vm_metrics.dart native/bench/scenarios/wamp_file_transfer_throughput.toml > "$profile_root/inputs.sha256"
-          nm -D "$CONNECTANUM_NATIVE_LIB" | rg 'ct_base64_decode' > "$profile_root/base64-exports.txt"
-          for mode in source aot; do
-            mkdir -p "$profile_root/$mode"
-            profile_args=()
-            if [[ "$mode" == source ]]; then
-              profile_args+=(--skip-wamp-worker-aot --collect-wamp-vm-metrics)
-            fi
-            "$perf_tool" record -F 199 -g --call-graph dwarf,8192 -o "$profile_root/$mode/perf.data" --               native/bench/target/release/http_stream               --native-lib "$CONNECTANUM_NATIVE_LIB"               --scenario "$profile_root/file-subset.toml"               --results "$profile_root/$mode/results.jsonl"               --artifact-dir "$profile_root/$mode"               --router-worker-counts 1 --native-runtime-thread-counts 1               --workload-timeout-ms 300000 "${profile_args[@]}"               > "$profile_root/$mode/console.log" 2>&1
-            "$perf_tool" report --stdio --sort symbol,dso --percent-limit 0.2               -i "$profile_root/$mode/perf.data" > "$profile_root/$mode/perf-report.txt"
-          done
+          mkdir -p out/wamp-profile-diagnostics
+          lscpu > out/wamp-profile-diagnostics/hardware.txt
+          dpkg-query -W libc6 > out/wamp-profile-diagnostics/libc-version.txt
+          sha256sum /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-sha256.txt
+          cp /usr/lib/x86_64-linux-gnu/libc.so.6 out/wamp-profile-diagnostics/libc.so.6
+          objdump -d --start-address=0x1a32c0 --stop-address=0x1a3420 /usr/lib/x86_64-linux-gnu/libc.so.6 > out/wamp-profile-diagnostics/libc-hot-code.txt
+          python3 -u tool/wamp_file_coalesce_trial.py | tee out/wamp-profile-diagnostics/comparison.log
 
       - name: Summarize WAMP profile diagnostics
         if: always()
