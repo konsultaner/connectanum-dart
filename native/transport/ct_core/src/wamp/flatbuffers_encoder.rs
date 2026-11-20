@@ -398,6 +398,8 @@ fn validate_dictionary(dictionary: &ValueMap) -> Result<(), ParseError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::wamp::test_support::AssertSuccess;
+
     use super::super::{parse_message, Serializer};
     use super::*;
 
@@ -406,31 +408,33 @@ mod tests {
         let cases: Vec<serde_json::Value> = serde_json::from_str(include_str!(
             "../../../../../schemas/wamp_flatbuffers/codec_cases.json"
         ))
-        .unwrap();
+        .assert_success();
         assert_eq!(cases.len(), 25);
         for case in cases {
-            let name = case["name"].as_str().unwrap();
+            let name = case["name"].as_str().assert_success();
             let original = parse_message(
                 Serializer::Cbor,
-                Bytes::from(serde_cbor::to_vec(&case["message"]).unwrap()),
+                Bytes::from(serde_cbor::to_vec(&case["message"]).assert_success()),
             )
-            .unwrap();
-            let frame = encode(&original.message).unwrap_or_else(|error| panic!("{name}: {error}"));
-            let result = parse_message(Serializer::Flatbuffers, frame.clone())
-                .unwrap_or_else(|error| panic!("{name}: {error}"));
+            .assert_success();
+            let frame = encode(&original.message).assert_expected(name);
+            let result =
+                parse_message(Serializer::Flatbuffers, frame.clone()).assert_expected(name);
             assert_eq!(result.message, original.message, "{name}");
-            super::super::flatbuffers_generated::wamp::proto::root_as_message(&frame).unwrap();
+            super::super::flatbuffers_generated::wamp::proto::root_as_message(&frame)
+                .assert_success();
             if let Ok(directory) = std::env::var("CONNECTANUM_FLATBUFFERS_CODEC_DIR") {
                 let directory = std::path::Path::new(&directory);
-                std::fs::write(directory.join(format!("rust_codec_{name}.bin")), &frame).unwrap();
+                std::fs::write(directory.join(format!("rust_codec_{name}.bin")), &frame)
+                    .assert_success();
                 for language in ["dart", "dart_segments"] {
                     let dart_path = directory.join(format!("{language}_codec_{name}.bin"));
                     if dart_path.exists() {
                         let dart = parse_message(
                             Serializer::Flatbuffers,
-                            Bytes::from(std::fs::read(dart_path).unwrap()),
+                            Bytes::from(std::fs::read(dart_path).assert_success()),
                         )
-                        .unwrap();
+                        .assert_success();
                         assert_eq!(dart.message, original.message, "{language} {name}");
                     }
                 }
@@ -448,8 +452,8 @@ mod tests {
                 outgoing: (mask & 4 != 0).then_some(0),
             };
             assert_eq!(
-                parse_message(Serializer::Flatbuffers, encode(&message).unwrap())
-                    .unwrap()
+                parse_message(Serializer::Flatbuffers, encode(&message).assert_success())
+                    .assert_success()
                     .message,
                 message
             );
@@ -486,7 +490,7 @@ mod tests {
             Cbor::String("x_vendor".into()),
             Cbor::String("revoked".into()),
         )]))
-        .unwrap();
+        .assert_success();
         let metadata = builder.create_vector(&metadata);
         let body = generated::Unregistered::create(
             &mut builder,
@@ -505,13 +509,13 @@ mod tests {
         );
         generated::finish_message_buffer(&mut builder, root);
         let original = Bytes::copy_from_slice(builder.finished_data());
-        let parsed = parse_message(Serializer::Flatbuffers, original.clone()).unwrap();
-        let encoded = encode(&parsed.message).unwrap();
-        let original = generated::root_as_message(&original).unwrap();
-        let encoded = generated::root_as_message(&encoded).unwrap();
+        let parsed = parse_message(Serializer::Flatbuffers, original.clone()).assert_success();
+        let encoded = encode(&parsed.message).assert_success();
+        let original = generated::root_as_message(&original).assert_success();
+        let encoded = generated::root_as_message(&encoded).assert_success();
         assert_eq!(
-            encoded.metadata().unwrap().bytes(),
-            original.metadata().unwrap().bytes()
+            encoded.metadata().assert_success().bytes(),
+            original.metadata().assert_success().bytes()
         );
     }
 
@@ -535,10 +539,10 @@ mod tests {
                 ..Default::default()
             },
         };
-        let frame = encode(&message).unwrap();
+        let frame = encode(&message).assert_success();
         assert_eq!(
             parse_message(Serializer::Flatbuffers, frame)
-                .unwrap()
+                .assert_success()
                 .message,
             message
         );

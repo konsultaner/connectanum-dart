@@ -118,3 +118,56 @@ fn payload_replacement_preserves_every_non_payload_message() {
     }
     assert_eq!(count, 17);
 }
+
+#[test]
+fn extracted_payload_preserves_present_empty_and_nested_values() {
+    let arguments = Value::Seq(vec![
+        Value::String("kept".into()),
+        Value::U64(17),
+        Value::Bool(true),
+        Value::Map(BTreeMap::from([(
+            Value::String("nested".into()),
+            Value::Bool(false),
+        )])),
+    ]);
+    let keywords = Value::Map(BTreeMap::from([
+        (Value::String("flag".into()), Value::Bool(false)),
+        (Value::String("unicode".into()), Value::String("☃".into())),
+    ]));
+    for serializer in SERIALIZERS {
+        let payload = extract_payload(
+            serializer,
+            "args",
+            Some(&arguments),
+            "kwargs",
+            Some(&keywords),
+        )
+        .assert_success();
+        assert_eq!(
+            payload.args,
+            Some(wire(
+                serializer,
+                &json!(["kept", 17, true, {"nested": false}])
+            ))
+        );
+        assert_eq!(
+            payload.kwargs,
+            Some(wire(serializer, &json!({"flag": false, "unicode": "☃"})))
+        );
+        assert_eq!(payload.transparent, None);
+        let empty = extract_payload(
+            serializer,
+            "args",
+            Some(&Value::Seq(vec![])),
+            "kwargs",
+            Some(&Value::Map(BTreeMap::new())),
+        )
+        .assert_success();
+        assert_eq!(empty.args, Some(wire(serializer, &json!([]))));
+        assert_eq!(empty.kwargs, Some(wire(serializer, &json!({}))));
+        let absent = extract_payload(serializer, "args", Some(&Value::Unit), "kwargs", None)
+            .assert_success();
+        assert_eq!(absent.args, None);
+        assert_eq!(absent.kwargs, None);
+    }
+}

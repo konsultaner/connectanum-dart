@@ -11,6 +11,9 @@ import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 
 import 'message_protocol.dart';
 
+// The fused VM decoder validates UTF-8 and parses JSON without a temporary String.
+final _jsonUtf8Decoder = utf8.decoder.fuse(json.decoder);
+
 const String _jsonBinaryPrefix = '\u0000';
 const String _jsonEscapedBinaryPrefix = '\\u0000';
 
@@ -790,7 +793,7 @@ bool _supportsSessionMetadataMessage(int code) {
 Object? _decodePayload(NativeMessageSerializer serializer, Uint8List bytes) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
+      return _normalizeJsonBinaryPayload(_jsonUtf8Decoder.convert(bytes));
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:
@@ -1278,7 +1281,7 @@ Map<String, dynamic> _decodeKeywordMap(
 Object? _decodeFragment(NativeMessageSerializer serializer, Uint8List bytes) {
   switch (serializer) {
     case NativeMessageSerializer.json:
-      return _normalizeJsonBinaryPayload(jsonDecode(utf8.decode(bytes)));
+      return _normalizeJsonBinaryPayload(_jsonUtf8Decoder.convert(bytes));
     case NativeMessageSerializer.messagePack:
       return msgpack.deserialize(bytes);
     case NativeMessageSerializer.cbor:

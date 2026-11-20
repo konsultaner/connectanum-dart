@@ -21,6 +21,7 @@ void main() {
           },
         });
 
+        expect(response?['result'], isA<Map>());
         final result = response?['result'] as Map<String, Object?>;
         expect(result['capabilities'], {
           'tools': <String, Object?>{},
@@ -54,6 +55,7 @@ void main() {
             'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
           },
         });
+        expect(initialize?['result'], isA<Map>());
         expect(
           initialize?['result'],
           containsPair('capabilities', {
@@ -111,6 +113,7 @@ void main() {
             'method': method,
             'params': {'uri': 'relative resource'},
           });
+          expect(response?['error'], isA<Map>());
           final error = response?['error'] as Map<String, Object?>;
           expect(error['code'], McpErrorCodes.invalidParams);
         }
@@ -130,6 +133,7 @@ void main() {
         'params': {'uri': 'app://tasks/open'},
       });
 
+      expect(response?['error'], isA<Map>());
       final error = response?['error'] as Map<String, Object?>;
       expect(error['code'], McpErrorCodes.methodNotFound);
     });
@@ -215,6 +219,7 @@ void main() {
         'params': {},
       });
 
+      expect(firstResponse?['result'], isA<Map>());
       final first = firstResponse?['result'] as Map<String, Object?>;
       expect(_resourceNames(first), ['alpha', 'beta']);
       final cursor = first['nextCursor'];
@@ -253,6 +258,7 @@ void main() {
         'params': {},
       });
 
+      expect(response?['result'], isA<Map>());
       final result = response?['result'] as Map<String, Object?>;
       expect(_resourceNames(result), ['alpha', 'beta', 'gamma']);
     });
@@ -277,6 +283,7 @@ void main() {
         'method': 'resources/list',
         'params': {},
       });
+      expect(firstResponse?['result'], isA<Map>());
       final first = firstResponse?['result'] as Map<String, Object?>;
       final staleCursor = first['nextCursor'];
       expect(staleCursor, isA<String>());
@@ -305,6 +312,7 @@ void main() {
           'params': {'cursor': cursor},
         });
 
+        expect(response?['error'], isA<Map>());
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.invalidParams);
         expect(error['message'], contains('cursor must be a non-empty string'));
@@ -345,6 +353,7 @@ void main() {
         'params': {'uri': 'app://resource/mixed'},
       });
 
+      expect(response?['result'], isA<Map>());
       final result = response?['result'] as Map<String, Object?>;
       expect(result['contents'], [
         {
@@ -484,6 +493,7 @@ void main() {
         'params': {'uri': 'app://tasks/fixed'},
       });
 
+      expect(response?['result'], isA<Map>());
       final result = response?['result'] as Map<String, Object?>;
       final contents = result['contents'] as List<Object?>;
       expect(contents.single, containsPair('text', 'exact'));
@@ -517,6 +527,7 @@ void main() {
         'params': {'uri': 'app://tasks/A.B.json'},
       });
 
+      expect(response?['result'], isA<Map>());
       final result = response?['result'] as Map<String, Object?>;
       final contents = result['contents'] as List<Object?>;
       expect(contents.single, containsPair('text', 'A.B'));
@@ -567,6 +578,7 @@ void main() {
           'params': {'uri': 'app://tasks/parent/child'},
         });
 
+        expect(response?['error'], isA<Map>());
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.resourceNotFound);
       },
@@ -585,6 +597,7 @@ void main() {
           'params': {'uri': 'app://resource/missing'},
         });
 
+        expect(response?['error'], isA<Map>());
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.resourceNotFound);
         expect(error['data'], {'uri': 'app://resource/missing'});
@@ -605,6 +618,7 @@ void main() {
             'params': {'uri': uri},
           });
 
+          expect(response?['error'], isA<Map>());
           final error = response?['error'] as Map<String, Object?>;
           expect(error['code'], McpErrorCodes.invalidParams);
           expect(error['message'], contains('resources/read.params.uri'));
@@ -639,6 +653,7 @@ void main() {
         'params': {},
       });
 
+      expect(firstResponse?['result'], isA<Map>());
       final first = firstResponse?['result'] as Map<String, Object?>;
       expect(first['resourceTemplates'], [
         {
@@ -724,6 +739,7 @@ void main() {
           'params': {'cursor': cursor},
         });
 
+        expect(response?['error'], isA<Map>());
         final error = response?['error'] as Map<String, Object?>;
         expect(error['code'], McpErrorCodes.invalidParams);
         expect(error['message'], contains('cursor must be a non-empty string'));
@@ -781,7 +797,7 @@ List<String> _resourceTemplateNames(Map<String, Object?> listResult) {
 }
 
 Future<void> _initializeAndStart(McpServer server) async {
-  await server.handleMessage({
+  final initialized = await server.handleMessage({
     'jsonrpc': '2.0',
     'id': 1,
     'method': 'initialize',
@@ -791,6 +807,7 @@ Future<void> _initializeAndStart(McpServer server) async {
       'clientInfo': {'name': 'test-client', 'version': '1.0.0'},
     },
   });
+  expect(initialized?['result'], isA<Map>());
   await server.handleMessage({
     'jsonrpc': '2.0',
     'method': 'notifications/initialized',

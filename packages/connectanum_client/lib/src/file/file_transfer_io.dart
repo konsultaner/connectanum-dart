@@ -32,22 +32,25 @@ Stream<Uint8List> _openFileChunks(File file, int chunkSize) async* {
   final opened = await file.open();
   try {
     while (true) {
-      final chunk = Uint8List(chunkSize);
-      var length = 0;
-      while (length < chunk.length) {
-        final read = await opened.readInto(chunk, length, chunk.length);
-        if (read == 0) {
-          break;
-        }
-        length += read;
-      }
-      if (length == 0) {
+      // Async readInto first receives an owned IO buffer, then copies it into
+      // the destination. Keep that owned buffer for complete reads instead.
+      var chunk = await opened.read(chunkSize);
+      if (chunk.isEmpty) {
         break;
       }
-      yield length == chunk.length
-          ? chunk
-          : Uint8List.sublistView(chunk, 0, length);
-      if (length < chunk.length) {
+      if (chunk.length < chunkSize) {
+        final partial = BytesBuilder(copy: false)..add(chunk);
+        var length = chunk.length;
+        while (length < chunkSize) {
+          final next = await opened.read(chunkSize - length);
+          if (next.isEmpty) break;
+          partial.add(next);
+          length += next.length;
+        }
+        chunk = partial.takeBytes();
+      }
+      yield chunk;
+      if (chunk.length < chunkSize) {
         break;
       }
     }

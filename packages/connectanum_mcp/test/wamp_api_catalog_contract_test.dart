@@ -742,6 +742,7 @@ Future<Map<String, Object?>> _rpc(
     'method': method,
     'params': params,
   });
+  expect(response, isA<Map>());
   expect(response, containsPair('id', 1));
   expect(response, isNot(contains('error')));
   expect(response, containsPair('result', isA<Map<String, Object?>>()));

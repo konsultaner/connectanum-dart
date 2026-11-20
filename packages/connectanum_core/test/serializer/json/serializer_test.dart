@@ -40,6 +40,46 @@ import '../hello_wire_expectations.dart';
 
 void main() {
   var serializer = Serializer();
+  test(
+    'validated text bytes preserve eager text ownership and byte-path lazy semantics',
+    () {
+      final source = Uint8List.fromList(
+        List.generate(65537, (i) => (i * 37) & 255),
+      );
+      final wire = Uint8List.fromList(
+        utf8.encode(
+          serializer.serializeToString(Call(42, 'app.é', arguments: [source])),
+        ),
+      );
+      final text = serializer.deserializeFromTextBytes(wire) as Call;
+      final raw = serializer.deserialize(Uint8List.fromList(wire)) as Call;
+      expect(text.hasLazyArguments, isFalse);
+      expect(raw.hasLazyArguments, isTrue);
+      wire.fillRange(0, wire.length, 0xee);
+      expect(text.arguments!.single, source);
+      expect(raw.arguments!.single, source);
+      (text.arguments!.single as Uint8List)[0] ^= 255;
+      expect(raw.arguments!.single, source);
+      for (final input in [
+        '[48,42,{},"app.é",["unicode 💡"]]',
+        '[48,42,{},"app",[1,2],{"k":"v"}]',
+      ]) {
+        final expected = serializer.deserializeFromString(input) as Call;
+        final actual =
+            serializer.deserializeFromTextBytes(
+                  Uint8List.fromList(utf8.encode(input)),
+                )
+                as Call;
+        expect(actual.procedure, expected.procedure);
+        expect(actual.arguments, expected.arguments);
+        expect(actual.argumentsKeywords, expected.argumentsKeywords);
+      }
+      expect(
+        () => serializer.deserializeFromTextBytes(Uint8List.fromList([255])),
+        throwsFormatException,
+      );
+    },
+  );
   group('serialize', () {
     test('Hello', () {
       expect(
@@ -365,6 +405,50 @@ void main() {
       );
       expect(encodeCalls, 5);
       expect(replacementCalls, 0);
+    });
+    test('envelope encoder receives exact lengths and can decline', () {
+      var regularCalls = 0;
+      final envelopes = <(int, int)>[];
+      final accelerated = Serializer();
+      accelerated.installCanonicalBase64ByteEncoder(
+        (input) {
+          regularCalls++;
+          return Uint8List.fromList(ascii.encode(base64.encode(input)));
+        },
+        envelopeEncoder: (input, prefix, suffix) {
+          envelopes.add((prefix, suffix));
+          return null;
+        },
+      );
+      for (final name in ['a', 'app.binary', 'with.é.unicode']) {
+        final message = Call(42, name, arguments: [Uint8List(3)]);
+        final parts = accelerated.serializeFragments(message)!;
+        expect(envelopes.last, (parts.first.length, parts.last.length));
+        expect(
+          utf8.decode(parts.expand((p) => p).toList()),
+          serializer.serializeToString(message),
+        );
+      }
+      expect(regularCalls, 3);
+      expect(envelopes.length, 3);
+    });
+    test('explicit encoders prevent transport envelope installation', () {
+      var explicitCalls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteEncoder: (bytes) {
+          explicitCalls++;
+          return Uint8List.fromList(ascii.encode(base64.encode(bytes)));
+        },
+      );
+      accelerated.installCanonicalBase64ByteEncoder(
+        (_) => throw StateError('replaced explicit encoder'),
+        envelopeEncoder: (_, _, _) =>
+            throw StateError('installed envelope over explicit encoder'),
+      );
+      accelerated.serializeFragments(
+        Call(42, 'app.binary', arguments: [Uint8List(3)]),
+      );
+      expect(explicitCalls, 1);
     });
     test('segmented JSON falls back when an encoder declines', () {
       var encodeCalls = 0;
@@ -1996,6 +2080,105 @@ void main() {
       expect(result.arguments!.single, orderedEquals(binary));
       expect(decodeCalls, 1);
     });
+    test(
+      'direct String decoder receives the original span and Unicode metadata',
+      () {
+        final binary = Uint8List.fromList(
+          List.generate(4097, (i) => (i * 17) & 255),
+        );
+        final encoded = base64.encode(binary);
+        late String wire;
+        var calls = 0;
+        final accelerated = Serializer(
+          canonicalBase64StringDecoder: (input, start, end) {
+            calls++;
+            expect(input, same(wire));
+            expect(input.substring(start, end), encoded);
+            return Uint8List.fromList(
+              base64.decode(input.substring(start, end)),
+            );
+          },
+        );
+        wire = '[50,77,{"progress":true,"trace_id":"é💡"},["\\u0000$encoded"]]';
+        final result = accelerated.deserializeFromString(wire) as Result;
+        expect(calls, 1);
+        expect(result.callRequestId, 77);
+        expect(result.details.progress, isTrue);
+        expect(result.details.custom, containsPair('trace_id', 'é💡'));
+        expect(result.arguments!.single, orderedEquals(binary));
+        expect(result.argumentsKeywords, isNull);
+      },
+    );
+
+    test('a declined String decoder preserves the generic JSON fallback', () {
+      final binary = Uint8List.fromList(List.generate(4097, (i) => i & 255));
+      final encoded = base64.encode(binary);
+      var calls = 0;
+      final accelerated = Serializer(
+        canonicalBase64ByteDecoder: (_, _, _) =>
+            fail('String path must use its own accelerator'),
+        canonicalBase64StringDecoder: (_, _, _) {
+          calls++;
+          return null;
+        },
+      );
+      final result =
+          accelerated.deserializeFromString('[50,78,{},["\\u0000$encoded"]]')
+              as Result;
+      expect(calls, 1);
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
+
+    test(
+      'transport String acceleration preserves an explicit byte decoder',
+      () {
+        final binary = Uint8List.fromList(List.generate(4097, (i) => i & 255));
+        final encoded = base64.encode(binary);
+        var calls = 0;
+        final accelerated = Serializer(
+          canonicalBase64ByteDecoder: (input, start, end) {
+            calls++;
+            return Uint8List.fromList(
+              base64.decode(ascii.decode(input.sublist(start, end))),
+            );
+          },
+        );
+        accelerated.installCanonicalBase64ByteDecoder(
+          (_, _, _) => fail('Explicit byte decoder must remain installed'),
+          stringDecoder: (_, _, _) => fail(
+            'Native String decoder must not bypass the explicit byte decoder',
+          ),
+        );
+        final result =
+            accelerated.deserializeFromString('[50,79,{},["\\u0000$encoded"]]')
+                as Result;
+        expect(calls, 1);
+        expect(result.arguments!.single, orderedEquals(binary));
+      },
+    );
+
+    test('transport acceleration preserves an explicit String decoder', () {
+      final binary = Uint8List.fromList(List.generate(4097, (i) => i & 255));
+      final encoded = base64.encode(binary);
+      var calls = 0;
+      final accelerated = Serializer(
+        canonicalBase64StringDecoder: (input, start, end) {
+          calls++;
+          return Uint8List.fromList(base64.decode(input.substring(start, end)));
+        },
+      );
+      accelerated.installCanonicalBase64ByteDecoder(
+        (_, _, _) => fail('String message must retain its explicit decoder'),
+        stringDecoder: (_, _, _) =>
+            fail('Explicit String decoder must remain installed'),
+      );
+      final result =
+          accelerated.deserializeFromString('[50,80,{},["\\u0000$encoded"]]')
+              as Result;
+      expect(calls, 1);
+      expect(result.arguments!.single, orderedEquals(binary));
+    });
+
     test('large binary String path uses an installed canonical decoder', () {
       var decodeCalls = 0;
       late String encodedInput;

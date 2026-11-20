@@ -4,7 +4,8 @@ import 'package:connectanum_core/src/serializer/msgpack/codec.dart' as codec;
 import 'package:msgpack_dart/msgpack_dart.dart' as delegate;
 import 'package:test/test.dart';
 
-import 'codec_test_support.dart' as checked;
+import 'codec_test_support.dart' as support;
+import 'codec_fallback_test_support.dart';
 
 const _wide = 0x100000000;
 const _wideWire = [0xcf, 0, 0, 0, 1, 0, 0, 0, 0];
@@ -19,7 +20,28 @@ bool _supports64BitAccessors() {
 }
 
 void main() {
-  final nativeIntegers = _supports64BitAccessors();
+  group('default backend', () {
+    _registerCodecTests(
+      const support.CheckedCodec(codec.serialize, codec.deserialize),
+      nativeIntegers: _supports64BitAccessors(),
+    );
+  });
+  group('portable backend', () {
+    const portable = codec.PortableMessagePackCodec();
+    _registerCodecTests(
+      support.CheckedCodec(portable.encode, portable.decode),
+      nativeIntegers: false,
+    );
+    registerFallbackTests(
+      support.CheckedCodec(portable.encode, portable.decode),
+    );
+  });
+}
+
+void _registerCodecTests(
+  support.CheckedCodec checked, {
+  required bool nativeIntegers,
+}) {
   final scalars = <(String, List<int>, Object?)>[
     ('positive fixint', [0x7f], 127),
     ('negative fixint', [0xe0], -32),
@@ -112,7 +134,7 @@ void main() {
             ...wire.take(length),
           ]);
           expect(
-            () => codec.deserialize(frame),
+            () => checked.decode(frame),
             nativeIntegers ? throwsRangeError : throwsFormatException,
             reason: '$name truncated to $length/${wire.length} bytes',
           );
@@ -143,7 +165,7 @@ void main() {
         final wire = [...header, ...payload];
         for (var length = 0; length < wire.length; length++) {
           expect(
-            () => codec.deserialize(
+            () => checked.decode(
               Uint8List.fromList([
                 0x92,
                 ..._wideWire,
@@ -159,7 +181,7 @@ void main() {
 
     test('rejects reserved markers after entering the fallback', () {
       expect(
-        () => codec.deserialize(Uint8List.fromList([0x92, ..._wideWire, 0xc1])),
+        () => checked.decode(Uint8List.fromList([0x92, ..._wideWire, 0xc1])),
         nativeIntegers
             ? throwsA(isA<delegate.FormatError>())
             : throwsFormatException,
@@ -174,7 +196,7 @@ void main() {
         [0xdf, 0, 0, 0, 64],
       ]) {
         expect(
-          () => codec.deserialize(
+          () => checked.decode(
             Uint8List.fromList([0x92, ..._wideWire, ...header, 0]),
           ),
           nativeIntegers ? throwsRangeError : throwsFormatException,
@@ -184,6 +206,8 @@ void main() {
 
     test('keeps exact signed and unsigned 64-bit boundary wire values', () {
       for (final (value, wire) in <(int, List<int>)>[
+        (0xffffffff, [0xce, 0xff, 0xff, 0xff, 0xff]),
+        (-0x80000000, [0xd2, 0x80, 0, 0, 0]),
         (_wide, _wideWire),
         (_wide + 1, [0xcf, 0, 0, 0, 1, 0, 0, 0, 1]),
         (0x20000000000000, [0xcf, 0, 0x20, 0, 0, 0, 0, 0, 0]),
@@ -216,14 +240,14 @@ void main() {
           if (nativeIntegers) {
             expect(checked.deserialize(bytes), int.parse(decimal));
           } else {
-            expect(() => codec.deserialize(bytes), throwsFormatException);
+            expect(() => checked.decode(bytes), throwsFormatException);
           }
         }
         for (final value in [0x20000000000002, -0x20000000000002]) {
           if (nativeIntegers) {
             expect(checked.deserialize(checked.serialize(value)), value);
           } else {
-            expect(() => codec.serialize(value), throwsFormatException);
+            expect(() => checked.encode(value), throwsFormatException);
           }
         }
       },

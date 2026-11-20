@@ -1,7 +1,7 @@
-use bytes::Bytes;
+use bytes::{Buf, Bytes};
 use serde::{de::IgnoredAny, Deserialize};
 use serde_value::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::convert::TryFrom;
 use std::io::{Cursor, Read};
 use std::ops::Range;
@@ -27,6 +27,8 @@ pub use flatbuffers_encoder::encode as encode_flatbuffers_message;
 pub use flatbuffers_encoder::encode_segments as encode_flatbuffers_message_segments;
 #[cfg(test)]
 mod flatbuffers_segmented_tests;
+#[cfg(test)]
+mod test_allocations;
 
 use serde_json::value::RawValue;
 
@@ -288,61 +290,63 @@ impl RawFrame {
     }
 
     fn read_byte(&self, index: usize) -> Result<u8, ParseError> {
-        if index >= self.len() {
-            return Err(ParseError::Deserialize(
-                "unexpected end of message data".into(),
-            ));
-        }
+        let missing = || ParseError::Deserialize("unexpected end of message data".into());
         match self {
-            RawFrame::Contiguous(bytes) => Ok(bytes[index]),
+            RawFrame::Contiguous(bytes) => bytes.get(index).copied().ok_or_else(missing),
             RawFrame::Segmented { segments, .. } => {
                 let mut offset = index;
                 for segment in segments {
-                    if offset < segment.len() {
-                        return Ok(segment[offset]);
+                    if let Some(byte) = segment.get(offset) {
+                        return Ok(*byte);
                     }
-                    offset -= segment.len();
+                    offset = offset.saturating_sub(segment.len());
                 }
-                Err(ParseError::Deserialize(
-                    "unexpected end of message data".into(),
-                ))
+                Err(missing())
             }
         }
     }
 
     fn slice_or_copy(&self, range: &Range<usize>) -> Result<Bytes, ParseError> {
+        let length = range
+            .end
+            .checked_sub(range.start)
+            .ok_or_else(|| ParseError::Deserialize("payload range starts after its end".into()))?;
         if range.end > self.len() {
             return Err(ParseError::Deserialize(
                 "payload range exceeds message bounds".into(),
             ));
         }
         match self {
-            RawFrame::Contiguous(bytes) => Ok(bytes.slice(range.clone())),
+            RawFrame::Contiguous(bytes) => bytes
+                .get(range.clone())
+                .map(|slice| bytes.slice_ref(slice))
+                .ok_or_else(|| {
+                    ParseError::Deserialize("payload range exceeds message bounds".into())
+                }),
             RawFrame::Segmented { segments, .. } => {
                 let mut absolute = 0usize;
                 for segment in segments {
-                    let segment_end = absolute + segment.len();
-                    if range.start >= absolute && range.end <= segment_end {
-                        let start = range.start - absolute;
-                        let end = range.end - absolute;
-                        return Ok(segment.slice(start..end));
+                    if let (Some(start), Some(end)) = (
+                        range.start.checked_sub(absolute),
+                        range.end.checked_sub(absolute),
+                    ) {
+                        if let Some(slice) = segment.get(start..end) {
+                            return Ok(segment.slice_ref(slice));
+                        }
                     }
-                    absolute = segment_end;
+                    absolute = absolute.saturating_add(segment.len());
                 }
 
-                let mut copied = Vec::with_capacity(range.len());
+                let mut copied = Vec::with_capacity(length);
                 let mut absolute = 0usize;
                 for segment in segments {
-                    let segment_end = absolute + segment.len();
-                    let start = range.start.max(absolute);
-                    let end = range.end.min(segment_end);
-                    if start < end {
-                        copied.extend_from_slice(&segment[(start - absolute)..(end - absolute)]);
-                    }
-                    if end == range.end {
-                        break;
-                    }
-                    absolute = segment_end;
+                    let start = range.start.saturating_sub(absolute).min(segment.len());
+                    let end = range.end.saturating_sub(absolute).min(segment.len());
+                    let slice = segment.get(start..end).ok_or_else(|| {
+                        ParseError::Deserialize("payload range exceeds segment bounds".into())
+                    })?;
+                    copied.extend_from_slice(slice);
+                    absolute = absolute.saturating_add(segment.len());
                 }
                 Ok(Bytes::from(copied))
             }
@@ -462,18 +466,46 @@ fn parse_value_parts(
 }
 
 fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError> {
-    let Some(raw) = raw_payload.as_contiguous() else {
-        return parse_value_message(Serializer::Cbor, raw_payload);
+    let (ranges, cache) = cbor_top_level_ranges(&raw_payload)?;
+    let parsed_payload = match cache {
+        None => raw_payload.clone(),
+        Some((start, suffix)) => {
+            let RawFrame::Segmented { segments, .. } = &raw_payload else {
+                return Err(ParseError::Deserialize(
+                    "CBOR cache requires segmented input".into(),
+                ));
+            };
+            let mut parts = Vec::new();
+            let mut remaining = start;
+            for part in segments {
+                let length = remaining.min(part.len());
+                if length != 0 {
+                    parts.push(part.slice(..length));
+                }
+                remaining = remaining.checked_sub(length).ok_or_else(|| {
+                    ParseError::Deserialize("CBOR cached prefix exceeds its offset".into())
+                })?;
+                if remaining == 0 {
+                    break;
+                }
+            }
+            if remaining != 0 {
+                return Err(ParseError::Deserialize(
+                    "CBOR cache exceeds input bounds".into(),
+                ));
+            }
+            parts.push(suffix);
+            RawFrame::from_segments(parts)
+        }
     };
-    let ranges = cbor_top_level_ranges(raw.as_ref())?;
     if ranges.is_empty() {
         return Err(ParseError::MissingElement("message code"));
     }
-    let code_value = cbor_value(&raw_payload, &ranges[0])?;
+    let code_value = cbor_value(&parsed_payload, &ranges[0])?;
     let code = value_as_u64(&code_value, "message code")?;
     let payload_spec = cbor_payload_spec(code);
     let payload = payload_spec
-        .map(|spec| cbor_payload(&raw_payload, &ranges, spec))
+        .map(|spec| cbor_payload(&parsed_payload, &ranges, spec))
         .transpose()?;
 
     let mut rest = Vec::with_capacity(ranges.len().saturating_sub(1));
@@ -493,7 +525,7 @@ fn parse_cbor_message(raw_payload: RawFrame) -> Result<ParsedMessage, ParseError
                     Value::Unit
                 }
             }
-            _ => cbor_value(&raw_payload, range)?,
+            _ => cbor_value(&parsed_payload, range)?,
         };
         rest.push(value);
     }
@@ -582,7 +614,7 @@ fn cbor_payload_part(
     if slice.first().map(|byte| byte >> 5) != Some(expected_major) {
         return Err(wrong_type(label));
     }
-    Ok(Some(raw_payload.slice_or_copy(range)?))
+    Ok(Some(slice))
 }
 
 fn replace_message_payload(message: &mut WampMessage, payload: Payload) {
@@ -624,15 +656,61 @@ fn cbor_value(raw_payload: &RawFrame, range: &Range<usize>) -> Result<Value, Par
     Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))
 }
 
-fn cbor_top_level_ranges(data: &[u8]) -> Result<Vec<Range<usize>>, ParseError> {
-    let (mut offset, length) = cbor_array_header(data)?;
+fn cbor_top_level_ranges(
+    data: &RawFrame,
+) -> Result<(Vec<Range<usize>>, Option<(usize, Bytes)>), ParseError> {
+    let prefix = data.slice_or_copy(&(0..data.len().min(9)))?;
+    let (header_len, length) = cbor_array_header(prefix.as_ref())?;
+    match data {
+        RawFrame::Contiguous(bytes) => {
+            let body = bytes.get(header_len..).ok_or_else(|| {
+                ParseError::Deserialize("truncated CBOR message array header".into())
+            })?;
+            let mut de = serde_cbor::Deserializer::from_slice(body);
+            cbor_value_ranges(data, header_len, length, || {
+                IgnoredAny::deserialize(&mut de)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                Ok(de.byte_offset())
+            })
+            .map(|ranges| (ranges, None))
+        }
+        RawFrame::Segmented { segments, .. } => {
+            let mut reader = SegmentedFrameReader::new(segments.clone());
+            let mut header = [0u8; 9];
+            let header = header.get_mut(..header_len).ok_or_else(|| {
+                ParseError::Deserialize(
+                    "CBOR message array header exceeds its maximum width".into(),
+                )
+            })?;
+            reader
+                .read_exact(header)
+                .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+            let body_len = reader.remaining;
+            let ranges = cbor_value_ranges(data, header_len, length, || {
+                reader.read_cbor_value()?;
+                body_len.checked_sub(reader.remaining).ok_or_else(|| {
+                    ParseError::Deserialize("CBOR reader advanced before its body".into())
+                })
+            })?;
+            Ok((ranges, reader.coalesced.take()))
+        }
+    }
+}
+
+fn cbor_value_ranges(
+    data: &RawFrame,
+    header_len: usize,
+    length: Option<usize>,
+    mut read_value_end: impl FnMut() -> Result<usize, ParseError>,
+) -> Result<Vec<Range<usize>>, ParseError> {
+    let mut offset = header_len;
     let mut ranges = Vec::with_capacity(length.unwrap_or(8).min(data.len()));
     loop {
         if let Some(length) = length {
             if ranges.len() == length {
                 break;
             }
-        } else if data.get(offset) == Some(&0xff) {
+        } else if data.read_byte(offset).ok() == Some(0xff) {
             break;
         }
         if offset >= data.len() {
@@ -641,17 +719,16 @@ fn cbor_top_level_ranges(data: &[u8]) -> Result<Vec<Range<usize>>, ParseError> {
             ));
         }
         let start = offset;
-        let mut de = serde_cbor::Deserializer::from_slice(&data[offset..]);
-        IgnoredAny::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))?;
-        let consumed = de.byte_offset();
-        if consumed == 0 {
+        let value_end = read_value_end()?;
+        let next_offset = header_len
+            .checked_add(value_end)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value range overflow".into()))?;
+        if next_offset <= offset {
             return Err(ParseError::Deserialize(
                 "CBOR value parser made no progress".into(),
             ));
         }
-        offset = offset
-            .checked_add(consumed)
-            .ok_or_else(|| ParseError::Deserialize("CBOR value range overflow".into()))?;
+        offset = next_offset;
         ranges.push(start..offset);
     }
     let message_end = if length.is_some() {
@@ -698,16 +775,15 @@ fn cbor_array_header(data: &[u8]) -> Result<(usize, Option<usize>), ParseError> 
 }
 
 fn cbor_header_integer(data: &[u8], byte_count: usize) -> Result<u64, ParseError> {
-    if data.len() < 1 + byte_count {
-        return Err(ParseError::Deserialize(
-            "truncated CBOR array header".into(),
-        ));
-    }
-    let mut value = 0u64;
-    for byte in &data[1..1 + byte_count] {
-        value = (value << 8) | u64::from(*byte);
-    }
-    Ok(value)
+    let truncated = || ParseError::Deserialize("truncated CBOR array header".into());
+    let source = data
+        .get(1..)
+        .and_then(|bytes| bytes.get(..byte_count))
+        .ok_or_else(truncated)?;
+    let start = 8usize.checked_sub(byte_count).ok_or_else(truncated)?;
+    let mut encoded = [0u8; 8];
+    encoded[start..].copy_from_slice(source);
+    Ok(u64::from_be_bytes(encoded))
 }
 
 #[derive(Deserialize)]
@@ -1705,15 +1781,15 @@ fn msgpack_skip_value(data: &RawFrame, offset: &mut usize) -> Result<(), ParseEr
         0xd8 => skip_ext(data, offset, 16),
         0xc7 => {
             let len = read_u8(data, offset)? as usize;
-            skip_bytes(data, offset, 1 + len)
+            skip_ext(data, offset, len)
         }
         0xc8 => {
             let len = read_u16(data, offset)? as usize;
-            skip_bytes(data, offset, 1 + len)
+            skip_ext(data, offset, len)
         }
         0xc9 => {
             let len = u32_to_usize(read_u32(data, offset)?)?;
-            skip_bytes(data, offset, 1 + len)
+            skip_ext(data, offset, len)
         }
         0xc1 => Err(ParseError::Deserialize(
             "encountered reserved MessagePack marker 0xc1".into(),
@@ -1722,31 +1798,43 @@ fn msgpack_skip_value(data: &RawFrame, offset: &mut usize) -> Result<(), ParseEr
 }
 
 fn skip_ext(data: &RawFrame, offset: &mut usize, ext_len: usize) -> Result<(), ParseError> {
-    skip_bytes(data, offset, 1 + ext_len)
+    let length = ext_len.checked_add(1).ok_or_else(|| {
+        ParseError::Deserialize("MessagePack extension length exceeds supported size".into())
+    })?;
+    skip_bytes(data, offset, length)
 }
 
 fn read_u8(data: &RawFrame, offset: &mut usize) -> Result<u8, ParseError> {
     let value = data
         .read_byte(*offset)
         .map_err(|_| ParseError::Deserialize("unexpected end of MessagePack data".into()))?;
-    *offset += 1;
+    *offset = offset.saturating_add(1);
     Ok(value)
 }
 
 fn read_u16(data: &RawFrame, offset: &mut usize) -> Result<u16, ParseError> {
-    let value = u16::from_be_bytes([data.read_byte(*offset)?, data.read_byte(*offset + 1)?]);
-    *offset += 2;
+    let end = offset.saturating_add(2);
+    let bytes = data.slice_or_copy(&(*offset..end))?;
+    let value = u16::from_be_bytes(
+        bytes
+            .as_ref()
+            .try_into()
+            .map_err(|_| ParseError::Deserialize("unexpected end of MessagePack data".into()))?,
+    );
+    *offset = end;
     Ok(value)
 }
 
 fn read_u32(data: &RawFrame, offset: &mut usize) -> Result<u32, ParseError> {
-    let value = u32::from_be_bytes([
-        data.read_byte(*offset)?,
-        data.read_byte(*offset + 1)?,
-        data.read_byte(*offset + 2)?,
-        data.read_byte(*offset + 3)?,
-    ]);
-    *offset += 4;
+    let end = offset.saturating_add(4);
+    let bytes = data.slice_or_copy(&(*offset..end))?;
+    let value = u32::from_be_bytes(
+        bytes
+            .as_ref()
+            .try_into()
+            .map_err(|_| ParseError::Deserialize("unexpected end of MessagePack data".into()))?,
+    );
+    *offset = end;
     Ok(value)
 }
 
@@ -1761,7 +1849,7 @@ fn skip_bytes(data: &RawFrame, offset: &mut usize, len: usize) -> Result<(), Par
             "unexpected end of MessagePack data".into(),
         ));
     }
-    *offset += len;
+    *offset = offset.saturating_add(len);
     Ok(())
 }
 
@@ -1848,7 +1936,6 @@ fn msgpack_map_from_slice(slice: &[u8], label: &'static str) -> Result<ValueMap,
         Value::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))?;
     match value {
         Value::Map(entries) => Ok(entries.into_iter().collect()),
-        Value::Unit => Ok(ValueMap::new()),
         _ => Err(ParseError::ExpectedMap(label)),
     }
 }
@@ -1971,7 +2058,6 @@ fn json_map(raw: &RawValue, label: &'static str) -> Result<ValueMap, ParseError>
         .map_err(|err| ParseError::Deserialize(err.to_string()))?
     {
         Value::Map(entries) => Ok(entries.into_iter().collect()),
-        Value::Unit => Ok(ValueMap::new()),
         _ => Err(ParseError::ExpectedMap(label)),
     }
 }
@@ -2024,16 +2110,7 @@ fn json_payload(
 }
 
 fn slice_raw(raw_payload: &Bytes, raw_value: &RawValue) -> Bytes {
-    let base = raw_payload.as_ptr() as usize;
-    let data_ptr = raw_value.get().as_ptr() as usize;
-    let len = raw_value.get().len();
-    debug_assert!(data_ptr >= base, "raw slice not within payload");
-    let start = data_ptr - base;
-    debug_assert!(
-        start + len <= raw_payload.len(),
-        "raw slice exceeds payload bounds"
-    );
-    raw_payload.slice(start..start + len)
+    raw_payload.slice_ref(raw_value.get().as_bytes())
 }
 
 fn first_non_ws(s: &str) -> Option<char> {
@@ -2045,45 +2122,129 @@ fn is_json_null(s: &str) -> bool {
 }
 
 struct SegmentedFrameReader {
-    segments: Vec<Bytes>,
-    segment_index: usize,
-    segment_offset: usize,
+    parts: SegmentedPartsReader,
+    remaining: usize,
+    total: usize,
+    coalesced: Option<(usize, Bytes)>,
 }
 
 impl SegmentedFrameReader {
+    fn read_cbor_value(&mut self) -> Result<(), ParseError> {
+        // Native outbound segments often contain a whole encoded argument value.
+        // Let serde borrow that segment instead of copying it into an IO scratch
+        // buffer. A value spanning segments keeps the original reader path.
+        let consumed = {
+            let chunk = self
+                .parts
+                .segments
+                .iter()
+                .find(|part| !part.is_empty())
+                .map(Bytes::as_ref)
+                .unwrap_or(&[]);
+            let mut de = serde_cbor::Deserializer::from_slice(chunk);
+            IgnoredAny::deserialize(&mut de)
+                .ok()
+                .map(|_| de.byte_offset())
+        };
+        if let Some(consumed) = consumed {
+            return self.advance_current_chunk(consumed);
+        }
+        let mut preview = [0u8; 64];
+        let preview_len = preview.len() as u64;
+        let filled = {
+            let mut writer = Cursor::new(preview.as_mut_slice());
+            for part in &self.parts.segments {
+                std::io::Write::write(&mut writer, part)
+                    .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+                if writer.position() == preview_len {
+                    break;
+                }
+            }
+            usize::try_from(writer.position())
+                .map_err(|_| ParseError::Deserialize("CBOR preview length overflow".into()))?
+        };
+        let mut de = serde_cbor::Deserializer::from_slice(&preview[..filled]);
+        if IgnoredAny::deserialize(&mut de).is_ok() {
+            let consumed = de.byte_offset();
+            self.read_exact(&mut preview[..consumed])
+                .map_err(|err| ParseError::Deserialize(err.to_string()))?;
+            return Ok(());
+        }
+        let mut bytes = Vec::with_capacity(self.remaining);
+        for part in &self.parts.segments {
+            bytes.extend_from_slice(part);
+        }
+        let bytes = Bytes::from(bytes);
+        let mut de = serde_cbor::Deserializer::from_slice(&bytes);
+        IgnoredAny::deserialize(&mut de).map_err(|err| ParseError::Deserialize(err.to_string()))?;
+        let consumed = de.byte_offset();
+        let start = self
+            .total
+            .checked_sub(self.remaining)
+            .ok_or_else(|| ParseError::Deserialize("CBOR cache offset underflow".into()))?;
+        self.parts.segments = VecDeque::from([bytes.clone()]);
+        self.coalesced = Some((start, bytes));
+        self.advance_current_chunk(consumed)
+    }
+
+    fn advance_current_chunk(&mut self, consumed: usize) -> Result<(), ParseError> {
+        let remaining = self
+            .remaining
+            .checked_sub(consumed)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value exceeds remaining frame".into()))?;
+        while self.parts.segments.front().is_some_and(Bytes::is_empty) {
+            self.parts.segments.pop_front();
+        }
+        let chunk = self
+            .parts
+            .segments
+            .front_mut()
+            .ok_or_else(|| ParseError::Deserialize("missing CBOR value segment".into()))?;
+        chunk
+            .get(..consumed)
+            .ok_or_else(|| ParseError::Deserialize("CBOR value exceeds segment bounds".into()))?;
+        chunk.advance(consumed);
+        self.remaining = remaining;
+        Ok(())
+    }
+
     fn new(segments: Vec<Bytes>) -> Self {
         Self {
-            segments,
-            segment_index: 0,
-            segment_offset: 0,
+            remaining: segments.iter().map(Bytes::len).sum(),
+            total: segments.iter().map(Bytes::len).sum(),
+            coalesced: None,
+            parts: SegmentedPartsReader {
+                segments: segments.into(),
+            },
         }
     }
 }
 
 impl Read for SegmentedFrameReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        if buf.is_empty() {
-            return Ok(0);
-        }
-        let mut written = 0usize;
-        while written < buf.len() && self.segment_index < self.segments.len() {
-            let segment = &self.segments[self.segment_index];
-            let remaining = &segment[self.segment_offset..];
-            if remaining.is_empty() {
-                self.segment_index += 1;
-                self.segment_offset = 0;
+        let count = self.remaining.min(buf.len());
+        self.parts.read_exact(&mut buf[..count])?;
+        self.remaining = self.remaining.saturating_sub(count);
+        Ok(count)
+    }
+}
+
+struct SegmentedPartsReader {
+    segments: VecDeque<Bytes>,
+}
+
+impl Read for SegmentedPartsReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        while let Some(mut segment) = self.segments.pop_front() {
+            if segment.is_empty() {
                 continue;
             }
-            let count = remaining.len().min(buf.len() - written);
-            buf[written..written + count].copy_from_slice(&remaining[..count]);
-            written += count;
-            self.segment_offset += count;
-            if self.segment_offset >= segment.len() {
-                self.segment_index += 1;
-                self.segment_offset = 0;
-            }
+            let count = segment.len().min(buf.len());
+            segment.copy_to_slice(&mut buf[..count]);
+            self.segments.push_front(segment);
+            return Ok(count);
         }
-        Ok(written)
+        Ok(0)
     }
 }
 
@@ -2596,7 +2757,7 @@ mod regression_tests;
 
 #[cfg(test)]
 #[path = "wamp_test_support.rs"]
-mod test_support;
+pub(crate) mod test_support;
 
 #[cfg(test)]
 mod tests {
@@ -2707,6 +2868,302 @@ mod tests {
                 assert_condition!(args_offset < raw.len());
                 let kwargs_offset = kwargs.as_ptr() as usize - raw.as_ptr() as usize;
                 assert_condition!(kwargs_offset < raw.len());
+            }
+            other => unexpected_message(other),
+        }
+    }
+
+    #[test]
+    fn fragmented_cbor_payload_reuses_its_validation_storage() {
+        use serde_cbor::Value as CborValue;
+        const SIZE: usize = 64 * 1024;
+        for value in [
+            CborValue::Bytes(vec![0x5a; SIZE]),
+            CborValue::Text("t".repeat(SIZE)),
+        ] {
+            let args = CborValue::Array(vec![value]);
+            let kwargs = CborValue::Map(BTreeMap::from([(
+                CborValue::Text("flag".into()),
+                CborValue::Bool(true),
+            )]));
+            let expected_args = serde_cbor::to_vec(&args).assert_success();
+            let expected_kwargs = serde_cbor::to_vec(&kwargs).assert_success();
+            let wire = serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(1),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("com.example.fragmented".into()),
+                args,
+                kwargs,
+            ]))
+            .assert_success();
+            let segments: Vec<Bytes> = wire.chunks(4096).map(Bytes::copy_from_slice).collect();
+            let (parsed, allocated) = super::test_allocations::allocated_bytes(|| {
+                parse_message_segments(Serializer::Cbor, segments.clone())
+            });
+            let parsed = parsed.assert_success();
+            assert_condition!(allocated <= wire.len() + 16 * 1024,
+                "fragmented CBOR validation duplicated payload storage: {allocated} bytes for {} wire bytes", wire.len());
+            assert_condition!(
+                matches!(&parsed.raw, RawFrame::Segmented { .. }),
+                "original fragmented frame was not retained"
+            );
+            let RawFrame::Segmented {
+                segments: retained, ..
+            } = &parsed.raw
+            else {
+                panic!("original fragmented frame was not retained");
+            };
+            assert_eq!(retained.len(), segments.len());
+            for (before, after) in segments.iter().zip(retained) {
+                assert_eq!(before.as_ptr(), after.as_ptr());
+                assert_eq!(before.len(), after.len());
+            }
+            let payload = match parsed.message {
+                WampMessage::Publish { payload, .. } => payload,
+                other => unexpected_message(other),
+            };
+            assert_eq!(
+                payload.args.assert_success().as_ref(),
+                expected_args.as_slice()
+            );
+            assert_eq!(
+                payload.kwargs.assert_success().as_ref(),
+                expected_kwargs.as_slice()
+            );
+        }
+    }
+
+    #[test]
+    fn fragmented_cbor_kwargs_keep_aligned_arguments_borrowed() {
+        use serde_cbor::Value as CborValue;
+        const SIZE: usize = 64 * 1024;
+        let args = CborValue::Array(vec![CborValue::Bytes(vec![0x5a; SIZE])]);
+        let kwargs = CborValue::Map(BTreeMap::from([(
+            CborValue::Text("text".into()),
+            CborValue::Text("k".repeat(SIZE)),
+        )]));
+        let expected_args = serde_cbor::to_vec(&args).assert_success();
+        let expected_kwargs = serde_cbor::to_vec(&kwargs).assert_success();
+        let wire = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(999),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("topic".into()),
+                args,
+                kwargs,
+            ]))
+            .assert_success(),
+        );
+        let kwargs_start = wire.len() - expected_kwargs.len();
+        let args_start = kwargs_start - expected_args.len();
+        let args_segment = wire.slice(args_start..kwargs_start);
+        let prefix = wire.slice(..args_start);
+        for prefix_chunk_size in [prefix.len(), 1] {
+            let mut segments: Vec<Bytes> = prefix
+                .chunks(prefix_chunk_size)
+                .map(Bytes::copy_from_slice)
+                .collect();
+            segments.push(args_segment.clone());
+            segments.extend(
+                wire[kwargs_start..]
+                    .chunks(4096)
+                    .map(Bytes::copy_from_slice),
+            );
+            let (parsed, allocated) = super::test_allocations::allocated_bytes(|| {
+                parse_message_segments(Serializer::Cbor, segments.clone())
+            });
+            let parsed = parsed.assert_success();
+            assert_condition!(
+                allocated <= expected_kwargs.len() + 16 * 1024,
+                "CBOR copied its borrowed prefix: {allocated} bytes for {} kwargs bytes",
+                expected_kwargs.len()
+            );
+            assert_condition!(
+                matches!(&parsed.raw, RawFrame::Segmented { .. }),
+                "original segmented frame was not retained"
+            );
+            let RawFrame::Segmented {
+                segments: retained, ..
+            } = &parsed.raw
+            else {
+                panic!("original segmented frame was not retained");
+            };
+            assert_eq!(retained.len(), segments.len());
+            for (before, after) in segments.iter().zip(retained) {
+                assert_eq!(before.as_ptr(), after.as_ptr());
+                assert_eq!(before.len(), after.len());
+            }
+            let payload = match parsed.message {
+                WampMessage::Publish { payload, .. } => payload,
+                other => unexpected_message(other),
+            };
+            let actual_args = payload.args.assert_success();
+            assert_eq!(actual_args.as_ref(), expected_args);
+            assert_eq!(actual_args.as_ptr(), args_segment.as_ptr());
+            assert_eq!(payload.kwargs.assert_success().as_ref(), expected_kwargs);
+        }
+    }
+
+    #[test]
+    fn cbor_payload_decode_does_not_allocate_binary_storage() {
+        use serde_cbor::Value as CborValue;
+
+        const SIZE: usize = 64 * 1024;
+        for binary_in_arguments in [true, false] {
+            let binary = CborValue::Bytes(vec![0x5a; SIZE]);
+            let (args, kwargs) = if binary_in_arguments {
+                (
+                    CborValue::Array(vec![binary]),
+                    CborValue::Map(BTreeMap::new()),
+                )
+            } else {
+                (
+                    CborValue::Array(Vec::new()),
+                    CborValue::Map(BTreeMap::from([(CborValue::Text("binary".into()), binary)])),
+                )
+            };
+            let expected_args = args.clone();
+            let expected_kwargs = kwargs.clone();
+            let value = CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(999),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("com.example.topic".into()),
+                args,
+                kwargs,
+            ]);
+            let bytes = Bytes::from(serde_cbor::to_vec(&value).assert_success());
+            let (parsed, largest) = super::test_allocations::largest_allocation(|| {
+                parse_message(Serializer::Cbor, bytes.clone())
+            });
+            let parsed = parsed.assert_success();
+            assert_condition!(
+                largest < SIZE,
+                "CBOR payload was materialized: {largest} bytes"
+            );
+            match parsed.message {
+                WampMessage::Publish { payload, .. } => {
+                    let args = payload.args.assert_success();
+                    let kwargs = payload.kwargs.assert_success();
+                    assert_slice_points_into(&parsed.raw, &args);
+                    assert_slice_points_into(&parsed.raw, &kwargs);
+                    assert_eq!(
+                        serde_cbor::from_slice::<CborValue>(&args).assert_success(),
+                        expected_args
+                    );
+                    assert_eq!(
+                        serde_cbor::from_slice::<CborValue>(&kwargs).assert_success(),
+                        expected_kwargs
+                    );
+                }
+                other => unexpected_message(other),
+            }
+        }
+    }
+
+    #[test]
+    fn cbor_borrowed_and_split_values_preserve_reader_position() {
+        let mut reader = SegmentedFrameReader::new(vec![
+            Bytes::new(),
+            Bytes::from_static(&[0x01, 0x18]),
+            Bytes::new(),
+            Bytes::from_static(&[0x2a, 0x81, 0x02]),
+            Bytes::new(),
+        ]);
+        assert_eq!(reader.remaining, 5);
+        reader.read_cbor_value().assert_success();
+        assert_eq!(reader.remaining, 4);
+        reader.read_cbor_value().assert_success();
+        assert_eq!(reader.remaining, 2);
+        reader.read_cbor_value().assert_success();
+        assert_eq!(reader.remaining, 0);
+        let mut byte = [0];
+        assert_eq!(reader.read(&mut byte).assert_success(), 0);
+        assert_condition!(reader.read_cbor_value().is_err());
+    }
+
+    #[test]
+    fn cbor_segment_advance_rejects_out_of_frame_and_cross_segment_counts() {
+        let mut reader = SegmentedFrameReader::new(vec![
+            Bytes::new(),
+            Bytes::from_static(&[1]),
+            Bytes::from_static(&[2, 3]),
+        ]);
+        assert_condition!(reader.advance_current_chunk(4).is_err());
+        assert_eq!(reader.remaining, 3);
+        assert_condition!(reader.advance_current_chunk(2).is_err());
+        assert_eq!(reader.remaining, 3);
+        // Prove the Read contract before asking the standard library to drain
+        // this reader. A zero-length read cannot report progress or consume data.
+        assert_eq!(reader.read(&mut []).assert_success(), 0);
+        assert_eq!(reader.remaining, 3);
+        let mut remaining = Vec::new();
+        reader.read_to_end(&mut remaining).assert_success();
+        assert_eq!(remaining, [1, 2, 3]);
+        let mut empty = SegmentedFrameReader::new(vec![Bytes::new()]);
+        assert_condition!(empty.advance_current_chunk(0).is_err());
+        assert_eq!(empty.remaining, 0);
+    }
+
+    #[test]
+    fn cbor_segmented_payload_decode_borrows_large_argument_values() {
+        use serde_cbor::Value as CborValue;
+        const SIZE: usize = 64 * 1024;
+        let args = CborValue::Array(vec![CborValue::Bytes(vec![0x5a; SIZE])]);
+        let kwargs = CborValue::Map(BTreeMap::from([(
+            CborValue::Text("text".into()),
+            CborValue::Text("x".repeat(SIZE)),
+        )]));
+        let args_encoded = serde_cbor::to_vec(&args).assert_success();
+        let kwargs_encoded = serde_cbor::to_vec(&kwargs).assert_success();
+        let encoded = Bytes::from(
+            serde_cbor::to_vec(&CborValue::Array(vec![
+                CborValue::Integer(16),
+                CborValue::Integer(999),
+                CborValue::Map(BTreeMap::new()),
+                CborValue::Text("topic".into()),
+                args.clone(),
+                kwargs.clone(),
+            ]))
+            .assert_success(),
+        );
+        let args_start = encoded.len() - args_encoded.len() - kwargs_encoded.len();
+        let kwargs_start = encoded.len() - kwargs_encoded.len();
+        let segments = vec![
+            Bytes::new(),
+            encoded.slice(..args_start),
+            Bytes::new(),
+            encoded.slice(args_start..kwargs_start),
+            Bytes::new(),
+            encoded.slice(kwargs_start..),
+            Bytes::new(),
+        ];
+        let (parsed, largest) = super::test_allocations::largest_allocation(|| {
+            parse_message_segments(Serializer::Cbor, segments)
+        });
+        let parsed = parsed.assert_success();
+        assert_condition!(largest < SIZE, "CBOR segment copied: {largest} bytes");
+        match parsed.message {
+            WampMessage::Publish { payload, .. } => {
+                let actual_args = payload.args.assert_success();
+                let actual_kwargs = payload.kwargs.assert_success();
+                assert_eq!(actual_args.as_ref(), args_encoded);
+                assert_eq!(actual_kwargs.as_ref(), kwargs_encoded);
+                assert_eq!(actual_args.as_ptr(), encoded.slice(args_start..).as_ptr());
+                assert_eq!(
+                    actual_kwargs.as_ptr(),
+                    encoded.slice(kwargs_start..).as_ptr()
+                );
+                assert_eq!(
+                    serde_cbor::from_slice::<CborValue>(&actual_args).assert_success(),
+                    args
+                );
+                assert_eq!(
+                    serde_cbor::from_slice::<CborValue>(&actual_kwargs).assert_success(),
+                    kwargs
+                );
             }
             other => unexpected_message(other),
         }
@@ -2897,6 +3354,8 @@ mod tests {
                     .raw
                     .as_contiguous()
                     .assert_expected("contiguous msgpack frame expected");
+                assert_eq!(raw.as_ptr(), bytes.as_ptr());
+                assert_eq!(raw.len(), bytes.len());
                 let args = payload.args.assert_expected("payload args missing");
                 let kwargs = payload.kwargs.assert_expected("payload kwargs missing");
                 (
@@ -2929,6 +3388,105 @@ mod tests {
                 );
             }
             other => unexpected_message(other),
+        }
+    }
+
+    #[test]
+    fn cbor_segmented_parser_rejects_malformed_frames_at_every_split() {
+        let cases: &[&[u8]] = &[
+            &[],
+            &[0x80],
+            &[0x98],
+            &[0x99, 0],
+            &[0x9a, 0, 0, 0],
+            &[0x9b, 0, 0, 0, 0, 0, 0, 0],
+            &[0x9c],
+            &[0x00],
+            &[0x84, 0x18, 0x30, 1, 0xa0, 0x61],
+            &[0x84, 0x18, 0x30, 1, 0xa0, 0x61, 0xff],
+            &[0x84, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0],
+            &[0x9f, 0x18, 0x30, 1, 0xa0, 0x61, b'p'],
+            &[0x9f, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0xff, 0],
+            &[0x85, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0x81],
+            &[
+                0x85, 0x18, 0x30, 1, 0xa0, 0x61, b'p', 0x81, 0x5a, 0xff, 0xff, 0xff, 0xff,
+            ],
+        ];
+        for bytes in cases {
+            let original = Bytes::copy_from_slice(bytes);
+            assert_condition!(parse_message(Serializer::Cbor, original.clone()).is_err());
+            for split in 0..=original.len() {
+                assert_condition!(parse_message_segments(
+                    Serializer::Cbor,
+                    vec![
+                        Bytes::new(),
+                        original.slice(..split),
+                        Bytes::new(),
+                        original.slice(split..),
+                        Bytes::new(),
+                    ]
+                )
+                .is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn cbor_segmented_payload_retains_exact_encoding_and_borrowed_parts() {
+        let fields = [
+            0x18, 0x30, 1, 0xa0, 0x61, b'p', 0x81, 0x18, 0x17, 0xa1, 0x62, b'k', b'w', 0x18, 0x18,
+        ];
+        for header in [
+            vec![0x86],
+            vec![0x98, 6],
+            vec![0x99, 0, 6],
+            vec![0x9a, 0, 0, 0, 6],
+            vec![0x9b, 0, 0, 0, 0, 0, 0, 0, 6],
+            vec![0x9f],
+        ] {
+            let indefinite = header == [0x9f];
+            let args_start = header.len() + 6;
+            let mut encoded = header;
+            encoded.extend_from_slice(&fields);
+            if indefinite {
+                encoded.push(0xff);
+            }
+            let original = Bytes::from(encoded);
+            for split in 0..=original.len() {
+                let parsed = parse_message_segments(
+                    Serializer::Cbor,
+                    vec![
+                        Bytes::new(),
+                        original.slice(..split),
+                        Bytes::new(),
+                        original.slice(split..),
+                        Bytes::new(),
+                    ],
+                )
+                .assert_success();
+                assert_condition!(matches!(parsed.raw, RawFrame::Segmented { .. }));
+                match parsed.message {
+                    WampMessage::Call {
+                        request_id,
+                        procedure,
+                        payload,
+                        ..
+                    } => {
+                        assert_eq!(request_id, 1);
+                        assert_eq!(procedure, "p");
+                        let args = payload.args.assert_expected("missing arguments");
+                        assert_eq!(args.as_ref(), &[0x81, 0x18, 0x17]);
+                        assert_eq!(
+                            payload.kwargs.assert_expected("missing keywords").as_ref(),
+                            &[0xa1, 0x62, b'k', b'w', 0x18, 0x18]
+                        );
+                        if split <= args_start || split >= args_start + args.len() {
+                            assert_eq!(args.as_ptr(), original.slice(args_start..).as_ptr());
+                        }
+                    }
+                    other => unexpected_message(other),
+                }
+            }
         }
     }
 

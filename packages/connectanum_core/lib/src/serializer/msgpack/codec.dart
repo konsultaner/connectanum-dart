@@ -9,14 +9,38 @@ const _minimumInt32 = -0x80000000;
 const _uint32Base = 0x100000000;
 const _maximumExactInteger = 0x20000000000000;
 final _supports64BitAccessors = _probe64BitAccessors();
+const _portableCodec = PortableMessagePackCodec();
+
+/// MessagePack backend for runtimes without exact 64-bit byte-data accessors.
+///
+/// The same backend can be used explicitly when a platform-independent integer
+/// range and strict single-value decoding are required.
+class PortableMessagePackCodec {
+  const PortableMessagePackCodec();
+
+  Uint8List encode(Object? value) => _serializeWithout64BitAccessors(value);
+
+  Object? decode(Uint8List bytes) {
+    final decoded = _decodeValue(bytes, 0, 0);
+    if (decoded.nextOffset != bytes.length) {
+      throw const FormatException('Trailing data after MessagePack value');
+    }
+    return decoded.value;
+  }
+}
 
 @pragma('vm:prefer-inline')
 @pragma('dart2js:tryInline')
 Uint8List serialize(Object? value) {
+  // A failed delegate attempt may already consume a streaming iterable. Choose
+  // the portable backend up front when the runtime cannot encode wide integers.
+  if (!_supports64BitAccessors) {
+    return _portableCodec.encode(value);
+  }
   try {
     return delegate.serialize(value);
   } on UnsupportedError {
-    return _serializeWithout64BitAccessors(value);
+    return _portableCodec.encode(value);
   }
 }
 
@@ -26,20 +50,12 @@ Object? deserialize(Uint8List bytes) {
   if (!_supports64BitAccessors &&
       bytes.isNotEmpty &&
       (bytes[0] == 0xcf || bytes[0] == 0xd3)) {
-    final decoded = _decodeValue(bytes, 0, 0);
-    if (decoded.nextOffset != bytes.length) {
-      throw const FormatException('Trailing data after MessagePack value');
-    }
-    return decoded.value;
+    return _portableCodec.decode(bytes);
   }
   try {
     return delegate.deserialize(bytes);
   } on UnsupportedError {
-    final decoded = _decodeValue(bytes, 0, 0);
-    if (decoded.nextOffset != bytes.length) {
-      throw const FormatException('Trailing data after MessagePack value');
-    }
-    return decoded.value;
+    return _portableCodec.decode(bytes);
   }
 }
 
@@ -61,17 +77,19 @@ Uint8List _serializeWithout64BitAccessors(Object? value) {
       ..add(_encodeCollectionHeader(value.length, 0x80, 0xde, 0xdf));
     for (final entry in value.entries) {
       builder
-        ..add(serialize(entry.key))
-        ..add(serialize(entry.value));
+        ..add(_portableCodec.encode(entry.key))
+        ..add(_portableCodec.encode(entry.value));
     }
     return builder.takeBytes();
   }
   if (value is Iterable) {
-    final values = value is List ? value : value.toList(growable: false);
+    // A virtual toList override can expose conversion options or its result.
+    // Own the snapshot while consuming the source iterator exactly once.
+    final values = value is List ? value : [for (final item in value) item];
     final builder = BytesBuilder(copy: false)
       ..add(_encodeCollectionHeader(values.length, 0x90, 0xdc, 0xdd));
     for (final item in values) {
-      builder.add(serialize(item));
+      builder.add(_portableCodec.encode(item));
     }
     return builder.takeBytes();
   }
@@ -193,26 +211,16 @@ _DecodedValue _decode64BitInteger(
     throw const FormatException('Truncated MessagePack integer');
   }
   final data = ByteData.sublistView(bytes, offset + 1, end);
-  final high = data.getUint32(0);
+  final high = signed ? data.getInt32(0) : data.getUint32(0);
   final low = data.getUint32(4);
-  if ((!signed && (high > 0x200000 || (high == 0x200000 && low != 0))) ||
-      (signed &&
-          ((high < 0x80000000 &&
-                  (high > 0x200000 || (high == 0x200000 && low != 0))) ||
-              (high >= 0x80000000 && high < 0xffe00000)))) {
+  // Check the words before arithmetic: JavaScript would round 2^53 + 1 down
+  // to the admissible endpoint. At -2^53 every nonzero low word is in range.
+  if (high < -0x200000 || high > 0x200000 || (high == 0x200000 && low != 0)) {
     throw const FormatException(
       'MessagePack integer exceeds the exact Dart web range',
     );
   }
-  final value = signed && high >= 0x80000000
-      ? (high - _uint32Base) * _uint32Base + low
-      : high * _uint32Base + low;
-  if (value < -_maximumExactInteger || value > _maximumExactInteger) {
-    throw const FormatException(
-      'MessagePack integer exceeds the exact Dart web range',
-    );
-  }
-  return _DecodedValue(value, end);
+  return _DecodedValue(high * _uint32Base + low, end);
 }
 
 bool _probe64BitAccessors() {
@@ -283,13 +291,13 @@ int _readScalarEnd(Uint8List bytes, int offset) {
       return _checkedEnd(bytes, offset + 1, 8);
     case 0xd9:
     case 0xc4:
-      return _readLengthPrefixedEnd(bytes, offset, 1);
+      return _readLengthPrefixedEnd(bytes, offset, _LengthReader.byte);
     case 0xda:
     case 0xc5:
-      return _readLengthPrefixedEnd(bytes, offset, 2);
+      return _readLengthPrefixedEnd(bytes, offset, _LengthReader.word);
     case 0xdb:
     case 0xc6:
-      return _readLengthPrefixedEnd(bytes, offset, 4);
+      return _readLengthPrefixedEnd(bytes, offset, _LengthReader.dword);
     case 0xd4:
       return _checkedEnd(bytes, offset + 2, 1);
     case 0xd5:
@@ -301,36 +309,44 @@ int _readScalarEnd(Uint8List bytes, int offset) {
     case 0xd8:
       return _checkedEnd(bytes, offset + 2, 16);
     case 0xc7:
-      return _readExtensionEnd(bytes, offset, 1);
+      return _readExtensionEnd(bytes, offset, _LengthReader.byte);
     case 0xc8:
-      return _readExtensionEnd(bytes, offset, 2);
+      return _readExtensionEnd(bytes, offset, _LengthReader.word);
     case 0xc9:
-      return _readExtensionEnd(bytes, offset, 4);
+      return _readExtensionEnd(bytes, offset, _LengthReader.dword);
     default:
       throw const FormatException('Unsupported MessagePack value');
   }
 }
 
-int _readLengthPrefixedEnd(Uint8List bytes, int offset, int lengthBytes) {
-  _requireAvailable(bytes, offset + 1, lengthBytes);
-  final length = _readLength(bytes, offset + 1, lengthBytes);
-  return _checkedEnd(bytes, offset + 1 + lengthBytes, length);
+// Each MessagePack marker selects its exact header width and byte-data reader.
+// Pair them once so callers cannot request an unsupported integer width.
+class _LengthReader {
+  _LengthReader._(this.bytes, this.read);
+
+  static final byte = _LengthReader._(1, (data) => data.getUint8(0));
+  static final word = _LengthReader._(2, (data) => data.getUint16(0));
+  static final dword = _LengthReader._(4, (data) => data.getUint32(0));
+
+  final int bytes;
+  final int Function(ByteData) read;
 }
 
-int _readExtensionEnd(Uint8List bytes, int offset, int lengthBytes) {
-  _requireAvailable(bytes, offset + 1, lengthBytes + 1);
-  final length = _readLength(bytes, offset + 1, lengthBytes);
-  return _checkedEnd(bytes, offset + 2 + lengthBytes, length);
+int _readLengthPrefixedEnd(Uint8List bytes, int offset, _LengthReader width) {
+  _requireAvailable(bytes, offset + 1, width.bytes);
+  final length = _readLength(bytes, offset + 1, width);
+  return _checkedEnd(bytes, offset + 1 + width.bytes, length);
 }
 
-int _readLength(Uint8List bytes, int offset, int lengthBytes) {
-  final data = ByteData.sublistView(bytes, offset, offset + lengthBytes);
-  return switch (lengthBytes) {
-    1 => data.getUint8(0),
-    2 => data.getUint16(0),
-    4 => data.getUint32(0),
-    _ => throw const FormatException('Invalid MessagePack length'),
-  };
+int _readExtensionEnd(Uint8List bytes, int offset, _LengthReader width) {
+  _requireAvailable(bytes, offset + 1, width.bytes + 1);
+  final length = _readLength(bytes, offset + 1, width);
+  return _checkedEnd(bytes, offset + 2 + width.bytes, length);
+}
+
+int _readLength(Uint8List bytes, int offset, _LengthReader width) {
+  final data = ByteData.sublistView(bytes, offset, offset + width.bytes);
+  return width.read(data);
 }
 
 void _requireAvailable(Uint8List bytes, int offset, int length) {

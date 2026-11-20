@@ -5,6 +5,7 @@ import argparse
 from collections import Counter, defaultdict
 import json
 from pathlib import Path
+import tempfile
 
 import native_coverage
 import native_mutations
@@ -61,7 +62,7 @@ def audit_batches(root, directories, analyzer):
         raise ValueError('Require distinct immutable batch directories')
     scope = native_coverage.snapshot(root, native_coverage.ROOTS, analyzer)
     inputs = {**scope['inputHashes'], **{
-        name: native_coverage.digest(root / name) for name in collector.FIXTURES}}
+        name: native_coverage.digest(root / name) for name in collector.fixture_inputs(root)}}
     tool_root = Path(__file__).resolve().parent
     tools = {name: native_coverage.digest(tool_root / name) for name in collector.TOOL_INPUTS}
     reports, evidence = [], []
@@ -69,7 +70,7 @@ def audit_batches(root, directories, analyzer):
     for directory in directories:
         manifest = json.loads((directory / 'run-manifest.json').read_text())
         if (manifest.get('complete') is not True or 'batch' not in manifest
-                or manifest.get('scope') not in collector.WHOLE_COMPONENTS
+                or manifest.get('scope') not in collector.BATCH_TARGETS
                 or manifest.get('cargoMutantsVersion') != 'cargo-mutants 27.1.0'
                 or manifest.get('restoredExitCode') != 0
                 or manifest.get('campaignExitCode') is None):
@@ -93,10 +94,17 @@ def audit_batches(root, directories, analyzer):
                 map(native_mutations.identity, partition['production'])):
             raise ValueError('Full inventory differs from production partition')
         if target is None:
-            full_inventory, target = full, manifest['scope']
-        if target != manifest['scope'] or full != full_inventory:
+            target = manifest['scope']
+            with tempfile.TemporaryDirectory(prefix='connectanum-native-expected-') as temporary:
+                independent = collector.prepare_inventory(root, Path(temporary), scope, target)
+            full_inventory = independent['production']
+            if sorted(map(native_mutations.identity, full)) != sorted(
+                    map(native_mutations.identity, full_inventory)):
+                raise ValueError('Batch inventory differs from independent complete inventory')
+        if (target != manifest['scope'] or sorted(map(native_mutations.identity, full))
+                != sorted(map(native_mutations.identity, full_inventory))):
             raise ValueError('Batch full inventories or targets differ')
-        selected = collector.select_batch(full, manifest['batch']['index'], manifest['batch']['count'])
+        selected = collector.select_batch(full_inventory, manifest['batch']['index'], manifest['batch']['count'])
         batch_inventory = json.loads((directory / 'batch-inventory.json').read_text())
         executed = json.loads((directory / 'mutants.out/mutants.json').read_text())
         for items in (batch_inventory, executed):
@@ -125,7 +133,9 @@ def audit_batches(root, directories, analyzer):
     collector.verify_inputs(tool_root, tools)
     if native_coverage.snapshot(root, native_coverage.ROOTS, analyzer) != scope:
         raise ValueError('Native inventory changed during batch audit')
-    result.update(target=target, inputHashes=inputs, toolHashes=tools, batches=evidence)
+    result.update(target=target, configuredTargetComplete=True,
+                  wholeComponentComplete=target in collector.WHOLE_COMPONENTS,
+                  inputHashes=inputs, toolHashes=tools, batches=evidence)
     return result
 
 
@@ -133,6 +143,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--analyzer', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--require-all-killed', action='store_true',
+                        help='Require zero survivors, preserving the strict diagnostic gate')
     parser.add_argument('batches', nargs='+', type=Path)
     args = parser.parse_args()
     report = audit_batches(native_coverage.REPO, args.batches, args.analyzer)
@@ -140,7 +152,11 @@ def main():
         json.dump(report, output, indent=2)
         output.write('\n')
     print(json.dumps({key: report[key] for key in ('generated', 'counts', 'evidenceClean', 'adjustedCandidateScore')}))
-    return 0 if report['evidenceClean'] and report['adjustedCandidateScore'] >= 95 else 1
+    score = report['adjustedCandidateScore']
+    passed = report['evidenceClean'] and score is not None and score >= 95
+    if args.require_all_killed:
+        passed = passed and score == 100 and not report['counts'].get('survived', 0)
+    return 0 if passed else 1
 
 
 if __name__ == '__main__':

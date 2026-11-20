@@ -151,6 +151,7 @@ class _BufferProbe {
     Map<String, Object?> arguments,
   ) async {
     final name = 'connectanum.pubsub.$operation';
+    expect(tools.where((tool) => tool.name == name), hasLength(1));
     final tool = tools.singleWhere((tool) => tool.name == name);
     final result = await expectValidAsync(
       () async =>

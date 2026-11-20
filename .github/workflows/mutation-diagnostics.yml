@@ -11,27 +11,53 @@ permissions:
   contents: read
 
 jobs:
+  native-build:
+    name: Shared diagnostic ffi-test build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - name: Build and fingerprint the same-run native library
+        run: |
+          set -euo pipefail
+          source bin/common.sh
+          build_native_ffi_test_release
+          python3 tool/ci_native_artifact.py record --directory out/ci-native \
+            --library "$CONNECTANUM_NATIVE_LIB"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: diagnostic-native-ffi-test
+          path: out/ci-native
+          if-no-files-found: error
+
+      - name: Share the same-run native dependency lock
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostic-native-dependency-lock
+          path: native/transport/Cargo.lock
+          if-no-files-found: error
+
   dart:
     name: Dart ${{ matrix.target }}
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ (matrix.target == 'mcp' || matrix.target == 'mcp-cli-native') && 360 || 60 }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-msgpack-web, core-e2ee-web, core-lazy-web, mcp, mcp-cli-native]
+        target: [core-base64-vm, core-base64-web, core-msgpack-vm, core-lazy-web]
     steps:
       - uses: actions/checkout@v5
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: 3.14.0
-      - uses: dtolnay/rust-toolchain@stable
-        if: matrix.target == 'mcp-cli-native'
       - id: chrome
         uses: browser-actions/setup-chrome@v2
       - name: Run complete target inventory (survivors fail the target)
         env:
           CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
-          CONNECTANUM_MUTATIONS_NATIVE: ${{ matrix.target == 'mcp-cli-native' && '1' || '0' }}
         run: bin/test-mutations --target "${{ matrix.target }}" --output out/mutations
       - if: always()
         uses: actions/upload-artifact@v7
@@ -40,24 +66,361 @@ jobs:
           path: out/mutations
           if-no-files-found: error
 
+  web-shards:
+    name: Dart ${{ matrix.target }} shard ${{ matrix.shard }}/8
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [core-msgpack-web, core-e2ee-web]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.14.0
+      - id: chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Execute the assigned inventory with clean and restored baselines
+        env:
+          CHROME_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+        run: bin/test-mutations --target "${{ matrix.target }}" --shard-index "${{ matrix.shard }}" --shard-count 8 --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-shard-${{ matrix.shard }}
+          path: out/mutations
+          if-no-files-found: error
+
+  native-dart-shards:
+    name: Dart ${{ matrix.target }} shard ${{ matrix.shard }}/${{ matrix.count }}
+    runs-on: ubuntu-latest
+    needs: native-build
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: mcp
+            shard: 0
+            count: 32
+          - target: mcp
+            shard: 1
+            count: 32
+          - target: mcp
+            shard: 2
+            count: 32
+          - target: mcp
+            shard: 3
+            count: 32
+          - target: mcp
+            shard: 4
+            count: 32
+          - target: mcp
+            shard: 5
+            count: 32
+          - target: mcp
+            shard: 6
+            count: 32
+          - target: mcp
+            shard: 7
+            count: 32
+          - target: mcp
+            shard: 8
+            count: 32
+          - target: mcp
+            shard: 9
+            count: 32
+          - target: mcp
+            shard: 10
+            count: 32
+          - target: mcp
+            shard: 11
+            count: 32
+          - target: mcp
+            shard: 12
+            count: 32
+          - target: mcp
+            shard: 13
+            count: 32
+          - target: mcp
+            shard: 14
+            count: 32
+          - target: mcp
+            shard: 15
+            count: 32
+          - target: mcp
+            shard: 16
+            count: 32
+          - target: mcp
+            shard: 17
+            count: 32
+          - target: mcp
+            shard: 18
+            count: 32
+          - target: mcp
+            shard: 19
+            count: 32
+          - target: mcp
+            shard: 20
+            count: 32
+          - target: mcp
+            shard: 21
+            count: 32
+          - target: mcp
+            shard: 22
+            count: 32
+          - target: mcp
+            shard: 23
+            count: 32
+          - target: mcp
+            shard: 24
+            count: 32
+          - target: mcp
+            shard: 25
+            count: 32
+          - target: mcp
+            shard: 26
+            count: 32
+          - target: mcp
+            shard: 27
+            count: 32
+          - target: mcp
+            shard: 28
+            count: 32
+          - target: mcp
+            shard: 29
+            count: 32
+          - target: mcp
+            shard: 30
+            count: 32
+          - target: mcp
+            shard: 31
+            count: 32
+          - target: mcp-cli-native
+            shard: 0
+            count: 16
+          - target: mcp-cli-native
+            shard: 1
+            count: 16
+          - target: mcp-cli-native
+            shard: 2
+            count: 16
+          - target: mcp-cli-native
+            shard: 3
+            count: 16
+          - target: mcp-cli-native
+            shard: 4
+            count: 16
+          - target: mcp-cli-native
+            shard: 5
+            count: 16
+          - target: mcp-cli-native
+            shard: 6
+            count: 16
+          - target: mcp-cli-native
+            shard: 7
+            count: 16
+          - target: mcp-cli-native
+            shard: 8
+            count: 16
+          - target: mcp-cli-native
+            shard: 9
+            count: 16
+          - target: mcp-cli-native
+            shard: 10
+            count: 16
+          - target: mcp-cli-native
+            shard: 11
+            count: 16
+          - target: mcp-cli-native
+            shard: 12
+            count: 16
+          - target: mcp-cli-native
+            shard: 13
+            count: 16
+          - target: mcp-cli-native
+            shard: 14
+            count: 16
+          - target: mcp-cli-native
+            shard: 15
+            count: 16
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: 'true'
+      - uses: actions/download-artifact@v8
+        with:
+          name: diagnostic-native-ffi-test
+          path: out/ci-native
+      - name: Verify native source, toolchain, dependency lock and binary identity
+        run: |
+          set -euo pipefail
+          library="$(python3 tool/ci_native_artifact.py prepare --directory out/ci-native)"
+          echo "CONNECTANUM_NATIVE_LIB=$library" >> "$GITHUB_ENV"
+      - name: Execute the assigned inventory with the shared native library
+        run: bin/test-mutations --target "${{ matrix.target }}" --shard-index "${{ matrix.shard }}" --shard-count "${{ matrix.count }}" --output out/mutations
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-shard-${{ matrix.shard }}
+          path: out/mutations
+          if-no-files-found: error
+
+  dart-aggregate:
+    name: Dart ${{ matrix.target }} complete assertion gate
+    runs-on: ubuntu-latest
+    needs: [native-build, web-shards, native-dart-shards]
+    if: ${{ !cancelled() }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: core-msgpack-web
+            count: 8
+            native: false
+          - target: core-e2ee-web
+            count: 8
+            native: false
+          - target: mcp
+            count: 32
+            native: true
+          - target: mcp-cli-native
+            count: 16
+            native: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-ci
+        with:
+          rust: ${{ matrix.native && 'true' || 'false' }}
+      - if: matrix.native
+        uses: actions/download-artifact@v8
+        with:
+          name: diagnostic-native-ffi-test
+          path: out/ci-native
+      - name: Verify the independently expected native library
+        if: matrix.native
+        run: |
+          set -euo pipefail
+          library="$(python3 tool/ci_native_artifact.py prepare --directory out/ci-native)"
+          echo "CONNECTANUM_NATIVE_LIB=$library" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutations-${{ matrix.target }}-shard-*
+          path: out/shards
+      - name: Audit the complete union against an independent full inventory
+        run: python3 tool/merge_dart_mutation_shards.py --input out/shards --output out/complete --target "${{ matrix.target }}" --shard-count "${{ matrix.count }}"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-complete
+          path: out/complete
+          if-no-files-found: error
+
   rust:
-    name: Native ${{ matrix.target }} / ${{ matrix.os }}
+    name: Native ${{ matrix.target }} / ${{ matrix.os }} batch ${{ matrix.batch }}/${{ matrix.count }}
     runs-on: ${{ matrix.os }}
+    needs: native-build
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        target: [core-rawsocket, core-wamp]
+        include:
+          - { os: ubuntu-latest, target: core-rawsocket, batch: 0, count: 4 }
+          - { os: ubuntu-latest, target: core-rawsocket, batch: 1, count: 4 }
+          - { os: ubuntu-latest, target: core-rawsocket, batch: 2, count: 4 }
+          - { os: ubuntu-latest, target: core-rawsocket, batch: 3, count: 4 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 0, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 1, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 2, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 3, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 4, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 5, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 6, count: 8 }
+          - { os: ubuntu-latest, target: core-wamp, batch: 7, count: 8 }
+          - { os: macos-latest, target: core-rawsocket, batch: 0, count: 4 }
+          - { os: macos-latest, target: core-rawsocket, batch: 1, count: 4 }
+          - { os: macos-latest, target: core-rawsocket, batch: 2, count: 4 }
+          - { os: macos-latest, target: core-rawsocket, batch: 3, count: 4 }
+          - { os: macos-latest, target: core-wamp, batch: 0, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 1, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 2, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 3, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 4, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 5, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 6, count: 8 }
+          - { os: macos-latest, target: core-wamp, batch: 7, count: 8 }
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v8
+        with:
+          name: diagnostic-native-dependency-lock
+          path: native/transport
       - run: cargo install cargo-mutants --version 27.1.0 --locked
-      - name: Collect and audit complete native target inventory (inactive cfg bodies remain visible)
-        run: bin/collect-native-mutations --output out/mutations --target "${{ matrix.target }}"
+      - name: Collect a complete-inventory batch with original clean/restored baselines
+        run: bin/collect-native-mutations --output out/mutations --target "${{ matrix.target }}" --batch "${{ matrix.batch }}" "${{ matrix.count }}"
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mutations-${{ matrix.target }}-${{ matrix.os }}
+          name: mutations-${{ matrix.target }}-${{ matrix.os }}-batch-${{ matrix.batch }}
           path: out/mutations
+          if-no-files-found: error
+
+  rust-aggregate:
+    name: Native ${{ matrix.target }} / ${{ matrix.os }} complete assertion gate
+    runs-on: ${{ matrix.os }}
+    needs: rust
+    if: ${{ !cancelled() }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: core-rawsocket, count: 4 }
+          - { os: ubuntu-latest, target: core-wamp, count: 8 }
+          - { os: macos-latest, target: core-rawsocket, count: 4 }
+          - { os: macos-latest, target: core-wamp, count: 8 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/download-artifact@v8
+        with:
+          name: diagnostic-native-dependency-lock
+          path: native/transport
+      - run: cargo install cargo-mutants --version 27.1.0 --locked
+      - run: cargo build --manifest-path tool/rust_coverage_scope/Cargo.toml --locked --target-dir out/rust-coverage-scope-target
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mutations-${{ matrix.target }}-${{ matrix.os }}-batch-*
+          path: out/native-batches
+      - name: Independently audit all native batches with zero survivors
+        env:
+          EXPECTED_BATCH_COUNT: ${{ matrix.count }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+          import subprocess
+          import sys
+          batches = sorted(path.parent for path in Path('out/native-batches').glob('*/run-manifest.json'))
+          expected = int(os.environ['EXPECTED_BATCH_COUNT'])
+          if len(batches) != expected:
+              raise SystemExit(f'Expected {expected} complete native batches; found {len(batches)}')
+          Path('out/native-complete').mkdir(parents=True)
+          raise SystemExit(subprocess.call([
+              sys.executable, 'tool/native_mutation_batches.py',
+              '--analyzer', 'out/rust-coverage-scope-target/debug/connectanum-coverage-scope',
+              '--require-all-killed', '--output', 'out/native-complete/audited-results.json',
+              *map(str, batches),
+          ]))
+          PYTHON
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutations-${{ matrix.target }}-${{ matrix.os }}-complete
+          path: out/native-complete
           if-no-files-found: error

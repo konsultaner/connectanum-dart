@@ -500,7 +500,7 @@ class NativeMutationTests(unittest.TestCase):
             self.assertGreater(report['generated'], 0)
             self.assertEqual(report['counts'], {'killed': report['generated']})
 
-    def test_snapshot_includes_external_tls_inputs_but_not_shared_targets(self):
+    def test_snapshot_includes_external_tls_and_schema_inputs_but_not_shared_targets(self):
         with tempfile.TemporaryDirectory() as temporary:
             root, work = Path(temporary) / 'repo', Path(temporary) / 'private'
             source = root / 'native/transport/ct_core/src/lib.rs'
@@ -508,22 +508,38 @@ class NativeMutationTests(unittest.TestCase):
             source.write_text('''#[test] fn sibling_fixtures_are_available() {
     assert_eq!(include_str!("../../../bench/bench_tls.crt"), "public-certificate");
     assert_eq!(include_str!("../../../bench/bench_tls.key"), "public-test-key");
+    assert_eq!(include_str!("../../../../schemas/wamp_flatbuffers/fixtures.json"), "[]");
+    assert_eq!(include_str!("../../../../schemas/wamp_flatbuffers/codec_cases.json"), "{}");
+    assert_eq!(std::fs::read("schemas/wamp_flatbuffers/fixtures/call.bin").unwrap(), b"wire-fixture");
 }
 ''')
-            for relative, content in zip(collector.FIXTURES, ['public-certificate', 'public-test-key']):
+            fixtures = {
+                'native/bench/bench_tls.crt': 'public-certificate',
+                'native/bench/bench_tls.key': 'public-test-key',
+                'schemas/wamp_flatbuffers/fixtures.json': '[]',
+                'schemas/wamp_flatbuffers/codec_cases.json': '{}',
+                'schemas/wamp_flatbuffers/fixtures/call.bin': 'wire-fixture',
+            }
+            for relative, content in fixtures.items():
                 path = root / relative
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(content)
             target = root / 'native/transport/target/do-not-copy'
             target.parent.mkdir()
             target.write_text('shared build cache')
-            paths = [str(source.relative_to(root)), *collector.FIXTURES]
+            paths = [str(source.relative_to(root)), *collector.fixture_inputs(root)]
             hashes = {path: collector.native_coverage.digest(root / path) for path in paths}
             collector.copy_inputs(root, work, hashes)
             self.assertFalse((work / 'native/transport/target').exists())
             subprocess.run(['rustc', '--test', str(source.relative_to(root)), '-o', 'suite'],
                            cwd=work, capture_output=True, check=True, timeout=30)
             subprocess.run([str(work / 'suite')], cwd=work, capture_output=True, check=True, timeout=10)
+            for relative, content in fixtures.items():
+                self.assertEqual((work / relative).read_text(), content)
+                (work / relative).write_text('changed fixture')
+                with self.assertRaises(ValueError):
+                    collector.verify_inputs(work, hashes)
+                (work / relative).write_text(content)
             (work / source.relative_to(root)).write_text('mutated private copy')
             with self.assertRaises(ValueError):
                 collector.verify_inputs(work, hashes)
@@ -575,6 +591,7 @@ class NativeMutationTests(unittest.TestCase):
         self.assertIn('--cargo-arg=--locked', campaign)
         for command in [campaign, restored]:
             self.assertEqual(command[:2], ['env', 'CARGO_TARGET_DIR=/private/test work/target'])
+            self.assertIn('CARGO_TERM_COLOR=never', command[:command.index('cargo')])
             self.assertEqual(command[command.index('--manifest-path') + 1],
                              '/private/test work/native/transport/Cargo.toml')
             self.assertEqual(command[-3:], ['--', 'rawsocket::tests', '--test-threads=1'])
@@ -770,6 +787,7 @@ class NativeMutationTests(unittest.TestCase):
                     self.assertNotIn(forbidden, campaign)
                 for command in [campaign, restored]:
                     self.assertEqual(command[:2], ['env', 'CARGO_TARGET_DIR=/private/test work/target'])
+                    self.assertIn('CARGO_TERM_COLOR=never', command[:command.index('cargo')])
                     self.assertEqual(command[command.index('--package') + 1], 'ct_core')
                     self.assertEqual(command[command.index('--manifest-path') + 1],
                                      '/private/test work/native/transport/Cargo.toml')

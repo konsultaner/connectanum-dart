@@ -454,7 +454,10 @@ def test_command(target, resolved_tests, test_timeout):
     command = [engine, 'test']
     if engine == 'flutter':
         command.append('--no-pub')
-    command.extend(['--reporter=json', '--concurrency=1',
+    concurrency = target.get('testConcurrency', 1)
+    if type(concurrency) is not int or concurrency < 1:
+        raise ValueError('testConcurrency must be a positive integer')
+    command.extend(['--reporter=json', f'--concurrency={concurrency}',
                     f'--timeout={test_timeout}s'])
     test_name = target.get('testName')
     if test_name is not None:
@@ -531,9 +534,9 @@ def main():
     unknown = set(selected) - config.keys()
     if unknown:
         parser.error(f'Unknown targets: {sorted(unknown)}')
-    if sharded and (len(selected) != 1 or config[selected[0]].get('requiresNativeLibrary')
+    if sharded and (len(selected) != 1
                     or config[selected[0]].get('testRunner', 'dart') != 'dart'):
-        parser.error('Sharding requires one non-native Dart target')
+        parser.error('Sharding requires one Dart target')
     if not args.list and any(config[name].get('requiresNativeLibrary') for name in selected):
         native_artifact()
     if args.output.exists():

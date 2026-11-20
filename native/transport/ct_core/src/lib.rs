@@ -5033,6 +5033,7 @@ struct WebSocketBufferPool {
 }
 
 impl WebSocketBufferPool {
+    #[cfg(test)]
     fn acquire(self: &Arc<Self>, len: usize) -> PooledWebSocketBuffer {
         let mut buffer = self.take_buffer(len);
         buffer.resize(len, 0);
@@ -5313,18 +5314,29 @@ async fn read_websocket_frame_mode<R: AsyncRead + Unpin>(
     let mut payload = if len == 0 {
         None
     } else {
-        Some(buffer_pool.acquire(len as usize))
+        Some(buffer_pool.acquire_capacity(len as usize))
     };
     if len > 0 {
-        reader
-            .read_exact(
-                payload
-                    .as_mut()
-                    .expect("payload buffer exists for non-empty websocket frame")
-                    .as_mut_slice(),
-            )
-            .await
-            .map_err(WebSocketFrameError::io)?;
+        let buffer = &mut payload
+            .as_mut()
+            .expect("payload buffer exists for non-empty websocket frame")
+            .buffer;
+        // read_buf initializes only bytes supplied by AsyncRead. take bounds
+        // each read even when a recycled allocation has excess capacity, so a
+        // following frame stays unread. No partially filled payload is exposed.
+        let mut limited = reader.take(len);
+        while buffer.len() < len as usize {
+            let read = limited
+                .read_buf(buffer)
+                .await
+                .map_err(WebSocketFrameError::io)?;
+            if read == 0 {
+                return Err(WebSocketFrameError::io(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "early eof",
+                )));
+            }
+        }
         if masked {
             xor_websocket_mask(
                 payload
@@ -7319,6 +7331,9 @@ mod rawsocket_writer_tests;
 
 #[cfg(test)]
 mod websocket_writer_tests;
+
+#[cfg(test)]
+mod websocket_read_buffer_tests;
 
 #[cfg(test)]
 mod websocket_client_handshake_tests;

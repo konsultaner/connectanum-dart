@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 
+import 'router_hosted_client_validation.dart' as validation;
+
 const _supportedMcpProtocolVersions = <String>[
   '2025-03-26',
   '2025-06-18',
@@ -235,9 +237,13 @@ Future<void> _runStatelessExample(
           updateEvent: options.resourceUpdateEvent,
         );
 
-  if (client.sessionId != null || client.lastEventId != null) {
-    throw StateError('Stateless execution created Streamable session state.');
-  }
+  validation.expectStreamableStateUnchanged(
+    client,
+    sessionId: null,
+    lastEventId: null,
+    label: 'Sessionless operation',
+    diagnostic: 'Stateless execution created Streamable session state.',
+  );
   stdout.writeln(
     jsonEncode({
       'stateless': <String, Object?>{
@@ -279,7 +285,7 @@ Future<void> _expectModernBatchUnsupported(
         !error.message.contains('JSON-RPC batches')) {
       rethrow;
     }
-    _expectStreamableStateUnchanged(
+    validation.expectStreamableStateUnchanged(
       client,
       sessionId: previousSessionId,
       lastEventId: previousEventId,
@@ -369,7 +375,7 @@ Future<McpJsonMap> _runStatelessResourceSubscriptionExample(
         'x-consumer-trace': 'router-hosted-client-stateless-resource-reread',
       },
     );
-    _expectStreamableStateUnchanged(
+    validation.expectStreamableStateUnchanged(
       client,
       sessionId: previousSessionId,
       lastEventId: previousEventId,
@@ -381,7 +387,7 @@ Future<McpJsonMap> _runStatelessResourceSubscriptionExample(
     if (await closed != McpSubscriptionCloseReason.local) {
       throw StateError('Stateless resource listener did not close locally.');
     }
-    _expectStreamableStateUnchanged(
+    validation.expectStreamableStateUnchanged(
       client,
       sessionId: previousSessionId,
       lastEventId: previousEventId,
@@ -496,11 +502,13 @@ HttpClient _shortLivedHttpClient() => HttpClient()..idleTimeout = Duration.zero;
 
 Future<void> _deleteStreamableSession(McpStreamableHttpClient client) async {
   await client.deleteSession();
-  if (client.sessionId != null || client.lastEventId != null) {
-    throw StateError(
-      'Streamable session delete did not clear local session state.',
-    );
-  }
+  validation.expectStreamableStateUnchanged(
+    client,
+    sessionId: null,
+    lastEventId: null,
+    label: 'Sessionless operation',
+    diagnostic: 'Streamable session delete did not clear local session state.',
+  );
 }
 
 Future<void> _runAuthLifecycleSmoke(_Options options) async {
@@ -559,10 +567,13 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
         'x-consumer-trace': 'auth-lifecycle-refreshed-direct-ping',
       },
     );
-    if (refreshedClient.sessionId != null ||
-        refreshedClient.lastEventId != null) {
-      throw StateError('Auth lifecycle direct ping created Streamable state.');
-    }
+    validation.expectStreamableStateUnchanged(
+      refreshedClient,
+      sessionId: null,
+      lastEventId: null,
+      label: 'Sessionless operation',
+      diagnostic: 'Auth lifecycle direct ping created Streamable state.',
+    );
 
     if (stateless) {
       final updateTopic = options.resourceUpdateTopic;
@@ -575,12 +586,14 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
               updateEvent: options.resourceUpdateEvent,
             );
       }
-      if (refreshedClient.sessionId != null ||
-          refreshedClient.lastEventId != null) {
-        throw StateError(
-          'Auth lifecycle request-scoped listener created Streamable state.',
-        );
-      }
+      validation.expectStreamableStateUnchanged(
+        refreshedClient,
+        sessionId: null,
+        lastEventId: null,
+        label: 'Sessionless operation',
+        diagnostic:
+            'Auth lifecycle request-scoped listener created Streamable state.',
+      );
     } else {
       await refreshedClient.initialize(
         id: 'auth-lifecycle-refreshed-initialize',
@@ -638,9 +651,13 @@ Future<void> _runAuthLifecycleSmoke(_Options options) async {
       acceptedMessage: 'Auth lifecycle smoke accepted a revoked access token.',
       rejectionLabel: 'Auth lifecycle revoked access token',
     );
-    if (revokedClient.sessionId != null || revokedClient.lastEventId != null) {
-      throw StateError('Auth lifecycle revoked ping changed Streamable state.');
-    }
+    validation.expectStreamableStateUnchanged(
+      revokedClient,
+      sessionId: null,
+      lastEventId: null,
+      label: 'Sessionless operation',
+      diagnostic: 'Auth lifecycle revoked ping changed Streamable state.',
+    );
 
     await authClient.revokeGrant(
       refreshed,
@@ -716,17 +733,6 @@ Future<void> _expectAuthRefreshUnauthorized(
   }
 }
 
-void _expectStreamableStateUnchanged(
-  McpStreamableHttpClient client, {
-  required String? sessionId,
-  required String? lastEventId,
-  required String label,
-}) {
-  if (client.sessionId != sessionId || client.lastEventId != lastEventId) {
-    throw StateError('$label changed Streamable state.');
-  }
-}
-
 Future<void> _expectInvalidLastEventIdRejected(
   McpStreamableHttpClient client, {
   required String sessionId,
@@ -755,7 +761,7 @@ Future<void> _expectInvalidLastEventIdRejected(
     }
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
@@ -849,7 +855,7 @@ Future<void> _expectMalformedSessionIdRejected(
     httpClient.close(force: true);
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
@@ -1004,7 +1010,7 @@ Future<void> _expectNegotiationRejected(
     httpClient.close(force: true);
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
@@ -1075,7 +1081,7 @@ Future<void> _expectUnsupportedProtocolVersionRejected(
     httpClient.close(force: true);
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
@@ -1145,7 +1151,7 @@ Future<void> _expectRejectedOriginSessionless(
     httpClient.close(force: true);
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
@@ -1205,7 +1211,7 @@ Future<void> _expectDirectJsonStaleSessionIdIgnored(
     httpClient.close(force: true);
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: sessionId,
     lastEventId: lastEventId,
@@ -1364,7 +1370,7 @@ Future<_AdvertisedCatalogEntry> _advertisedJsonRpcCatalogEntry({
     value: value,
     listPage: (cursor) async {
       final id = '$idPrefix-${pageIndex++}';
-      final result = _responseResult(
+      final result = validation.responseResult(
         await post(<String, Object?>{
           'jsonrpc': '2.0',
           'id': id,
@@ -1538,7 +1544,7 @@ Future<void> _runDirectJsonExample(
       post: (request) => client.postDirect(request),
       label: 'Direct JSON resource method list',
     );
-    final methodResourceTemplates = _responseResult(
+    final methodResourceTemplates = validation.responseResult(
       await client.postDirect({
         'jsonrpc': '2.0',
         'id': 'direct-resource-templates-method',
@@ -1548,7 +1554,7 @@ Future<void> _runDirectJsonExample(
       'direct-resource-templates-method',
       label: 'Direct JSON resource template method list',
     );
-    final methodContent = _responseResult(
+    final methodContent = validation.responseResult(
       await client.postDirect({
         'jsonrpc': '2.0',
         'id': 'direct-resource-read-method',
@@ -1637,7 +1643,7 @@ Future<void> _runDirectJsonExample(
       post: (request) => client.postDirect(request),
       label: 'Direct JSON prompt method list',
     );
-    final methodPrompt = _responseResult(
+    final methodPrompt = validation.responseResult(
       await client.postDirect({
         'jsonrpc': '2.0',
         'id': 'direct-prompt-get-method',
@@ -1661,7 +1667,7 @@ Future<void> _runDirectJsonExample(
     );
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: previousSessionId,
     lastEventId: previousEventId,
@@ -1852,7 +1858,7 @@ Future<void> _runDirectBatchExample(
     messages,
     headers: const {'x-consumer-trace': 'router-hosted-client-direct-batch'},
   );
-  final responseIds = _expectBatchResponses(batchResponses, [
+  final responseIds = validation.expectBatchResponses(batchResponses, [
     for (final message in messages) message['id']! as String,
   ], label: 'Direct JSON');
   if (toolName != null) {
@@ -2031,7 +2037,7 @@ Future<void> _runDirectBatchExample(
             'router-hosted-client-direct-batch-wamp-metadata-details',
       },
     );
-    final detailResponseIds = _expectBatchResponses(
+    final detailResponseIds = validation.expectBatchResponses(
       detailResponses,
       detailExpectedIds,
       label: 'Direct JSON batch WAMP session metadata details',
@@ -2083,7 +2089,7 @@ Future<void> _runDirectBatchExample(
       };
     }
   }
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: previousSessionId,
     lastEventId: previousEventId,
@@ -2118,61 +2124,6 @@ McpJsonMap _toolCallBatchRequest({
   };
 }
 
-List<String> _expectBatchResponses(
-  List<McpJsonMap>? responses,
-  List<String> expectedIds, {
-  required String label,
-}) {
-  final responseIds = _expectBatchResponseIds(
-    responses,
-    expectedIds,
-    label: label,
-  );
-  for (final response in responses!) {
-    final id = response['id'];
-    if (response.containsKey('error')) {
-      throw StateError(
-        '$label batch response $id errored: ${response['error']}',
-      );
-    }
-  }
-  return responseIds;
-}
-
-List<String> _expectBatchResponseIds(
-  List<McpJsonMap>? responses,
-  List<String> expectedIds, {
-  required String label,
-}) {
-  if (responses == null) {
-    throw StateError('$label batch returned no responses.');
-  }
-  if (responses.length != expectedIds.length) {
-    throw StateError(
-      '$label batch returned ${responses.length} responses for '
-      '${expectedIds.length} requests.',
-    );
-  }
-
-  final responseIds = <String>[];
-  for (final response in responses) {
-    final id = response['id'];
-    if (id is! String) {
-      throw StateError('$label batch response had a non-string id.');
-    }
-    responseIds.add(id);
-  }
-
-  final missingIds = [
-    for (final expectedId in expectedIds)
-      if (!responseIds.contains(expectedId)) expectedId,
-  ];
-  if (missingIds.isNotEmpty) {
-    throw StateError('$label batch missed responses for $missingIds.');
-  }
-  return responseIds;
-}
-
 void _expectBatchCatalogPageCanReachValue(
   List<McpJsonMap>? responses, {
   required String id,
@@ -2182,7 +2133,7 @@ void _expectBatchCatalogPageCanReachValue(
   required String label,
 }) {
   final page = _catalogPageFromResult(
-    _batchResult(responses, id, label: label),
+    validation.batchResult(responses, id, label: label),
     catalogKey: catalogKey,
     label: label,
   );
@@ -2203,7 +2154,7 @@ void _expectBatchWampApiPageCanReachUri(
   final catalogKey = kind == 'procedure' ? 'procedures' : 'topics';
   final page = _catalogPageFromResult(
     _structuredContentFromToolResult(
-      _batchResult(responses, id, label: label),
+      validation.batchResult(responses, id, label: label),
       label: label,
     ),
     catalogKey: catalogKey,
@@ -2214,74 +2165,6 @@ void _expectBatchWampApiPageCanReachUri(
     return;
   }
   throw StateError('$label did not advertise $uri or a continuation cursor.');
-}
-
-McpJsonMap _batchResult(
-  List<McpJsonMap>? responses,
-  String id, {
-  required String label,
-}) {
-  if (responses == null) {
-    throw StateError('$label batch returned no responses.');
-  }
-  for (final response in responses) {
-    if (response['id'] != id) {
-      continue;
-    }
-    final result = response['result'];
-    if (result is Map) {
-      return result.cast<String, Object?>();
-    }
-    throw StateError('$label batch response $id had a non-object result.');
-  }
-  throw StateError('$label batch missed response $id.');
-}
-
-McpJsonMap _batchError(
-  List<McpJsonMap>? responses,
-  String id, {
-  required String label,
-}) {
-  if (responses == null) {
-    throw StateError('$label batch returned no responses.');
-  }
-  for (final response in responses) {
-    if (response['id'] != id) {
-      continue;
-    }
-    final error = response['error'];
-    if (error is Map) {
-      return error.cast<String, Object?>();
-    }
-    if (response.containsKey('result')) {
-      throw StateError('$label batch response $id succeeded unexpectedly.');
-    }
-    throw StateError('$label batch response $id had a non-object error.');
-  }
-  throw StateError('$label batch missed response $id.');
-}
-
-McpJsonMap _responseResult(
-  McpJsonMap? response,
-  String id, {
-  required String label,
-}) {
-  if (response == null) {
-    throw StateError('$label returned no response.');
-  }
-  if (response['id'] != id) {
-    throw StateError(
-      '$label returned response id ${response['id']} instead of $id.',
-    );
-  }
-  final result = response['result'];
-  if (result is Map) {
-    return result.cast<String, Object?>();
-  }
-  if (response.containsKey('error')) {
-    throw StateError('$label returned error ${jsonEncode(response['error'])}.');
-  }
-  throw StateError('$label response had a non-object result.');
 }
 
 Future<void> _runDirectWampMetadataExample(
@@ -2353,7 +2236,7 @@ Future<void> _runDirectWampMetadataExample(
       ),
       label: 'Direct WAMP procedure method describe',
     );
-    _expectWampCatalogContains(
+    validation.expectWampCatalogContains(
       catalog: [methodDescription],
       uri: procedure,
       label: 'Direct WAMP procedure method describe',
@@ -2418,7 +2301,7 @@ Future<void> _runDirectWampMetadataExample(
       ),
       label: 'Direct WAMP topic method describe',
     );
-    _expectWampCatalogContains(
+    validation.expectWampCatalogContains(
       catalog: [methodDescription],
       uri: topic,
       label: 'Direct WAMP topic method describe',
@@ -2435,7 +2318,7 @@ Future<void> _runDirectWampMetadataExample(
     };
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: previousSessionId,
     lastEventId: previousEventId,
@@ -2570,7 +2453,7 @@ Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
   required String label,
 }) {
   final count = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, countId, label: '$label session count'),
+    validation.batchResult(responses, countId, label: '$label session count'),
     label: '$label session count',
   );
   _expectWampMetaBatchProcedure(
@@ -2591,7 +2474,7 @@ Map<String, Object?> _expectWampSessionMetaBatchDiscovery(
   }
 
   final list = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, listId, label: '$label session list'),
+    validation.batchResult(responses, listId, label: '$label session list'),
     label: '$label session list',
   );
   _expectWampMetaBatchProcedure(
@@ -2630,7 +2513,7 @@ Map<String, Object?> _expectWampSessionMetaBatchDetails(
   required String label,
 }) {
   final session = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, getId, label: '$label session get'),
+    validation.batchResult(responses, getId, label: '$label session get'),
     label: '$label session get',
   );
   _expectWampMetaBatchProcedure(
@@ -2692,7 +2575,7 @@ Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDiscovery(
   required String label,
 }) {
   final lookup = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, lookupId, label: '$label lookup'),
+    validation.batchResult(responses, lookupId, label: '$label lookup'),
     label: '$label lookup',
   );
   _expectWampMetaBatchProcedure(
@@ -2710,7 +2593,7 @@ Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDiscovery(
   final registrationId = lookupIds.first;
 
   final match = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, matchId, label: '$label match'),
+    validation.batchResult(responses, matchId, label: '$label match'),
     label: '$label match',
   );
   _expectWampMetaBatchProcedure(
@@ -2727,7 +2610,7 @@ Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDiscovery(
   }
 
   final list = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, listId, label: '$label list'),
+    validation.batchResult(responses, listId, label: '$label list'),
     label: '$label list',
   );
   _expectWampMetaBatchProcedure(
@@ -2762,7 +2645,7 @@ Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDetails(
   required String label,
 }) {
   final details = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, getId, label: '$label get'),
+    validation.batchResult(responses, getId, label: '$label get'),
     label: '$label get',
   );
   _expectWampMetaBatchProcedure(
@@ -2782,7 +2665,7 @@ Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDetails(
   }
 
   final callees = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, calleesId, label: '$label callees'),
+    validation.batchResult(responses, calleesId, label: '$label callees'),
     label: '$label callees',
   );
   _expectWampMetaBatchProcedure(
@@ -2802,7 +2685,11 @@ Map<String, Object?> _expectConfiguredWampRegistrationMetaBatchDetails(
   }
 
   final calleeCount = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, calleeCountId, label: '$label callee count'),
+    validation.batchResult(
+      responses,
+      calleeCountId,
+      label: '$label callee count',
+    ),
     label: '$label callee count',
   );
   _expectWampMetaBatchProcedure(
@@ -2838,7 +2725,7 @@ Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDiscovery(
   required String label,
 }) {
   final lookup = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, lookupId, label: '$label lookup'),
+    validation.batchResult(responses, lookupId, label: '$label lookup'),
     label: '$label lookup',
   );
   _expectWampMetaBatchProcedure(
@@ -2856,7 +2743,7 @@ Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDiscovery(
   final subscriptionId = lookupIds.first;
 
   final match = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, matchId, label: '$label match'),
+    validation.batchResult(responses, matchId, label: '$label match'),
     label: '$label match',
   );
   _expectWampMetaBatchProcedure(
@@ -2873,7 +2760,7 @@ Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDiscovery(
   }
 
   final list = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, listId, label: '$label list'),
+    validation.batchResult(responses, listId, label: '$label list'),
     label: '$label list',
   );
   _expectWampMetaBatchProcedure(
@@ -2908,7 +2795,7 @@ Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDetails(
   required String label,
 }) {
   final details = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, getId, label: '$label get'),
+    validation.batchResult(responses, getId, label: '$label get'),
     label: '$label get',
   );
   _expectWampMetaBatchProcedure(
@@ -2926,7 +2813,11 @@ Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDetails(
   }
 
   final subscribers = _structuredContentFromWampMetaBatchResult(
-    _batchResult(responses, subscribersId, label: '$label subscribers'),
+    validation.batchResult(
+      responses,
+      subscribersId,
+      label: '$label subscribers',
+    ),
     label: '$label subscribers',
   );
   _expectWampMetaBatchProcedure(
@@ -2946,7 +2837,7 @@ Map<String, Object?> _expectConfiguredWampSubscriptionMetaBatchDetails(
   }
 
   final subscriberCount = _structuredContentFromWampMetaBatchResult(
-    _batchResult(
+    validation.batchResult(
       responses,
       subscriberCountId,
       label: '$label subscriber count',
@@ -3060,7 +2951,7 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
   required _WampMetaByIdCall countCallees,
 }) async {
   final lookupResult = await lookup();
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     lookupResult,
     'wamp.registration.lookup',
     label: '$label lookup',
@@ -3077,7 +2968,7 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
   final registrationId = lookupIds.first;
 
   final matchResult = await match();
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     matchResult,
     'wamp.registration.match',
     label: '$label match',
@@ -3091,7 +2982,7 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
   }
 
   final listResult = await list();
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     listResult,
     'wamp.registration.list',
     label: '$label list',
@@ -3105,7 +2996,7 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
   }
 
   final detailsResult = await get(registrationId);
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     detailsResult,
     'wamp.registration.get',
     label: '$label get',
@@ -3118,7 +3009,7 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
   }
 
   final calleesResult = await listCallees(registrationId);
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     calleesResult,
     'wamp.registration.list_callees',
     label: '$label callees',
@@ -3135,7 +3026,7 @@ Future<Map<String, Object?>> _expectConfiguredWampRegistrationMeta({
   }
 
   final calleeCountResult = await countCallees(registrationId);
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     calleeCountResult,
     'wamp.registration.count_callees',
     label: '$label callee count',
@@ -3246,7 +3137,7 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
   required _WampMetaByIdCall countSubscribers,
 }) async {
   final lookupResult = await lookup();
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     lookupResult,
     'wamp.subscription.lookup',
     label: '$label lookup',
@@ -3261,7 +3152,7 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
   final subscriptionId = lookupIds.first;
 
   final matchResult = await match();
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     matchResult,
     'wamp.subscription.match',
     label: '$label match',
@@ -3275,7 +3166,7 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
   }
 
   final listResult = await list();
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     listResult,
     'wamp.subscription.list',
     label: '$label list',
@@ -3289,7 +3180,7 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
   }
 
   final detailsResult = await get(subscriptionId);
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     detailsResult,
     'wamp.subscription.get',
     label: '$label get',
@@ -3302,7 +3193,7 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
   }
 
   final subscribersResult = await listSubscribers(subscriptionId);
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     subscribersResult,
     'wamp.subscription.list_subscribers',
     label: '$label subscribers',
@@ -3319,7 +3210,7 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
   }
 
   final subscriberCountResult = await countSubscribers(subscriptionId);
-  _expectWampMetaProcedure(
+  validation.expectWampMetaProcedure(
     subscriberCountResult,
     'wamp.subscription.count_subscribers',
     label: '$label subscriber count',
@@ -3345,18 +3236,6 @@ Future<Map<String, Object?>> _expectConfiguredWampSubscriptionMeta({
     'subscribers': _wampMetaResultJson(subscribersResult),
     'subscriberCount': _wampMetaResultJson(subscriberCountResult),
   };
-}
-
-void _expectWampMetaProcedure(
-  McpStreamableWampMetaCallResult result,
-  String expectedProcedure, {
-  required String label,
-}) {
-  if (result.procedure != expectedProcedure) {
-    throw StateError(
-      '$label returned ${result.procedure}, expected $expectedProcedure.',
-    );
-  }
 }
 
 List<int> _integerMetaIds(Object? value, String label) {
@@ -3393,42 +3272,6 @@ int? _integerMetaId(Object? value) {
     return value.toInt();
   }
   return null;
-}
-
-void _expectWampCatalogContains({
-  required Object? catalog,
-  required String uri,
-  required String label,
-}) {
-  if (!_wampCatalogContainsUri(catalog, uri)) {
-    throw StateError('$label catalog did not include $uri.');
-  }
-}
-
-bool _wampCatalogContainsUri(Object? catalog, String uri) {
-  return _catalogContainsValue(catalog: catalog, field: 'uri', value: uri);
-}
-
-void _expectWampSubscription(
-  McpStreamableWampSubscriptionResult subscription, {
-  required String topic,
-  required int queueLimit,
-  required String label,
-}) {
-  if (subscription.topic != topic) {
-    throw StateError(
-      '$label returned subscription for ${subscription.topic}, expected $topic.',
-    );
-  }
-  if (subscription.handle.isEmpty) {
-    throw StateError('$label returned an empty subscription handle.');
-  }
-  if (subscription.queueLimit != queueLimit) {
-    throw StateError(
-      '$label returned queue limit ${subscription.queueLimit}, '
-      'expected $queueLimit.',
-    );
-  }
 }
 
 void _expectWampPublication(
@@ -3498,22 +3341,6 @@ McpJsonMap _taskLookupEvent(String taskId) => <String, Object?>{
   'source': 'router-hosted-mcp-example',
   'event': 'task.lookup',
 };
-
-bool _catalogContainsValue({
-  required Object? catalog,
-  required String field,
-  required String value,
-}) {
-  if (catalog is! Iterable<Object?>) {
-    return false;
-  }
-  for (final entry in catalog) {
-    if (entry is Map && entry[field] == value) {
-      return true;
-    }
-  }
-  return false;
-}
 
 Future<McpJsonMap> _runActiveDirectJsonExample(
   McpStreamableHttpClient client,
@@ -3641,7 +3468,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       post: (request) => client.postDirect(request),
       label: 'Streamable active direct JSON resource method list',
     );
-    final methodResourceTemplates = _responseResult(
+    final methodResourceTemplates = validation.responseResult(
       await client.postDirect({
         'jsonrpc': '2.0',
         'id': 'streamable-active-direct-resource-templates-method',
@@ -3651,7 +3478,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       'streamable-active-direct-resource-templates-method',
       label: 'Streamable active direct JSON resource template method list',
     );
-    final methodContent = _responseResult(
+    final methodContent = validation.responseResult(
       await client.postDirect({
         'jsonrpc': '2.0',
         'id': 'streamable-active-direct-resource-read-method',
@@ -3721,7 +3548,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       post: (request) => client.postDirect(request),
       label: 'Streamable active direct JSON prompt method list',
     );
-    final methodPrompt = _responseResult(
+    final methodPrompt = validation.responseResult(
       await client.postDirect({
         'jsonrpc': '2.0',
         'id': 'streamable-active-direct-prompt-get-method',
@@ -3852,7 +3679,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         ),
         label: 'Streamable active direct JSON WAMP procedure method describe',
       );
-      _expectWampCatalogContains(
+      validation.expectWampCatalogContains(
         catalog: [methodDescription],
         uri: wampProcedure,
         label: 'Streamable active direct JSON WAMP procedure method describe',
@@ -3960,7 +3787,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
         ),
         label: 'Streamable active direct JSON WAMP topic method describe',
       );
-      _expectWampCatalogContains(
+      validation.expectWampCatalogContains(
         catalog: [methodDescription],
         uri: wampTopic,
         label: 'Streamable active direct JSON WAMP topic method describe',
@@ -4000,7 +3827,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       'x-consumer-trace': 'router-hosted-client-streamable-active-direct-batch',
     },
   );
-  final responseIds = _expectBatchResponses(batchResponses, [
+  final responseIds = validation.expectBatchResponses(batchResponses, [
     for (final message in batchMessages) message['id']! as String,
   ], label: 'Streamable active direct JSON');
   if (toolName != null) {
@@ -4022,7 +3849,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       value: resourceUri,
       label: 'Streamable active direct JSON batch resource',
     );
-    final resourceTemplateBatchResult = _batchResult(
+    final resourceTemplateBatchResult = validation.batchResult(
       batchResponses,
       'streamable-active-direct-batch-resource-templates',
       label: 'Streamable active direct JSON batch resource templates',
@@ -4194,7 +4021,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
             'router-hosted-client-streamable-active-direct-batch-wamp-metadata-details',
       },
     );
-    final detailResponseIds = _expectBatchResponses(
+    final detailResponseIds = validation.expectBatchResponses(
       detailResponses,
       detailExpectedIds,
       label:
@@ -4293,7 +4120,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
           'router-hosted-client-streamable-active-direct-batch-error',
     },
   );
-  final errorBatchResponseIds = _expectBatchResponseIds(
+  final errorBatchResponseIds = validation.expectBatchResponseIds(
     errorBatchResponses,
     const <String>[
       'streamable-active-direct-batch-error-tools',
@@ -4302,7 +4129,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     ],
     label: 'Streamable active direct JSON batch error isolation',
   );
-  final toolsAfterError = _batchResult(
+  final toolsAfterError = validation.batchResult(
     errorBatchResponses,
     'streamable-active-direct-batch-error-tools',
     label: 'Streamable active direct JSON batch error isolation tools/list',
@@ -4312,7 +4139,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       'Streamable active direct JSON batch error isolation lost tools result.',
     );
   }
-  final isolatedError = _batchError(
+  final isolatedError = validation.batchError(
     errorBatchResponses,
     'streamable-active-direct-batch-error-missing',
     label: 'Streamable active direct JSON batch error isolation missing method',
@@ -4324,7 +4151,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       'a non-integer error code.',
     );
   }
-  _batchResult(
+  validation.batchResult(
     errorBatchResponses,
     'streamable-active-direct-batch-error-ping',
     label: 'Streamable active direct JSON batch error isolation ping',
@@ -4357,7 +4184,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
       'a response.',
     );
   }
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: streamableSessionId,
     lastEventId: previousEventId,
@@ -4390,7 +4217,7 @@ Future<McpJsonMap> _runActiveDirectJsonExample(
     'ignored': true,
     'sessionUnchanged': true,
   };
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: streamableSessionId,
     lastEventId: previousEventId,
@@ -4418,7 +4245,7 @@ Future<void> _runDirectPubSubExample(
     queueLimit: queueLimit,
   );
   try {
-    _expectWampSubscription(
+    validation.expectWampSubscription(
       subscription,
       topic: topic,
       queueLimit: queueLimit,
@@ -4652,7 +4479,7 @@ Future<void> _runDirectPubSubExample(
     );
   }
 
-  _expectStreamableStateUnchanged(
+  validation.expectStreamableStateUnchanged(
     client,
     sessionId: previousSessionId,
     lastEventId: previousEventId,
@@ -4680,7 +4507,7 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
     queueLimit: queueLimit,
   );
   try {
-    _expectWampSubscription(
+    validation.expectWampSubscription(
       subscription,
       topic: topic,
       queueLimit: queueLimit,
@@ -4838,7 +4665,7 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
         'JSON-RPC responses.',
       );
     }
-    _expectStreamableStateUnchanged(
+    validation.expectStreamableStateUnchanged(
       client,
       sessionId: previousSessionId,
       lastEventId: previousEventId,
@@ -4981,7 +4808,7 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
           'JSON-RPC responses.',
         );
       }
-      _expectStreamableStateUnchanged(
+      validation.expectStreamableStateUnchanged(
         client,
         sessionId: previousSessionId,
         lastEventId: previousEventId,
@@ -5056,7 +4883,7 @@ Future<McpJsonMap> _runActiveDirectPubSubExample(
       subscription.handle,
       id: 'streamable-active-direct-pubsub-unsubscribe',
     );
-    _expectStreamableStateUnchanged(
+    validation.expectStreamableStateUnchanged(
       client,
       sessionId: previousSessionId,
       lastEventId: previousEventId,
@@ -5116,9 +4943,11 @@ Future<Map<String, Object?>> _runResourceSubscriptionExample(
     if (_jsonValueEquals(previousContent, refreshedContent)) {
       throw StateError('Resource reread did not return updated content.');
     }
-    if (client.sessionId != sessionId) {
-      throw StateError('Resource update lifecycle changed Streamable session.');
-    }
+    validation.expectSessionIdUnchanged(
+      client,
+      sessionId: sessionId,
+      diagnostic: 'Resource update lifecycle changed Streamable session.',
+    );
   } finally {
     await client.unsubscribeResource(
       resourceUri,
@@ -5202,14 +5031,18 @@ Future<void> _runStreamableSessionExample(
       'x-consumer-trace': 'router-hosted-client-streamable-initialized',
     },
   );
-  if (client.sessionId != streamableSessionId) {
-    throw StateError('Streamable initialized notification changed session id.');
-  }
+  validation.expectSessionIdUnchanged(
+    client,
+    sessionId: streamableSessionId,
+    diagnostic: 'Streamable initialized notification changed session id.',
+  );
 
   final ping = await client.ping(id: 'streamable-ping');
-  if (client.sessionId != streamableSessionId) {
-    throw StateError('Streamable ping changed session id.');
-  }
+  validation.expectSessionIdUnchanged(
+    client,
+    sessionId: streamableSessionId,
+    diagnostic: 'Streamable ping changed session id.',
+  );
   final eventIdBeforeInvalidPoll = client.lastEventId;
   await _expectInvalidLastEventIdRejected(
     client,
@@ -5429,7 +5262,7 @@ Future<void> _runStreamableSessionExample(
       post: (request) => client.post(request),
       label: 'Streamable resource method list',
     );
-    final methodResourceTemplates = _responseResult(
+    final methodResourceTemplates = validation.responseResult(
       await client.post({
         'jsonrpc': '2.0',
         'id': 'streamable-resource-templates-method',
@@ -5439,7 +5272,7 @@ Future<void> _runStreamableSessionExample(
       'streamable-resource-templates-method',
       label: 'Streamable resource template method list',
     );
-    final methodContent = _responseResult(
+    final methodContent = validation.responseResult(
       await client.post({
         'jsonrpc': '2.0',
         'id': 'streamable-resource-read-method',
@@ -5484,11 +5317,11 @@ Future<void> _runStreamableSessionExample(
       'pagesRead': advertised.pagesRead,
       'sessionUnchanged': client.sessionId == streamableSessionId,
     };
-    if (client.sessionId != streamableSessionId) {
-      throw StateError(
-        'Resource template expansion changed Streamable session.',
-      );
-    }
+    validation.expectSessionIdUnchanged(
+      client,
+      sessionId: streamableSessionId,
+      diagnostic: 'Resource template expansion changed Streamable session.',
+    );
   }
 
   final promptName = options.promptName;
@@ -5534,7 +5367,7 @@ Future<void> _runStreamableSessionExample(
       post: (request) => client.post(request),
       label: 'Streamable prompt method list',
     );
-    final methodPrompt = _responseResult(
+    final methodPrompt = validation.responseResult(
       await client.post({
         'jsonrpc': '2.0',
         'id': 'streamable-prompt-get-method',
@@ -5591,7 +5424,7 @@ Future<void> _runStreamableSessionExample(
       'x-consumer-trace': 'router-hosted-client-streamable-batch',
     },
   );
-  final responseIds = _expectBatchResponses(batchResponses, [
+  final responseIds = validation.expectBatchResponses(batchResponses, [
     for (final message in streamableBatchMessages) message['id']! as String,
   ], label: 'Streamable');
   if (toolName != null) {
@@ -5643,9 +5476,11 @@ Future<void> _runStreamableSessionExample(
     );
   }
   streamable['batch'] = <String, Object?>{'responseIds': responseIds};
-  if (client.sessionId != streamableSessionId) {
-    throw StateError('Streamable batch changed session id.');
-  }
+  validation.expectSessionIdUnchanged(
+    client,
+    sessionId: streamableSessionId,
+    diagnostic: 'Streamable batch changed session id.',
+  );
 
   if (wampProcedure != null || wampTopic != null) {
     final metadata = <String, Object?>{};
@@ -5782,9 +5617,11 @@ Future<void> _runStreamableSessionExample(
     }
 
     streamable['wampMetadata'] = metadata;
-    if (client.sessionId != streamableSessionId) {
-      throw StateError('Streamable WAMP metadata changed session id.');
-    }
+    validation.expectSessionIdUnchanged(
+      client,
+      sessionId: streamableSessionId,
+      diagnostic: 'Streamable WAMP metadata changed session id.',
+    );
   }
 
   streamable['activeDirectJson'] = await _runActiveDirectJsonExample(
@@ -5808,7 +5645,7 @@ Future<void> _runStreamableSessionExample(
       queueLimit: queueLimit,
     );
     try {
-      _expectWampSubscription(
+      validation.expectWampSubscription(
         subscription,
         topic: pubsubTopic,
         queueLimit: queueLimit,
@@ -5939,9 +5776,11 @@ Future<void> _runStreamableSessionExample(
                 'router-hosted-client-streamable-tool-notification',
           },
         );
-        if (client.sessionId != streamableSessionId) {
-          throw StateError('Streamable tool notification changed session id.');
-        }
+        validation.expectSessionIdUnchanged(
+          client,
+          sessionId: streamableSessionId,
+          diagnostic: 'Streamable tool notification changed session id.',
+        );
         toolNotificationEvents = await client.pollWampEvents(
           subscription.handle,
           id: 'streamable-tool-notification-poll',
@@ -5968,11 +5807,11 @@ Future<void> _runStreamableSessionExample(
                 'router-hosted-client-streamable-tool-method-notification',
           },
         );
-        if (client.sessionId != streamableSessionId) {
-          throw StateError(
-            'Streamable tool method notification changed session id.',
-          );
-        }
+        validation.expectSessionIdUnchanged(
+          client,
+          sessionId: streamableSessionId,
+          diagnostic: 'Streamable tool method notification changed session id.',
+        );
         toolMethodNotificationEvents = await client.pollWampEvents(
           subscription.handle,
           id: 'streamable-tool-method-notification-poll',

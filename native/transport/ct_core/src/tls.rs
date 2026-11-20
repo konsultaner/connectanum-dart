@@ -2,7 +2,7 @@ use std::{io::Cursor, sync::Arc};
 
 use rustls::{
     client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
-    crypto::ring::default_provider,
+    crypto::ring::default_provider as ring_provider,
     pki_types::{CertificateDer, PrivateKeyDer, ServerName, UnixTime},
     server::{ClientHello, ResolvesServerCert, ResolvesServerCertUsingSni},
     sign::CertifiedKey,
@@ -16,6 +16,27 @@ use crate::{
     config::{ClientAuthMode, EndpointRuntimeConfig, TlsMode, TransportProtocol},
     ktls, Error,
 };
+
+fn default_provider() -> rustls::crypto::CryptoProvider {
+    let mut provider = ring_provider();
+    let accelerated = rustls::crypto::aws_lc_rs::default_provider();
+    provider.cipher_suites = provider
+        .cipher_suites
+        .iter()
+        .map(|original| {
+            accelerated
+                .cipher_suites
+                .iter()
+                .find(|candidate| candidate.suite() == original.suite())
+                .copied()
+                .unwrap_or(*original)
+        })
+        .collect();
+    // Preserve the process's first explicit provider; otherwise keep ring's
+    // exact algorithm selection with accelerated cipher-suite implementations.
+    let _ = provider.clone().install_default();
+    provider
+}
 
 #[derive(Debug)]
 struct ResolverWithDefault {
@@ -204,6 +225,8 @@ pub(crate) fn build_client_cert_verifier(
     endpoint: &EndpointRuntimeConfig,
     provider: &rustls::crypto::CryptoProvider,
 ) -> Result<Option<Arc<dyn rustls::server::danger::ClientCertVerifier>>, Error> {
+    // HTTP/3 calls this before its first implicit rustls builder as well.
+    let _ = default_provider();
     let Some(client_auth) = &endpoint.client_auth else {
         return Ok(None);
     };
@@ -335,6 +358,161 @@ mod tests {
         if let Err(Error::RouterConfigInvalid(message)) = result {
             assert!(message.contains("127.0.0.1:443"), "{message}");
             assert!(message.contains(expected), "{message}");
+        }
+    }
+
+    #[test]
+    fn accelerated_provider_preserves_ring_algorithm_policy() {
+        let before = ring_provider();
+        let after = default_provider();
+        assert_eq!(
+            before
+                .cipher_suites
+                .iter()
+                .map(|suite| suite.suite())
+                .collect::<Vec<_>>(),
+            after
+                .cipher_suites
+                .iter()
+                .map(|suite| suite.suite())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(before.kx_groups.len(), after.kx_groups.len());
+        for (expected, actual) in before.kx_groups.iter().zip(&after.kx_groups) {
+            assert!(std::ptr::eq(*expected, *actual));
+        }
+        assert!(std::ptr::eq(
+            before.signature_verification_algorithms.all,
+            after.signature_verification_algorithms.all
+        ));
+        assert!(std::ptr::eq(
+            before.signature_verification_algorithms.mapping,
+            after.signature_verification_algorithms.mapping
+        ));
+        assert!(std::ptr::eq(before.secure_random, after.secure_random));
+        assert!(std::ptr::eq(before.key_provider, after.key_provider));
+    }
+
+    #[test]
+    fn accelerated_records_interoperate_with_ring_for_each_tls13_cipher() {
+        use rustls::{ClientConnection, Connection, ServerConnection};
+        use std::io::{Read, Write};
+        fn deliver(source: &mut Connection, target: &mut Connection) {
+            let mut wire = Vec::new();
+            while source.wants_write() {
+                source.write_tls(&mut wire).unwrap();
+            }
+            let mut cursor = Cursor::new(wire);
+            while cursor.position() < cursor.get_ref().len() as u64 {
+                assert!(target.read_tls(&mut cursor).unwrap() > 0);
+                target.process_new_packets().unwrap();
+            }
+        }
+        let identity = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let cert = identity.cert.der().clone();
+        for suite in ring_provider()
+            .cipher_suites
+            .into_iter()
+            .filter(|suite| suite.tls13().is_some())
+        {
+            for accelerated_server in [false, true] {
+                let mut client_provider = if accelerated_server {
+                    ring_provider()
+                } else {
+                    default_provider()
+                };
+                let mut server_provider = if accelerated_server {
+                    default_provider()
+                } else {
+                    ring_provider()
+                };
+                client_provider
+                    .cipher_suites
+                    .retain(|candidate| candidate.suite() == suite.suite());
+                server_provider
+                    .cipher_suites
+                    .retain(|candidate| candidate.suite() == suite.suite());
+                let mut roots = RootCertStore::empty();
+                roots.add(cert.clone()).unwrap();
+                let mut client_config =
+                    RustlsClientConfig::builder_with_provider(Arc::new(client_provider))
+                        .with_protocol_versions(&[&rustls::version::TLS13])
+                        .unwrap()
+                        .with_root_certificates(roots)
+                        .with_no_client_auth();
+                client_config.alpn_protocols = vec![b"h2".to_vec()];
+                let key =
+                    rustls::pki_types::PrivatePkcs8KeyDer::from(identity.key_pair.serialize_der());
+                let mut server_config =
+                    RustlsServerConfig::builder_with_provider(Arc::new(server_provider))
+                        .with_protocol_versions(&[&rustls::version::TLS13])
+                        .unwrap()
+                        .with_no_client_auth()
+                        .with_single_cert(vec![cert.clone()], key.into())
+                        .unwrap();
+                server_config.alpn_protocols = vec![b"h2".to_vec()];
+                let mut client = Connection::Client(
+                    ClientConnection::new(
+                        Arc::new(client_config),
+                        ServerName::try_from("localhost").unwrap(),
+                    )
+                    .unwrap(),
+                );
+                let mut server =
+                    Connection::Server(ServerConnection::new(Arc::new(server_config)).unwrap());
+                for _ in 0..16 {
+                    deliver(&mut client, &mut server);
+                    deliver(&mut server, &mut client);
+                    if !client.is_handshaking()
+                        && !server.is_handshaking()
+                        && !client.wants_write()
+                        && !server.wants_write()
+                    {
+                        break;
+                    }
+                }
+                for peer in [&client, &server] {
+                    assert!(!peer.is_handshaking());
+                    assert_eq!(
+                        peer.negotiated_cipher_suite().unwrap().suite(),
+                        suite.suite()
+                    );
+                    assert_eq!(
+                        peer.protocol_version(),
+                        Some(rustls::ProtocolVersion::TLSv1_3)
+                    );
+                    assert_eq!(peer.alpn_protocol(), Some(b"h2".as_slice()));
+                    assert_eq!(
+                        peer.negotiated_key_exchange_group().unwrap().name(),
+                        ring_provider().kx_groups[0].name()
+                    );
+                }
+                for size in [1, 16383, 16384, 16385, 65537] {
+                    let bytes: Vec<u8> = (0..size).map(|index| (index * 37 + 11) as u8).collect();
+                    for chunk in bytes.chunks(16385) {
+                        client.writer().write_all(chunk).unwrap();
+                        deliver(&mut client, &mut server);
+                        let mut received = vec![0; chunk.len()];
+                        server.reader().read_exact(&mut received).unwrap();
+                        assert_eq!(received, chunk);
+                        server.writer().write_all(chunk).unwrap();
+                        deliver(&mut server, &mut client);
+                        client.reader().read_exact(&mut received).unwrap();
+                        assert_eq!(received, chunk);
+                    }
+                }
+                client
+                    .writer()
+                    .write_all(b"authenticated ciphertext")
+                    .unwrap();
+                let mut wire = Vec::new();
+                while client.wants_write() {
+                    client.write_tls(&mut wire).unwrap();
+                }
+                *wire.last_mut().unwrap() ^= 1;
+                assert_eq!(server.read_tls(&mut Cursor::new(wire)).unwrap() > 0, true);
+                assert!(server.process_new_packets().is_err());
+            }
         }
     }
 
@@ -503,7 +681,9 @@ mod tests {
             .expect("test endpoint tls certificate");
         let (cert_chain, key_der) = parse_identity(cert_entry, endpoint).expect("test identity");
 
-        RustlsServerConfig::builder()
+        RustlsServerConfig::builder_with_provider(Arc::new(default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
             .with_no_client_auth()
             .with_single_cert(cert_chain, key_der)
             .expect("server config")

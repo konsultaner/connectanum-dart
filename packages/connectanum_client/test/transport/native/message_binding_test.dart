@@ -16,6 +16,121 @@ import 'package:test/test.dart';
 import '../../../../connectanum_core/test/support/native_role_contract.dart';
 
 void main() {
+  group('native JSON byte decoding', () {
+    Uint8List view(List<int> encoded, {bool bom = false}) {
+      final storage = Uint8List.fromList([
+        0xff,
+        0xfe,
+        0xfd,
+        if (bom) ...[0xef, 0xbb, 0xbf],
+        ...encoded,
+        0xfc,
+        0xfb,
+      ]);
+      return Uint8List.sublistView(storage, 3, storage.length - 2);
+    }
+
+    Result decode(
+      bool deferred,
+      Uint8List frame,
+      Uint8List args,
+      Uint8List kwargs,
+    ) {
+      final message = deferred
+          ? materializeSessionMessage(
+              bindSessionMessage(
+                NativeMessageSerializer.json,
+                Uint8List.fromList([0xff]),
+                metadata: _metadata(
+                  messageCode: MessageTypes.codeResult,
+                  primaryId: 7,
+                  flags: NativeMessageMetadata.flagMetadataBind,
+                ),
+                argsBytes: args,
+                kwargsBytes: kwargs,
+              ),
+            )
+          : bindMessage(
+              NativeMessageSerializer.json,
+              frame,
+              argsBytes: args,
+              kwargsBytes: kwargs,
+            );
+      expect(message, isA<Result>());
+      return message as Result;
+    }
+
+    for (final deferred in [false, true]) {
+      for (final bom in [false, true]) {
+        test(
+          'deferred=$deferred BOM=$bom preserves Unicode, binary and ownership in offset views',
+          () {
+            final wireArgs = <Object?>[
+              List.filled(256 * 1024, 'x').join(),
+              'quotes " backslash \\ controls \n\r\t and embedded \u0000',
+              'é中🐾 ${String.fromCharCode(0xd800)} ${String.fromCharCode(0xdc00)}',
+              {
+                'nested': [true, null, 9007199254740991],
+              },
+              '\u0000AAH/',
+            ];
+            final wireKwargs = {'unicode': 'é中🐾', 'empty': '\u0000'};
+            final rawArgs = utf8.encode(jsonEncode(wireArgs));
+            final rawKwargs = utf8.encode(jsonEncode(wireKwargs));
+            // The former two-step SDK path is an independent value oracle.
+            final expectedArgs = jsonDecode(utf8.decode(rawArgs)) as List;
+            expectedArgs[4] = Uint8List.fromList([0, 1, 255]);
+            final expectedKwargs = jsonDecode(utf8.decode(rawKwargs)) as Map;
+            expectedKwargs['empty'] = Uint8List(0);
+            final args = view(rawArgs, bom: bom);
+            final kwargs = view(rawKwargs, bom: bom);
+            final frame = view(
+              utf8.encode(jsonEncode([50, 7, {}, wireArgs, wireKwargs])),
+              bom: bom,
+            );
+            final message = _validFrame(
+              () => decode(deferred, frame, args, kwargs),
+            );
+            expect(_validFrame(() => message.arguments), expectedArgs);
+            expect(
+              _validFrame(() => message.argumentsKeywords),
+              expectedKwargs,
+            );
+            frame.fillRange(0, frame.length, 0);
+            args.fillRange(0, args.length, 0);
+            kwargs.fillRange(0, kwargs.length, 0);
+            expect(message.arguments, expectedArgs);
+            expect(message.argumentsKeywords, expectedKwargs);
+          },
+        );
+      }
+      for (final bad in <List<int>>[
+        [0x5b, 0x22, 0xc3, 0x22, 0x5d],
+        [0x5b, 0x22, 0xc0, 0xaf, 0x22, 0x5d],
+        [0x5b, 0x22, 0xed, 0xa0, 0x80, 0x22, 0x5d],
+        utf8.encode('[1] trailing'),
+        utf8.encode('[1'),
+      ]) {
+        test(
+          'deferred=$deferred rejects malformed UTF-8/JSON ${bad.take(8).toList()}',
+          () {
+            final args = view(bad);
+            final frame = view([...utf8.encode('[50,7,{},'), ...bad, 0x5d]);
+            expect(() {
+              final message = decode(
+                deferred,
+                frame,
+                args,
+                view(utf8.encode('{}')),
+              );
+              return message.arguments;
+            }, throwsFormatException);
+          },
+        );
+      }
+    }
+  });
+
   test(
     'CBOR byte strings stay binary in native frames and deferred fragments',
     () {

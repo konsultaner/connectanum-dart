@@ -9,6 +9,8 @@ import 'package:connectanum_mcp/connectanum_mcp_io.dart';
 import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';
 import 'package:test/test.dart';
 
+import 'owned_http_client_test_support.dart';
+
 const _protocol = '2026-07-28';
 const _tool = {
   'name': 'echo',
@@ -33,7 +35,7 @@ void main() {
       'opaque hyphen-prefixed bearer reaches HTTP unchanged and stays out of output',
       () async {
         const token = '--valid-base64url-token_0123456789';
-        final result = await _run(peer, ['--bearer-token', token]);
+        final result = await _runSuccessfully(peer, ['--bearer-token', token]);
         expect(result.err, isEmpty);
         expect(peer.authorizations, isNotEmpty);
         expect(peer.authorizations, everyElement('Bearer $token'));
@@ -41,12 +43,40 @@ void main() {
       },
     );
 
+    test('catalog search stops at the existing 1024-page bound', () async {
+      var pages = 0;
+      peer.rewrite = (request, result) {
+        if ((request['id'] as String?)?.startsWith('direct-standard-tools-') !=
+            true) {
+          return result;
+        }
+        pages++;
+        expect(
+          pages,
+          lessThanOrEqualTo(1024),
+          reason: 'No request beyond the catalog bound',
+        );
+        return {'tools': [], 'nextCursor': 'page-$pages'};
+      };
+      await expectLater(
+        _run(peer, ['--tool', 'echo']),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'specific bound',
+            'Direct standard tool exceeded 1024 catalog pages.',
+          ),
+        ),
+      );
+      expect(pages, 1024);
+    });
+
     for (final discover in [false, true]) {
       test(
         'ticket grant ${discover ? 'discovered' : 'explicit'} stays bound to the MCP client',
         () async {
           peer.requireAuth = true;
-          final result = await _run(peer, [
+          final result = await _runSuccessfully(peer, [
             '--realm',
             'consumer.realm',
             '--auth-id',
@@ -144,7 +174,7 @@ void main() {
       });
 
       test('uses rotated credentials and verifies both revocations', () async {
-        final result = await _run(peer, options);
+        final result = await _runSuccessfully(peer, options);
         expect(result.err, isEmpty);
         expect(result.lines.last, {
           'authLifecycle': {
@@ -318,7 +348,7 @@ void main() {
       test(
         'stateless discovery and direct catalogs, bearer=$authenticated',
         () async {
-          final result = await _run(peer, [
+          final result = await _runSuccessfully(peer, [
             if (authenticated) ...['--bearer-token', ' fixture-token '],
           ]);
           expect(result.err, isEmpty);
@@ -367,7 +397,7 @@ void main() {
     test(
       'paginated tool, resource, template and prompt use advertised APIs',
       () async {
-        final result = await _run(peer, [
+        final result = await _runSuccessfully(peer, [
           '--tool',
           'echo',
           '--tool-arguments',
@@ -621,7 +651,7 @@ void main() {
       test(
         'publishes, polls, notifies and releases its subscription',
         () async {
-          final result = await _run(peer, options);
+          final result = await _runSuccessfully(peer, options);
           expect(result.err, isEmpty);
           final transcript = result.lines.singleWhere(
             (line) => line.containsKey('pubsubTopic'),
@@ -778,7 +808,7 @@ void main() {
       test(
         'acknowledges, refreshes, and closes without session state',
         () async {
-          final result = await _run(peer, options);
+          final result = await _runSuccessfully(peer, options);
           expect(result.err, isEmpty);
           final stateless = result.lines.last['stateless'] as Map;
           expect(stateless['sessionless'], isTrue);
@@ -1013,7 +1043,7 @@ void main() {
                 }
                 return {...result, 'structuredContent': content};
               };
-              final result = await _run(peer, options);
+              final result = await _runSuccessfully(peer, options);
               expect(result.err, isEmpty);
               final metadata =
                   result.lines.singleWhere(
@@ -1688,6 +1718,23 @@ class _Peer {
   }
 }
 
+Future<({List<Map<String, Object?>> lines, String err})> _runSuccessfully(
+  _Peer peer,
+  List<String> options,
+) async {
+  late ({List<Map<String, Object?>> lines, String err}) result;
+  try {
+    result = await _run(peer, options);
+  } on McpStreamableProtocolException catch (error) {
+    fail('The valid CLI protocol was rejected: $error');
+  } on FormatException catch (error) {
+    fail('The valid CLI response was rejected: $error');
+  } on StateError catch (error) {
+    fail('The valid HTTP fixture exchange was rejected: $error');
+  }
+  return result;
+}
+
 Future<({List<Map<String, Object?>> lines, String err})> _run(
   _Peer peer,
   List<String> options, {
@@ -1698,13 +1745,15 @@ Future<({List<Map<String, Object?>> lines, String err})> _run(
   // Only the option suite owns process-wide exitCode. HTTP tests use valid
   // arguments and assert the completed transcript or the specific exception.
   await IOOverrides.runZoned(
-    () => runRouterHostedClient([
-      '--endpoint',
-      'http://127.0.0.1:${peer.server.port}/mcp',
-      '--protocol-version',
-      _protocol,
-      ...options,
-    ]),
+    () => expectOwnedHttpClientsClosed(
+      () => runRouterHostedClient([
+        '--endpoint',
+        'http://127.0.0.1:${peer.server.port}/mcp',
+        '--protocol-version',
+        _protocol,
+        ...options,
+      ]),
+    ),
     stdout: () => capturedOutput,
     stderr: () => errors,
   );

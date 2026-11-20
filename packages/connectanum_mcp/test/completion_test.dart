@@ -46,6 +46,7 @@ void main() {
           'method': 'initialize',
           'params': <String, Object?>{'protocolVersion': '2025-11-25'},
         });
+        expect(initialized?['result'], isA<Map>());
         expect(
           ((initialized as Map)['result'] as Map)['capabilities'],
           containsPair('completions', isA<Map>()),

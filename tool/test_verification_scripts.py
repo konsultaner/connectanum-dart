@@ -896,17 +896,34 @@ fi
 
     def test_native_diagnostics_audits_instead_of_trusting_cargo_caught_count(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
-        native_job = workflow.split("\n  rust:\n", 1)[1]
+        native_job = workflow.split("\n  rust:\n", 1)[1].split("\n  rust-aggregate:\n", 1)[0]
         self.assertIn("bin/collect-native-mutations --output out/mutations", native_job)
         self.assertNotIn("bin/test-native-mutations", native_job)
-        self.assertIn("os: [ubuntu-latest, macos-latest]", native_job)
+        self.assertIn("os: ubuntu-latest", native_job)
+        self.assertIn("os: macos-latest", native_job)
         self.assertIn("if: always()", native_job)
 
     def test_native_diagnostics_runs_each_complete_target_on_each_platform(self) -> None:
         workflow = (REPO_ROOT / ".github/workflows/mutation-diagnostics.yml").read_text()
-        native_job = workflow.split("\n  rust:\n", 1)[1]
-        self.assertIn("os: [ubuntu-latest, macos-latest]", native_job)
-        self.assertIn("target: [core-rawsocket, core-wamp]", native_job)
+        native_job = workflow.split("\n  rust:\n", 1)[1].split("\n  rust-aggregate:\n", 1)[0]
+        self.assertIn("os: ubuntu-latest", native_job)
+        self.assertIn("os: macos-latest", native_job)
+        entries = re.findall(r"- \{ os: ([\w-]+), target: ([\w-]+), batch: (\d+), count: (\d+) \}", native_job)
+        expected = {(os, target, str(index), str(count))
+                    for os in ('ubuntu-latest', 'macos-latest')
+                    for target, count in [('core-rawsocket', 4), ('core-wamp', 8)]
+                    for index in range(count)}
+        self.assertEqual(set(entries), expected)
+        self.assertEqual(len(entries), len(expected))
+        self.assertIn('--batch "${{ matrix.batch }}" "${{ matrix.count }}"', native_job)
+        self.assertIn('timeout-minutes: 45', native_job)
+        aggregate = workflow.split("\n  rust-aggregate:\n", 1)[1]
+        self.assertIn('--require-all-killed', aggregate)
+        self.assertIn('timeout-minutes: 45', aggregate)
+        self.assertIn('needs: rust', aggregate)
+        self.assertIn('if: ${{ !cancelled() }}', aggregate)
+        self.assertIn("if len(batches) != expected:", aggregate)
+        self.assertIn('tool/native_mutation_batches.py', aggregate)
         self.assertIn("runs-on: ${{ matrix.os }}", native_job)
         self.assertIn("name: Native ${{ matrix.target }} / ${{ matrix.os }}", native_job)
         self.assertIn('bin/collect-native-mutations --output out/mutations --target "${{ matrix.target }}"', native_job)
@@ -930,8 +947,18 @@ fi
         ]))
         jobs = workflow.split("\njobs:\n", 1)[1]
         self.assertNotIn("github.event_name", jobs)
-        self.assertEqual(jobs.count("if: always()"), 2)
-        self.assertEqual(jobs.count("if-no-files-found: error"), 2)
+        sections = re.split(r"\n  ([a-z][a-z-]*):\n", "\n" + jobs)
+        job_sections = dict(zip(sections[1::2], sections[2::2]))
+        self.assertEqual(set(job_sections), {
+            "native-build", "dart", "web-shards", "native-dart-shards",
+            "dart-aggregate", "rust", "rust-aggregate",
+        })
+        for name, section in job_sections.items():
+            with self.subTest(job=name):
+                self.assertEqual(section.count("if: always()"),
+                                 0 if name == "native-build" else 1)
+                self.assertEqual(section.count("if-no-files-found: error"),
+                                 2 if name == "native-build" else 1)
         self.assertNotIn("continue-on-error:", jobs)
         self.assertNotIn("|| true", jobs)
 

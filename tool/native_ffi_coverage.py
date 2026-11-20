@@ -107,7 +107,7 @@ def suites():
     client = "packages/connectanum_client"
     router = "packages/connectanum_router"
     result = []
-    for name in ("external_byte_buffer", "e2ee_provider", "resource_restart",
+    for name in ("canonical_base64_io", "external_byte_buffer", "e2ee_provider", "resource_restart",
                  "native_transports", "runtime_file_segment"):
         result.append((f"client-{name}", client, [f"test/transport/native/{name}_test.dart"], {}))
     for name, path in (

@@ -47,6 +47,8 @@
     "packages/connectanum_client/lib/src/transport/native/runtime.dart",
     "packages/connectanum_client/lib/src/transport/socket/socket_helper.dart",
     "packages/connectanum_client/lib/src/transport/socket/socket_transport.dart",
+    "packages/connectanum_client/lib/src/transport/websocket/byte_frame_http_client_io.dart",
+    "packages/connectanum_client/lib/src/transport/websocket/canonical_json_byte_frames_io.dart",
     "packages/connectanum_client/lib/src/transport/websocket/websocket_transport_io.dart",
     "packages/connectanum_core/lib/src/authentication/abstract_authentication.dart",
     "packages/connectanum_core/lib/src/authentication/cra_authentication.dart",
@@ -109,6 +111,7 @@
     "packages/connectanum_core/lib/src/serializer/msgpack/codec.dart",
     "packages/connectanum_core/lib/src/serializer/msgpack/serializer.dart",
     "packages/connectanum_mcp/lib/src/cli/router_hosted_client.dart",
+    "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart",
     "packages/connectanum_mcp/lib/src/prompts/prompt.dart",
     "packages/connectanum_mcp/lib/src/protocol/capabilities.dart",
     "packages/connectanum_mcp/lib/src/protocol/constants.dart",
@@ -212,7 +215,8 @@
         "packages/connectanum_mcp/lib/src/tools/tool.dart",
         "packages/connectanum_mcp/lib/src/tools/wamp_api.dart",
         "packages/connectanum_mcp/lib/src/tools/wamp_tool_delegate.dart",
-        "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart"
+        "packages/connectanum_mcp/lib/src/transport/stdio_transport.dart",
+        "packages/connectanum_mcp/lib/src/cli/router_hosted_client_validation.dart"
       ]
     },
     "connectanum_mcp_cli": {

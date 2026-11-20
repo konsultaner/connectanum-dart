@@ -640,5 +640,41 @@
       "sourceHash": "259ec473ae563b7e0fdc1b7f03550dcbbed592608c7f3d485cb715be56a8b4aa",
       "reason": "The preceding startsWith guard excludes shorter candidates and the preceding length-equality branch already returned; only strictly longer candidates reach this comparison."
     }
+  },
+  "core-msgpack-vm": {
+    "28a038302ac94298a3e4": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes only map BytesBuilder copy=false to true. Every chunk is a fresh private encoding/header; no chunk is written after add or escapes before takeBytes. Eager copying and retaining those immutable private chunks produce identical returned bytes and caller ownership. Allocation timing differs and receives no performance waiver."
+    },
+    "78f007cdc517d70c75aa": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes only iterable BytesBuilder copy=false to true. Each recursively encoded element/header is a fresh private Uint8List, not caller storage, and is never written between add and takeBytes. Both settings return the identical wire bytes independent of later input mutation. This is functional equivalence only; performance/allocation gates remain applicable."
+    },
+    "091a2ef3684a4ea3794b": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes the first || to && in offset<0 || length<0 || offset+length>bytes.length. Every private caller supplies offset at least one (decoded offset plus one/two/header width) and a nonnegative constant or unsigned length. Thus the first two disjuncts are both false, so their conjunction/disjunction is false. The final bounds admission and every error remain unchanged, including malformed/truncated wire."
+    },
+    "2a41fae41a37b4aab734": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes offset<0 to offset<=0 in the private availability guard. All callers add at least one to a nonnegative decoded offset before invoking this guard; none passes zero. Read lengths come from unsigned bytes or nonnegative constants. Therefore the changed equality case is unreachable for every public input, including malformed wire. The length/end checks are unchanged."
+    }
+  },
+  "core-msgpack-web": {
+    "28a038302ac94298a3e4": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes only map BytesBuilder copy=false to true. Every chunk is a fresh private encoding/header; no chunk is written after add or escapes before takeBytes. Eager copying and retaining those immutable private chunks produce identical returned bytes and caller ownership. Allocation timing differs and receives no performance waiver."
+    },
+    "78f007cdc517d70c75aa": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes only iterable BytesBuilder copy=false to true. Each recursively encoded element/header is a fresh private Uint8List, not caller storage, and is never written between add and takeBytes. Both settings return the identical wire bytes independent of later input mutation. This is functional equivalence only; performance/allocation gates remain applicable."
+    },
+    "091a2ef3684a4ea3794b": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes the first || to && in offset<0 || length<0 || offset+length>bytes.length. Every private caller supplies offset at least one (decoded offset plus one/two/header width) and a nonnegative constant or unsigned length. Thus the first two disjuncts are both false, so their conjunction/disjunction is false. The final bounds admission and every error remain unchanged, including malformed/truncated wire."
+    },
+    "2a41fae41a37b4aab734": {
+      "sourceHash": "b94ff55076f15b0a81cd3a4cdb2bb9bd9fc858b7a2e554e58c949402638a75cc",
+      "reason": "Changes offset<0 to offset<=0 in the private availability guard. All callers add at least one to a nonnegative decoded offset before invoking this guard; none passes zero. Read lengths come from unsigned bytes or nonnegative constants. Therefore the changed equality case is unreachable for every public input, including malformed wire. The length/end checks are unchanged."
+    }
   }
 }

@@ -49,6 +49,14 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - name: Load the kernel TLS protocol
+        run: |
+          set -euo pipefail
+          if ! grep -qw tls /proc/sys/net/ipv4/tcp_available_ulp; then
+            sudo modprobe tls
+          fi
+          grep -qw tls /proc/sys/net/ipv4/tcp_available_ulp
+
       - name: Bootstrap workspace
         run: bin/bootstrap
 

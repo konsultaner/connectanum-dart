@@ -64,6 +64,21 @@ class BatchSelectionTests(unittest.TestCase):
                     with self.assertRaises(FileExistsError):
                         batches.main()
 
+    def test_diagnostic_cli_keeps_zero_survivors_and_clean_evidence_required(self):
+        for counts, score, clean, expected in [
+            ({'killed': 20}, 100, True, 0),
+            ({'killed': 19, 'survived': 1}, 95, True, 1),
+            ({'killed': 20}, 100, False, 1),
+            ({'killed': 19, 'timeout': 1}, 95, False, 1),
+        ]:
+            with self.subTest(counts=counts, clean=clean), tempfile.TemporaryDirectory() as temporary:
+                report = {'generated': 20, 'counts': counts, 'evidenceClean': clean,
+                          'adjustedCandidateScore': score}
+                argv = ['audit', '--analyzer', 'analyzer', '--output',
+                        str(Path(temporary) / 'report.json'), '--require-all-killed', 'batch']
+                with patch('sys.argv', argv), patch.object(batches, 'audit_batches', return_value=report):
+                    self.assertEqual(batches.main(), expected)
+
     def test_merge_rejects_missing_duplicate_and_changed_results(self):
         full = inventory()
         reports = [{'batch': {'index': index, 'count': 3}, 'host': 'fixture',
@@ -109,10 +124,15 @@ class BatchEvidenceTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('public fixture')
             inputs[name] = native_coverage.digest(path)
+        binary = self.root / 'schemas/wamp_flatbuffers/fixtures/pinned.bin'
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        binary.write_bytes(b'\x01\x02\x03')
+        inputs[str(binary.relative_to(self.root))] = native_coverage.digest(binary)
         tools = {name: native_coverage.digest(Path(collector.__file__).parent / name)
                  for name in collector.TOOL_INPUTS}
         self.directories = []
         full = [{**item, 'file': 'core/src/lib.rs'} for item in inventory(4)]
+        self.full_inventory = full
         for index in range(2):
             directory = self.root / f'batch-{index}'
             self.directories.append(directory)
@@ -159,8 +179,11 @@ class BatchEvidenceTests(unittest.TestCase):
         path.write_text(json.dumps(value))
 
     def audit(self, directories=None):
-        with patch.object(native_coverage, 'snapshot', return_value=self.scope):
-            return batches.audit_batches(self.root, directories or self.directories, Path('analyzer'))
+        with patch.object(native_coverage, 'snapshot', return_value=self.scope), \
+             patch.object(collector, 'prepare_inventory', return_value={'production': self.full_inventory}) as generated:
+            result = batches.audit_batches(self.root, directories or self.directories, Path('analyzer'))
+            self.assertEqual(generated.call_count, 1)
+            return result
 
     def test_raw_logs_are_reaudited_and_all_batches_required(self):
         report = self.audit()
@@ -174,6 +197,29 @@ class BatchEvidenceTests(unittest.TestCase):
         path = self.directories[1] / 'mutants.out/logs/mutant-0.log'
         path.write_text(path.read_text() + '\nNo space left on device\n')
         with self.assertRaisesRegex(ValueError, 'retained evidence'):
+            self.audit()
+
+    def test_batch_supplied_inventory_cannot_hide_an_independent_mutant(self):
+        extra = {**self.full_inventory[-1], 'name': 'unreported current mutant', 'replacement': '2'}
+        with patch.object(native_coverage, 'snapshot', return_value=self.scope), \
+             patch.object(collector, 'prepare_inventory', return_value={
+                 'production': [*self.full_inventory, extra]}):
+            with self.assertRaisesRegex(ValueError, 'independent complete inventory'):
+                batches.audit_batches(self.root, self.directories, Path('analyzer'))
+
+    def test_missing_changed_or_added_binary_fixture_is_rejected(self):
+        binary = self.root / 'schemas/wamp_flatbuffers/fixtures/pinned.bin'
+        binary.write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'snapshot differs'):
+            self.audit()
+        binary.write_bytes(b'\x01\x02\x03')
+        binary.unlink()
+        with self.assertRaisesRegex(ValueError, 'snapshot differs'):
+            self.audit()
+        binary.write_bytes(b'\x01\x02\x03')
+        extra = binary.with_name('added.bin')
+        extra.write_bytes(b'extra')
+        with self.assertRaisesRegex(ValueError, 'snapshot differs'):
             self.audit()
 
     def test_changed_snapshot_or_incomplete_batch_rejected(self):
@@ -205,12 +251,65 @@ class BatchEvidenceTests(unittest.TestCase):
 
     def test_added_source_during_audit_is_not_hidden_by_existing_file_hashes(self):
         changed = {**self.scope, 'newSource': 'added'}
-        with patch.object(native_coverage, 'snapshot', side_effect=[self.scope, changed]):
+        with patch.object(native_coverage, 'snapshot', side_effect=[self.scope, changed]), \
+             patch.object(collector, 'prepare_inventory', return_value={'production': self.full_inventory}):
             with self.assertRaisesRegex(ValueError, 'inventory changed during'):
                 batches.audit_batches(self.root, self.directories, Path('analyzer'))
 
 
 class RealBatchTests(unittest.TestCase):
+    def test_real_narrow_target_batches_preserve_source_filter_and_original_test_deadline(self):
+        analyzer = native_coverage.REPO / 'out/rust-coverage-scope-target/debug/connectanum-coverage-scope'
+        subprocess.run(['cargo', 'build', '--quiet', '--locked', '--manifest-path',
+                        str(native_coverage.REPO / 'tool/rust_coverage_scope/Cargo.toml'),
+                        '--target-dir', str(analyzer.parent.parent)],
+                       check=True, capture_output=True, timeout=120)
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'repo'
+            workspace = root / 'native/transport'
+            workspace.mkdir(parents=True)
+            (workspace / 'Cargo.toml').write_text(
+                '[workspace]\nmembers = ["ct_core", "ct_ffi"]\nresolver = "2"\n')
+            for package in ('ct_core', 'ct_ffi'):
+                crate = workspace / package
+                (crate / 'src').mkdir(parents=True)
+                (crate / 'Cargo.toml').write_text(
+                    f'[package]\nname = "{package}"\nversion = "0.0.0"\n'
+                    'edition = "2021"\n[features]\nffi-test = []\n')
+                (crate / 'src/lib.rs').write_text(
+                    'pub mod rawsocket;\npub mod wamp;\n' if package == 'ct_core' else '')
+            for stem in ('rawsocket', 'wamp'):
+                (workspace / f'ct_core/src/{stem}.rs').write_text(
+                    'pub fn enabled() -> bool { true }\n'
+                    'pub fn other() -> bool { true }\n'
+                    '#[cfg(test)] mod tests { #[test] fn behavior() {\n'
+                    'assert!(super::enabled()); assert!(super::other()); } }\n')
+            for name in collector.FIXTURES:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('public fixture')
+            subprocess.run(['cargo', 'generate-lockfile', '--offline'], cwd=workspace,
+                           check=True, capture_output=True, timeout=30)
+            for target, stem in [('core-rawsocket', 'rawsocket'), ('core-wamp', 'wamp')]:
+                with self.subTest(target=target):
+                    directories = [base / f'{target}-batch-{index}' for index in range(2)]
+                    for index, directory in enumerate(directories):
+                        self.assertEqual(collector.collect(root, directory, analyzer, target,
+                                                           batch=(index, 2)), 0)
+                        report = json.loads((directory / 'audited-results.json').read_text())
+                        self.assertEqual(report['baselineTests'], [f'{stem}::tests::behavior'])
+                        manifest = json.loads((directory / 'run-manifest.json').read_text())
+                        command = manifest['campaignCommand']
+                        self.assertEqual(command[command.index('--file') + 1], f'ct_core/src/{stem}.rs')
+                        self.assertEqual(command[command.index('--timeout') + 1], '30')
+                        self.assertEqual(command[command.index('--build-timeout') + 1], '180')
+                    report = batches.audit_batches(root, directories, analyzer)
+                    self.assertTrue(report['configuredTargetComplete'])
+                    self.assertFalse(report['wholeComponentComplete'])
+                    self.assertEqual(report['counts'], {'killed': 2})
+                    self.assertTrue(report['evidenceClean'])
+
     def test_real_collector_batches_merge_without_reducing_test_inventory(self):
         analyzer = native_coverage.REPO / 'out/rust-coverage-scope-target/debug/connectanum-coverage-scope'
         subprocess.run(['cargo', 'build', '--quiet', '--locked', '--manifest-path',

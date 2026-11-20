@@ -2103,6 +2103,42 @@ Future<void> main(List<String> args) async {
     ) -> None:
         example = ROUTER_HOSTED_CLIENT_EXAMPLE.read_text(encoding="utf-8")
         runner = ROUTER_HOSTED_CLIENT_RUNNER.read_text(encoding="utf-8")
+        validators = ROUTER_HOSTED_CLIENT_RUNNER.with_name(
+            "router_hosted_client_validation.dart"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "import 'router_hosted_client_validation.dart' as validation;", runner
+        )
+        moved_helpers = {
+            "_batchResult": "batchResult",
+            "_responseResult": "responseResult",
+            "_expectWampCatalogContains": "expectWampCatalogContains",
+            "_wampCatalogContainsUri": "wampCatalogContainsUri",
+            "_catalogContainsValue": "catalogContainsValue",
+            "_expectStreamableStateUnchanged": "expectStreamableStateUnchanged",
+            "_expectWampSubscription": "expectWampSubscription",
+        }
+        moved_diagnostics = {
+            "had a non-object result", "$label changed Streamable state.",
+            "catalog did not include $uri.", "returned subscription for",
+            "returned an empty subscription handle", "returned queue limit",
+        }
+        for helper in moved_helpers.values():
+            self.assertIn(helper + "(", validators)
+            if helper in {"wampCatalogContainsUri", "catalogContainsValue"}:
+                # Both remain called within the shared catalog checks.
+                self.assertGreater(validators.count(helper + "("), 1)
+            else:
+                self.assertIn("validation." + helper + "(", runner)
+        self.assertIn(
+            "package:connectanum_mcp/connectanum_mcp_io.dart", validators
+        )
+        for private_import in (
+            "package:connectanum_client/src/", "package:connectanum_core/src/",
+            "package:connectanum_mcp/src/",
+        ):
+            self.assertNotIn(private_import, validators)
+
 
         self.assertIn(
             "import 'package:connectanum_mcp/src/cli/router_hosted_client.dart';",
@@ -2702,7 +2738,12 @@ Future<void> main(List<String> args) async {
             "dart run connectanum_mcp:router_hosted_client",
         ):
             with self.subTest(helper=public_helper):
-                self.assertIn(public_helper, runner)
+                if public_helper in moved_helpers:
+                    self.assertIn(moved_helpers[public_helper], validators)
+                elif public_helper in moved_diagnostics:
+                    self.assertIn(public_helper, validators)
+                else:
+                    self.assertIn(public_helper, runner)
         self.assertNotIn("_compatibleHttpAuthChallenge", runner)
         self.assertNotIn("ConnectanumHttpAuthClient.fromMcpBearerChallenge", runner)
         self.assertNotIn(

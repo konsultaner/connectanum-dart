@@ -163,6 +163,7 @@ void main() {
       );
 
       final responses = _responses(output);
+      expect(responses, hasLength(1));
       expect(responses.single['id'], 'init');
       expect(server.state, McpServerState.created);
     });

@@ -434,13 +434,15 @@ mod tests {
         let cert_chain = parse_cert_chain(server_cert_pem);
         let server_key = parse_private_key(server_key_pem);
 
-        let mut server_config = RustlsServerConfig::builder()
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let mut server_config = RustlsServerConfig::builder_with_provider(Arc::clone(&provider))
+            .with_safe_default_protocol_versions()
+            .expect("server protocol versions")
             .with_no_client_auth()
             .with_single_cert(cert_chain, server_key)
             .expect("server config");
         server_config.send_tls13_tickets = 0;
         let server_config = Arc::new(server_config);
-        let provider = Arc::new(rustls::crypto::ring::default_provider());
         let verifier = Arc::new(NoCertificateVerification {
             schemes: provider
                 .signature_verification_algorithms

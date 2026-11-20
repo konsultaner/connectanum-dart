@@ -6,7 +6,8 @@ use std::io::Cursor;
 use std::os::raw::{c_char, c_int, c_uint, c_void};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
-use base64::{engine::general_purpose::STANDARD as Base64Engine, Engine as _};
+use super::canonical_base64::STANDARD as Base64Engine;
+use base64::Engine as _;
 #[allow(unused_imports)]
 use bytes::Buf;
 use bytes::Bytes;
@@ -12061,3 +12062,6 @@ mod tests {
         );
     }
 }
+
+#[path = "vm_base64_encode.rs"]
+mod vm_base64_encode;

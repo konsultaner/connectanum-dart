@@ -65,6 +65,95 @@ void main() {
           );
 
     group(cipher, () {
+      test(
+        'retains validated plaintext when key policy replaces arguments',
+        () {
+          final original = Uint8List.fromList([1, 2, 3, 255]);
+          final arguments = <dynamic>[original];
+          var policyCalls = 0;
+          final selected = provider(
+            allowDefault: false,
+            policy: (_, _) {
+              policyCalls++;
+              arguments[0] = Uint8List.fromList([9, 8]);
+              return 'typed';
+            },
+          );
+          final options = PublishOptions();
+          final packed = expectE2eeSuccess(
+            () => selected.packPayload(
+              arguments,
+              null,
+              options,
+              runtimeContext: _runtimeContext,
+            ),
+          );
+          final decoded = expectE2eeSuccess(
+            () => provider().unpackPayload(packed, options),
+          );
+          expect(policyCalls, 1);
+          expect(arguments.single, orderedEquals([9, 8]));
+          expect(decoded.arguments!.single, orderedEquals(original));
+        },
+      );
+
+      test('retains validated ciphertext when key policy replaces arguments', () {
+        final original = Uint8List.fromList([4, 5, 6, 255]);
+        final options = PublishOptions();
+        final packed = provider().packPayload([original], null, options);
+        final arguments = <dynamic>[packed.single];
+        var policyCalls = 0;
+        final selected = provider(
+          allowDefault: false,
+          policy: (_, _) {
+            policyCalls++;
+            final damaged = Uint8List.fromList(packed.single as Uint8List);
+            damaged[damaged.length - 1] ^= 1;
+            arguments[0] = damaged;
+            return 'typed';
+          },
+        );
+        // Let the policy select the key instead of reusing pack's explicit key.
+        options.pptKeyId = null;
+        final decoded = expectE2eeSuccess(
+          () => selected.unpackPayload(
+            arguments,
+            options,
+            runtimeContext: _runtimeContext,
+          ),
+        );
+        expect(policyCalls, 1);
+        expect(arguments.single, isNot(same(packed.single)));
+        expect(decoded.arguments!.single, orderedEquals(original));
+      });
+
+      if (cipher == ConnectanumE2eeProfile.xsalsa20Poly1305) {
+        test('accepts authenticated typed payloads beyond one MiB', () {
+          final original = Uint8List(1024 * 1024 + 1);
+          for (var index = 0; index < original.length; index++) {
+            original[index] = index & 255;
+          }
+          final encrypted = Uint8List.fromList(
+            SecretBox(key).encrypt(
+              original,
+              nonce: Uint8List(24),
+            ),
+          );
+          final options = PublishOptions(
+            pptScheme: 'wamp',
+            pptSerializer: 'flatbuffers',
+            pptCipher: cipher,
+            pptKeyId: 'typed',
+          );
+          final decoded = expectE2eeSuccess(
+            () => provider().unpackPayload([encrypted], options),
+          );
+          expect(decoded.arguments, hasLength(1));
+          expect(decoded.arguments!.single, orderedEquals(original));
+          expect(decoded.argumentsKeywords, isNull);
+        });
+      }
+
       for (final direction in WampE2eeDirection.values) {
         for (final selection in [
           'explicit',
