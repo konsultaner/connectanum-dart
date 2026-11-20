@@ -83,7 +83,9 @@ Uint8List _serializeWithout64BitAccessors(Object? value) {
     return builder.takeBytes();
   }
   if (value is Iterable) {
-    final values = value is List ? value : value.toList(growable: false);
+    // A virtual toList override can expose conversion options or its result.
+    // Own the snapshot while consuming the source iterator exactly once.
+    final values = value is List ? value : [for (final item in value) item];
     final builder = BytesBuilder(copy: false)
       ..add(_encodeCollectionHeader(values.length, 0x90, 0xdc, 0xdd));
     for (final item in values) {

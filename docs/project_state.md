@@ -5,6 +5,46 @@ Current milestone: repair WAMP and mutation diagnostics without relaxing gates.
 Active plan: [WAMP and mutation diagnostic repair](exec-plans/2026-11-19-wamp-mutation-diagnostics.md).
 Completed plan: [Dart 3.14 upgrade](exec-plans/2026-11-17-dart-3.14-upgrade.md).
 
+An additional MessagePack audit exposes one invalid functional-equivalence
+claim: a public `Iterable.toList` override can observe `growable` and change
+nested wire values while preserving its returned elements and order. The exact
+counterexample and a failing public regression reproduce this. Non-List inputs
+now use a private iterator snapshot, preserving one traversal and List-input
+liveness. The invalid growability waiver is removed. The complete current AST
+inventory has 204 candidates and four remaining source-bound equivalences;
+no source/operator/test filter or numeric gate changes. All 191 VM, 191 real
+Chrome/Dart2Wasm and 206 Chrome/Dart2JS codec cases pass. Fresh complete
+qualification is required; the obsolete `9a304a08` CI/mutation campaigns and
+the earlier campaign's queued audits are cancelled with evidence retained.
+
+Frozen `9a304a08` passes the complete local `bin/verify` from 10:13:17 to
+10:38:14 UTC, including real Chrome/Dart2Wasm. All 3,191 source/lock hashes
+and HEAD remain unchanged, with a clean worktree before and after the run.
+Both WAMP workflows, strict kTLS, ObjectBox on all three platforms and package
+dry runs pass on this commit. The complete WAMP diagnostic run
+[44717600688](https://github.com/konsultaner/connectanum-dart/actions/runs/44717600688)
+passes all eight scenarios and 117 workloads. All 36 WAMP scenario and policy
+files remain byte-identical to the PR #138 merge. These are historical results
+before the additional iterable repair; PR #139 stays draft pending fresh runs.
+
+All 97 execution jobs from `52b103c0` pass. Independent local audits of the
+complete original shard artifacts pass the unchanged 95% assertion gates:
+CLI 95.0898% (1,162 candidates, 16 shards), MCP 96.2366% (2,263 candidates,
+32 shards), and E2EE browser 96.4567% (313 candidates, eight shards). Each
+independently regenerates the full inventory and checks raw-log hashes,
+classifications, baseline/restore evidence and provenance. The earlier
+MessagePack 95.2880% calculation includes the subsequently rejected virtual
+conversion equivalence and is not accepted as qualification. Current source
+and native-binary campaigns remain required.
+
+The frozen paired Linux comparison confirms WebSocket file lifecycle gains of
+15.16% CBOR, 11.96% MessagePack and 13.03% JSON. Its subsequent complete diagnostic
+run retains one native TLS JSON lifecycle near-miss at 1,925.994 versus the
+original 2,000-Mbps floor; seven gates pass. Both runs use Xeon 6975P-C-class
+hosts. This failed additional measurement is preserved separately from the
+successful normal PR workflow's first attempt. No universal host-performance
+claim or gate/runtime-default change is made.
+
 Frozen `52b103c0` passes the complete local `bin/verify` from 08:05:25 to
 08:29:55 UTC, including real Chrome/Dart2Wasm; all 3,185 input hashes, HEAD
 and clean status remain unchanged. Regular WAMP, kTLS, three-platform ObjectBox

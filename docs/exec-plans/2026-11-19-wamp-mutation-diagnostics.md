@@ -16,10 +16,10 @@ unproven equivalence/exclusion entries. Production GC/allocator tuning is outsid
 this repair. Preserve unrelated work on `codex/mutation-runner-speed`.
 
 - [x] Complete fresh-master `bin/test-fast` baseline.
-- [ ] Reproduce each failure with a focused regression or minimal matched case.
-- [ ] Fix native restored-baseline failure and demonstrate complete clean inventories.
+- [x] Reproduce each failure with a focused regression or minimal matched case.
+- [x] Fix native restored-baseline failure and demonstrate complete clean inventories.
 - [ ] Fix full MessagePack VM/web and MCP/CLI diagnostic assertion failures.
-- [ ] Fix WAMP fragmentation/file-transfer throughput against original floors.
+- [x] Fix WAMP fragmentation/file-transfer throughput against original floors.
 - [ ] Run focused validation, local companion review and complete `bin/verify`.
 - [ ] Publish a reviewable branch/PR and run all diagnostic and regular workflows.
 - [ ] Audit every final workflow/job, with no unresolved failed required work.
@@ -47,6 +47,114 @@ Its diagnostic workflows remain red:
   triage completes and is checked against raw logs.
 
 ## Working record
+
+### Public iterable counterexample corrects an equivalence proof
+
+The additional audit finds a genuine counterexample to the growability waiver.
+`Iterable.toList` is virtual: a valid override records its `growable` argument
+and delegates to the standard conversion, preserving elements and order. A
+nested readonly Map exposes this public state. Original versus boolean-mutant
+encodings differ in actual wire bytes (`mode: false` versus `mode: true`), so
+the earlier claim that this list/options were necessarily private is invalid.
+The portable public regression fails before repair (byte 194 versus expected
+192) and passes after repair. The old MessagePack 95.288% calculation is an
+algorithmic result under that rejected proof, not accepted qualification.
+
+Non-List iterables now materialize with a direct collection-for snapshot. It
+consumes the iterator once and exposes neither a conversion callback nor an
+allocation option to input objects. List inputs retain their existing live
+iteration behavior. The unnecessary growability flag and its invalid waiver
+are removed together with the virtual conversion. All 204 current generated
+candidates remain inventoried; the four remaining functional-equivalence
+classes are re-pinned to the current source. No operators, tests or source
+locations are filtered, and the 95% gate is unchanged.
+
+All 191 VM, 191 real Chrome/Dart2Wasm and 206 Chrome/Dart2JS codec cases pass,
+including the new wire/one-traversal regression. The bounded local semantic
+review confirms the callback hole and private fresh-buffer copy proofs. Its
+negative-private-offset concern is rejected by actual caller induction: public
+decode starts at zero, private next offsets advance through positive headers
+and unsigned lengths, and every availability-guard call has positive offset
+and nonnegative length. The two existing private-boundary proofs still apply.
+
+Obsolete `9a304a08` CI 44717335301 and mutation 44717614622 are cancelled;
+the `52b103c0` campaign's four queued aggregate jobs are also cancelled.
+Completed raw evidence is retained. Fresh complete current-source campaigns
+and frozen `bin/verify` remain required; no cancelled run is treated as green.
+
+### Complete earlier mutation unions independently audited
+
+All 97 execution jobs at `52b103c0` pass; four final GitHub aggregate jobs
+were queued before the later correction superseded the run. A separate checkout independently
+regenerates each complete inventory. The unmodified checked-in merger audits
+every downloaded original shard, raw outcome log, assertion classification,
+baseline/restored-baseline digest and source/test/support/config identity.
+Every ZIP digest matches its GitHub artifact metadata. The original same-run
+Linux library is only hashed locally; its manifest, full Rust source pins,
+build features/defaults and dependency-lock digest are verified. Its unchanged
+SHA256 is `bc1c121766d97a2d5e1e068c7446961c6a31e014c6ddd3446f10c9539cefa7fa`.
+These portable evidence audits do not rerun Linux native code on macOS or replace
+the required current-commit GitHub qualification.
+
+- Native CLI: all 16 shards / 1,162 candidates; 794 assertion-bearing kills,
+  327 compile errors, 41 survivors and no equivalences. The 835 viable mutations
+  yield 95.0898203593% against the original 95% gate. No kill is a pure test error
+  or unknown failure. Audited report SHA256:
+  `2c1c49134930778457f19d29f1ded8ca731619b423bd89953bf254301f8ab830`.
+- Full MCP: all 32 shards / 2,263 candidates; 1,611 assertion-bearing kills,
+  589 compile errors, 63 survivors and no equivalences. The 1,674 viable mutations
+  yield 96.2365591398% against 95%, with no pure-error/unknown kills. Report SHA256:
+  `04f25fa4e21bd09c330f66fc20a41299c09601c1afdc942f20b32010785f5830`.
+- MessagePack browser: all eight shards / 205 candidates; 182 assertion kills,
+  nine compile errors and 14 survivors, including five then-configured
+  equivalences. The adjusted assertion calculation yields 95.2879581152% against
+  95%; one equivalence is later disproved above, invalidating its qualification.
+  No error/mixed/unknown kills occur.
+- E2EE browser: all eight shards / 313 candidates; 245 assertion-bearing kills,
+  59 compile errors, nine survivors and no equivalences. The unchanged metric
+  yields 96.4566929134% against 95%, with no pure-error/unknown kills.
+
+All 14 CLI and 49 MCP source/test/support pins match current `9a304a08` bytes.
+Its changed native library and full workflow conclusions still require their
+actual fresh campaign. No inventory, gate, classifier, equivalence justification
+or original evidence is changed by these additional read-only audits.
+
+### Frozen 9a304a08 verification and complete WAMP gates
+
+The actual complete `bin/verify` passes from 10:13:17.762264 to
+10:38:14.125746 UTC. All 3,191 input hashes, HEAD and clean status remain
+unchanged, including real Chrome/Dart2Wasm. The normal WAMP diagnostic workflow
+[44717600688](https://github.com/konsultaner/connectanum-dart/actions/runs/44717600688)
+passes all eight original scenarios and 117 workloads on its first attempt.
+Artifact 14620707462 has verified ZIP SHA256
+`078b608da3a6190ac5edbf8cd25887353ac86f2de8a18d8ba9ff20d013f41d5c`.
+Every summary row has workload and gate exit code zero. All 36 checked-in WAMP
+scenario and policy files are byte-identical to merge `0a3d96e6`.
+Regular WAMP 44717596346, strict kTLS 44717604963, all three ObjectBox platforms
+44717609881 and package dry run 44717335495 also pass on the same commit.
+Main CI 44717335301 and complete Mutation Diagnostics 44717614622 remain
+pending; no incomplete aggregate score is accepted.
+
+The initial paired investigation 44716920600 fails before measurement because
+the detached baseline checkout lacks the ignored workspace lock. The corrected
+helper copies the exact bootstrapped lock and enforces it for both workers.
+Run [44717987869](https://github.com/konsultaner/connectanum-dart/actions/runs/44717987869)
+then completes all four alternating baseline/candidate campaigns with frozen
+sources, executables, locks, workloads and policies. Mean WebSocket file lifecycle
+Mbps improves 2,636.24 to 3,035.94 CBOR (+15.16%), 2,705.07 to 3,028.69 MessagePack
+(+11.96%) and 2,222.18 to 2,511.73 JSON (+13.03%). RawSocket controls vary -5.00%,
+-8.93% and +0.25%. The six profiles retain every original byte count, iteration,
+concurrency and chunk size; no runtime/compiler defaults change.
+
+Its subsequent complete diagnostic run passes seven gates and retains one
+native TLS JSON contiguous lifecycle finding, 1,925.994 below the original
+2,000-Mbps floor. All eight workload commands complete successfully. Artifact
+14620289257 has verified ZIP SHA256
+`ceaca5cd4d1d86f4008de4cc1834ca2add868645a45f3e5568a9c0039424377b`.
+Both this investigation and the normal passing PR workflow use Xeon 6975P-C-class
+hosts. This residual additional measurement remains recorded; the normal run's
+first-attempt success is not a claim that every hosted measurement will exceed
+the floor. No faster-host retry, changed gate or host selection is used.
 
 ### Fresh Linux coverage and bounded SDK receive buffers
 

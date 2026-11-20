@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:typed_data';
 import 'dart:math';
 
@@ -66,6 +67,18 @@ void registerFallbackTests(
     final values = _SingleUseIterable([0x100000000, true, 'stream']);
     final bytes = checked.serialize(values);
     expect(checked.deserialize(bytes), [0x100000000, true, 'stream']);
+  });
+
+  test('iterable encoding preserves values observed during one traversal', () {
+    final values = _ConversionObservedIterable();
+    final wire = checked.serialize(values);
+    final expected = [
+      {'mode': null},
+    ];
+    expect(wire, orderedEquals(delegate.serialize(expected)));
+    expect(checked.deserialize(wire), expected);
+    expect(values.traversals, 1);
+    expect(values.conversionMode, isNull);
   });
 
   test('visits a List lazily while encoding nested iterables', () {
@@ -307,4 +320,46 @@ class _OnTraversalIterable extends Iterable<Object?> {
     onTraversal();
     return ['nested'].iterator;
   }
+}
+
+// A valid conversion override can observe its options without changing the
+// returned elements or their order. Its nested map exposes that public state.
+class _ConversionObservedIterable extends IterableBase<Object?> {
+  bool? conversionMode;
+  int traversals = 0;
+
+  @override
+  Iterator<Object?> get iterator {
+    traversals++;
+    return [_ConversionObservedMap(this)].iterator;
+  }
+
+  @override
+  List<Object?> toList({bool growable = true}) {
+    conversionMode = growable;
+    return super.toList(growable: growable);
+  }
+}
+
+class _ConversionObservedMap extends MapBase<String, Object?> {
+  _ConversionObservedMap(this.owner);
+
+  final _ConversionObservedIterable owner;
+
+  @override
+  Iterable<String> get keys => const ['mode'];
+
+  @override
+  Object? operator [](Object? key) =>
+      key == 'mode' ? owner.conversionMode : null;
+
+  @override
+  void operator []=(String key, Object? value) =>
+      throw UnsupportedError('read only');
+
+  @override
+  void clear() => throw UnsupportedError('read only');
+
+  @override
+  Object? remove(Object? key) => throw UnsupportedError('read only');
 }
