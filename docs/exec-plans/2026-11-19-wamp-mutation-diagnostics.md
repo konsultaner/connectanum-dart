@@ -420,3 +420,58 @@ passing before the final additional scope/channel assertions. The final focused
 receipt audit passes those stricter assertions. Complete hosted qualification
 and quiet `bin/verify` are still pending; publishing this checkpoint is not a
 readiness or all-green claim.
+
+
+### Follow-up checkpoint: remaining current-source diagnostics
+
+Checkpoint `e3bbb70a` passes three ObjectBox hosts, publishing dry runs and the
+regular WAMP profile workflow. WAMP diagnostics run 44644466139 still fails;
+artifact 14588213397 SHA256
+`5067160ba2c9b3e14e465db494cd96554a8de0a2f56ad48c4eef153ad6f2db1a`
+retains all eight scenarios. RawSocket JSON file lifecycle and native contiguous
+CBOR now pass. Remaining file lifecycle rates are WebSocket CBOR 1,986.57 and
+MessagePack 1,774.78 Mbps; WebSocket JSON data/lifecycle are 1,468.78/1,216.70.
+TLS native JSON contiguous lifecycle is 1,954.92; fragmented JSON data/lifecycle
+are 1,610.98/1,475.43 and fragmented CBOR lifecycle is 1,820.67 Mbps. Every floor
+remains 2,000 Mbps. This checkpoint is not qualified for readiness.
+
+The local frozen `bin/verify` at e3 is explicitly interrupted after 3m38s when
+newly completed b6 artifacts reveal two further product-oracle classes. No file,
+head or clean-worktree status changes during that attempt, but termination with
+SIGTERM is not a passing verification. The e3 mutation run is cancelled as
+superseded; useful completed b6 diagnostics remain available. Repeat complete
+verification after the remaining changes are selected.
+
+Completed valid example calls now recognize the specific input-response object
+validation and missing generic API-list tool errors, with the same private smoke
+frame and nested-infrastructure exclusions. Pure declarations cover both default
+and positive limits, auto/explicit capabilities and valid resource templates.
+All 166 classification boundary controls pass. Three additional full-MCP selected
+replays (2,308 inventoried each) detect input-response validation, missing API-list
+tool and positive event-buffer limit rejection; a fourth detects template-registry
+rejection. All clean/restored baselines pass and native binary receipts stay
+unchanged. These are partial counterexample replays, not complete campaign scores.
+
+Rejected metadata batches now enforce the existing no-following-request assertion
+before forwarding another native exchange. Both forwarding modes have mock
+upstream coverage; all ten positive metadata cases remain and pass. The original
+slow b6 metadata counterexample times out. At e3 it is assertion-killed locally
+in 37.776 seconds; early enforcement reduces that to 25.432 with the same full
+native CLI test scope, 1,207-candidate inventory, original 45-second command
+limit and clean/restored controls. No test case or native exchange before the
+injected rejection is removed.
+
+Strict kTLS run 44644478764 fails because the Azure Linux 7.0.0-1020 kernel
+advertises `espintcp mptcp` but no `tls` ULP. Artifact 14588500788 SHA256
+`058cd76fd88f6978f93c69f8eab1e8bf6699e800d379bed55202997e6cdbe2f6`
+confirms both require/enable flags remain 1. The runner now loads the TLS module
+when absent and verifies that it is advertised before executing the same strict
+HTTP/2 workload. There is no userspace fallback or skipped kTLS qualification.
+The [kernel TLS interface](https://docs.kernel.org/networking/tls.html) requires
+setting the TLS ULP on an established TCP socket; runner preparation precedes
+that unchanged production handoff. Hosted confirmation is still required.
+
+Remaining work is WAMP WebSocket file/TLS-fragmentation throughput, complete
+current-source MCP/native/browser campaigns and final quiet `bin/verify`.
+All numeric policy, workload, source/operator inventories and original deadlines
+remain unchanged. No merge or release is made.

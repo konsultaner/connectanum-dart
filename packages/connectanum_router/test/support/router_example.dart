@@ -91,7 +91,9 @@ class RouterExampleSmokeFailure implements Exception {
           r'(?:tools|resources)/list\.params\.cursor is invalid or stale|'
           r'Missing required MCP prompt argument: taskId|'
           r'connectanum\.api\.list\.arguments\.cursor is invalid or stale|'
-          r'tools/call\.params\.requestState must be a string)$',
+          r'tools/call\.params\.requestState must be a string|'
+          r'tools/call\.params\.inputResponses must be an object|'
+          r'Unknown MCP tool: connectanum\.api\.list)$',
         ).hasMatch(lines[1]) &&
         smokeFrame.hasMatch(report);
     final bufferedEventFailure =
@@ -141,45 +143,58 @@ Object? checkRouterExampleMcpDeclarations() {
         read: (_) => throw StateError('Declaration callback invoked'),
       ),
     ];
-    final tools =
-        mcp.McpWampApi(
-          procedures: [mcp.McpWampProcedure(procedure: 'com.example.echo')],
-          topics: [mcp.McpWampTopic(topic: 'com.example.events')],
-        ).toTools(
-          call: (_) => throw StateError('Declaration callback invoked'),
-          publish: (_) => throw StateError('Declaration callback invoked'),
-          subscribe: (_, _) => throw StateError('Declaration callback invoked'),
-          unsubscribe: (_) => throw StateError('Declaration callback invoked'),
+    for (final configured in [false, true]) {
+      final tools =
+          mcp.McpWampApi(
+            listPageSize: configured ? 1 : null,
+            procedures: [mcp.McpWampProcedure(procedure: 'com.example.echo')],
+            topics: [mcp.McpWampTopic(topic: 'com.example.events')],
+          ).toTools(
+            maxBufferedEventBytes: configured ? 1024 : null,
+            call: (_) => throw StateError('Declaration callback invoked'),
+            publish: (_) => throw StateError('Declaration callback invoked'),
+            subscribe: (_, _) =>
+                throw StateError('Declaration callback invoked'),
+            unsubscribe: (_) =>
+                throw StateError('Declaration callback invoked'),
+          );
+      for (final capabilities in [
+        null,
+        const mcp.McpServerCapabilities(
+          prompts: mcp.McpPromptCapabilities(),
+          resources: mcp.McpResourceCapabilities(subscribe: true),
+          completions: mcp.McpCompletionCapabilities(),
+        ),
+      ]) {
+        mcp.McpServer(
+          capabilities: capabilities,
+          serverInfo: const mcp.McpServerInfo(name: 'example', version: '1.0'),
+          tools: tools,
+          resources: resources,
+          resourceTemplates: [
+            mcp.McpResourceTemplate(
+              uriTemplate: 'app://example/context/{id}',
+              name: 'example-template',
+              read: (_, _) => throw StateError('Declaration callback invoked'),
+            ),
+          ],
+          prompts: [
+            mcp.McpPrompt(
+              name: 'example-prompt',
+              complete: (_) => throw StateError('Declaration callback invoked'),
+              handler: (_) => throw StateError('Declaration callback invoked'),
+            ),
+          ],
+          toolListPageSize: 1,
+          promptListPageSize: 1,
+          resourceListPageSize: 1,
+          resourceTemplateListPageSize: 1,
+          onSubscribeResource: (_) =>
+              throw StateError('Declaration callback invoked'),
+          onUnsubscribeResource: (_) =>
+              throw StateError('Declaration callback invoked'),
         );
-    for (final capabilities in [
-      null,
-      const mcp.McpServerCapabilities(
-        prompts: mcp.McpPromptCapabilities(),
-        resources: mcp.McpResourceCapabilities(subscribe: true),
-        completions: mcp.McpCompletionCapabilities(),
-      ),
-    ]) {
-      mcp.McpServer(
-        capabilities: capabilities,
-        serverInfo: const mcp.McpServerInfo(name: 'example', version: '1.0'),
-        tools: tools,
-        resources: resources,
-        prompts: [
-          mcp.McpPrompt(
-            name: 'example-prompt',
-            complete: (_) => throw StateError('Declaration callback invoked'),
-            handler: (_) => throw StateError('Declaration callback invoked'),
-          ),
-        ],
-        toolListPageSize: 1,
-        promptListPageSize: 1,
-        resourceListPageSize: 1,
-        resourceTemplateListPageSize: 1,
-        onSubscribeResource: (_) =>
-            throw StateError('Declaration callback invoked'),
-        onUnsubscribeResource: (_) =>
-            throw StateError('Declaration callback invoked'),
-      );
+      }
     }
   } on ArgumentError catch (error) {
     return error;

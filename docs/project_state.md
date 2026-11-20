@@ -118,6 +118,16 @@ quiet final `bin/verify` and all seven final-head workflow families remain
 outstanding. See the active plan for
 discarded coverage evidence and exact partial-replay limits. PR #139 remains draft.
 
+Current checkpoint `e3bbb70a` passes package dry runs, three ObjectBox hosts and
+regular WAMP profiles. WAMP diagnostics still miss WebSocket file and native TLS
+fragmentation floors; the active plan records exact measured rates and verified
+artifacts. kTLS requires explicit runner module preparation while retaining both
+strict flags and the original workload. New MCP controls total 166 cases; selected
+native replays detect the additional declaration/protocol failures. The local
+frozen e3 `bin/verify` is deliberately interrupted after new diagnostic evidence
+arrives and is not a pass. Complete final-source verification remains required;
+PR #139 stays draft.
+
 ## Release scope
 
 All eight Dart packages and three Rust crates are synchronized at beta.9.

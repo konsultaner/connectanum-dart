@@ -48,6 +48,14 @@ McpJsonRpcException(resources/list, id: public-direct-resources): resources/list
 McpJsonRpcException(tools/list, id: public-direct-tools): tools/list.params.cursor is invalid or stale
 #0      _smokeMcpEndpoint (file:///workspace/packages/connectanum_router/example/router_hosted_mcp.dart:2238:24)
 ''';
+  const inputResponses = '''Unhandled exception:
+McpJsonRpcException(tools/call, id: public-direct-call): tools/call.params.inputResponses must be an object
+#0      _smokeMcpEndpoint (file:///workspace/packages/connectanum_router/example/router_hosted_mcp.dart:2238:24)
+''';
+  const apiTool = '''Unhandled exception:
+McpJsonRpcException(connectanum.tool.call, id: public-direct-generic-api-list): Unknown MCP tool: connectanum.api.list
+#0      _smokeDirectJsonGenericMetaApi (file:///workspace/packages/connectanum_router/example/router_hosted_mcp.dart:2831:24)
+''';
   const requestState = '''Unhandled exception:
 McpJsonRpcException(tools/call, id: public-direct-call): tools/call.params.requestState must be a string
 #0      _smokeMcpEndpoint (file:///workspace/packages/connectanum_router/example/router_hosted_mcp.dart:2238:24)
@@ -94,6 +102,8 @@ RangeError (length): Invalid value: Valid value range is empty: 0
     promptArgument,
     apiCursor,
     requestState,
+    inputResponses,
+    apiTool,
     buffer,
   ]) {
     test('recognizes completed product rejection ${report.split('\n')[1]}', () {

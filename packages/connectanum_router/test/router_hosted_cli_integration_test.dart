@@ -52,6 +52,65 @@ void main() {
     },
   );
 
+  for (final rejectFollowing in [false, true]) {
+    test(
+      'proxy checks the next request before forwarding: $rejectFollowing',
+      () async {
+        final upstream = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        var forwarded = 0;
+        upstream.listen((request) async {
+          forwarded++;
+          await request.drain<void>();
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(
+            jsonEncode({
+              'jsonrpc': '2.0',
+              'id': 'probe',
+              'result': {},
+            }),
+          );
+          await request.response.close();
+        });
+        final proxy = await _ResponseFaultProxy.start(
+          Uri.parse('http://127.0.0.1:${upstream.port}/mcp'),
+          'probe',
+          null,
+          rewrite: (response) => response,
+          rejectFollowingRequests: rejectFollowing,
+        );
+        final client = HttpClient();
+        try {
+          final request = await client.postUrl(proxy.endpoint);
+          request.write(
+            jsonEncode({'jsonrpc': '2.0', 'id': 'probe', 'method': 'probe'}),
+          );
+          final response = await request.close();
+          expect(response.statusCode, HttpStatus.ok);
+          await response.drain<void>();
+          final next = await client.getUrl(proxy.endpoint);
+          final nextResponse = await next.close();
+          expect(
+            nextResponse.statusCode,
+            rejectFollowing ? HttpStatus.internalServerError : HttpStatus.ok,
+          );
+          await nextResponse.drain<void>();
+          expect(proxy.changedResponses, 1);
+          expect(proxy.requests, hasLength(2));
+          expect(forwarded, rejectFollowing ? 1 : 2);
+        } finally {
+          client.close(force: true);
+          await upstream.close(force: true);
+          if (rejectFollowing) {
+            expect(proxy.failures, [isA<TestFailure>()]);
+            await expectLater(proxy.close(), throwsA(isA<TestFailure>()));
+          } else {
+            await proxy.close();
+          }
+        }
+      },
+    );
+  }
+
   group('CLI against the public router example', () {
     late RouterExample router;
     RouterExample? started;
@@ -626,6 +685,7 @@ void main() {
               router.endpoint('/mcp'),
               'direct-batch-$suffix',
               null,
+              rejectFollowingRequests: true,
               rewrite: (envelope) {
                 final result = envelope['result'] as Map;
                 final content = result['structuredContent'];
@@ -944,6 +1004,7 @@ class _ResponseFaultProxy {
     this.rewriteHttp,
     this.maximumTraceResponses,
     this.additionalTargetIds = const {},
+    this.rejectFollowingRequests = false,
   }) {
     server.listen((request) {
       late Future<void> pending;
@@ -956,6 +1017,7 @@ class _ResponseFaultProxy {
   final Uri upstream;
   final String targetId;
   final Set<String> additionalTargetIds;
+  final bool rejectFollowingRequests;
 
   bool _targetsId(Object? id) =>
       id == targetId || additionalTargetIds.contains(id);
@@ -986,6 +1048,7 @@ class _ResponseFaultProxy {
     String Function(HttpRequest, HttpClientResponse, String)? rewriteHttp,
     int? maximumTraceResponses,
     Set<String> additionalTargetIds = const {},
+    bool rejectFollowingRequests = false,
   }) async => _ResponseFaultProxy(
     await HttpServer.bind(InternetAddress.loopbackIPv4, 0),
     upstream,
@@ -996,6 +1059,7 @@ class _ResponseFaultProxy {
     rewriteHttp: rewriteHttp,
     maximumTraceResponses: maximumTraceResponses,
     additionalTargetIds: additionalTargetIds,
+    rejectFollowingRequests: rejectFollowingRequests,
   );
 
   Future<void> close() async {
@@ -1052,6 +1116,15 @@ class _ResponseFaultProxy {
       }
       final requestIndex = requests.length;
       requests.add((request.method, id));
+      if (rejectFollowingRequests) {
+        // Enforce the existing no-follow-up oracle before executing another
+        // native exchange after the deliberately rejected metadata response.
+        expect(
+          faultRequestIndex,
+          isNull,
+          reason: 'No request may follow the rejected metadata batch',
+        );
+      }
       if (targetTrace != null &&
           request.headers.value('x-consumer-trace') == targetTrace &&
           maximumTraceResponses != null) {
